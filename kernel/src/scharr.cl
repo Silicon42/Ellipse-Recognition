@@ -1,4 +1,4 @@
-constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 //TODO: consider adding "Magic Kernel Sharp" to preserve higher edge resolution
 // as detailed here: https://johncostella.com/edgedetect/
