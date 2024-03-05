@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <CL/cl.h>
-#include "common_error_handlers.h"
+#include "cl_error_handlers.h"
 #include "cl_boilerplate.h"
 #include "stb_image_write.h"
 

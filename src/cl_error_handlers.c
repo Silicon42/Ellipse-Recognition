@@ -1,4 +1,4 @@
-#include "common_error_handlers.h"
+#include "cl_error_handlers.h"
 #include <stdio.h>
 
 const char undefinedErr[] = "20-29 CL error not in spec or error string list needs updating";
@@ -79,9 +79,9 @@ const char* clErrStr[] ={
 /*-72*/ "CL_MAX_SIZE_RESTRICTION_EXCEEDED"
 };
 
-//generic verbose error handling for OpenCL functions
-//	cl_error: error code provided by an OpenCL function
-//	from: name of the function that generated the error code
+//generic semi-verbose error handling for OpenCL functions
+// cl_error:	error code provided by an OpenCL function
+// from:		name of the function that generated the error code for user clarity
 void handleClError(cl_int cl_error, const char* from)
 {
 	if(cl_error == 0)
@@ -99,30 +99,14 @@ void handleClError(cl_int cl_error, const char* from)
 	exit(cl_error);
 }
 
-void handleClGetDeviceIDs(cl_int cl_error)
+int handleClGetDeviceIDs(cl_int cl_error)
 {
-	//if(cl_error == CL_DEVICE_NOT_FOUND)
-	switch (cl_error)
+	if(cl_error == CL_DEVICE_NOT_FOUND)
 	{
-	case CL_SUCCESS:
-		return;
-	case CL_DEVICE_NOT_FOUND:
 		perror("No device of specified category on clGetDeviceIDs()\n");
-		return;	//FIXME: this should maybe be wrapped with the clGetDeviceIDs call in some way to properly select a suitable device
-	case CL_INVALID_VALUE:
-		perror("Invalid argument combination on clGetDeviceIDs(), exiting.\n");
-		break;
-	case CL_INVALID_PLATFORM:
-		perror("Invalid platform on clGetDeviceIDs(), exiting.\n");
-		break;
-	case CL_INVALID_DEVICE_TYPE:
-		perror("Invalid device type on clGetDeviceIDs(), exiting.\n");
-		break;
-	case CL_OUT_OF_HOST_MEMORY:
-		perror("Out of memory on clGetDeviceIDs(), exiting.\n");
-		break;
-	default:	// should never get here but just in case
-		perror("Undocumented error on clGetDeviceIDs(), exiting.\n");
+		return 1;
 	}
-	exit(1);
+	//else
+	handleClError(cl_error, "clGetDeviceIDs");
+	return 0;
 }

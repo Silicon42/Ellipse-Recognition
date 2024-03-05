@@ -64,7 +64,7 @@ DEPS := $(OBJECTS:.o=.d) $(APP_OBJECTS:.o=.d)
 #  explicitly specified targets so these are dummy rules for the applications.
 ellipse_recognition:
 diagnostics:
-scharr:
+main:
 scharr_cpu:
 
 # the compile rule for the prerequisites of the final target --

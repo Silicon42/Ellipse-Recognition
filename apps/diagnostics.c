@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <CL/cl.h>
 #define CL_DEVICE_HALF_FP_CONFIG 0x1033
-#include "common_error_handlers.h"
+#include "cl_error_handlers.h"
 
 struct device_list{
 	cl_uint device_cnt;
