@@ -1,14 +1,17 @@
 constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
-// Expects single channel input on the R channel,
-// Outputs 2 channel data with x gradient on R channel and y gradient on G channel
+//TODO: consider adding "Magic Kernel Sharp" to preserve higher edge resolution
+// as detailed here: https://johncostella.com/edgedetect/
+
+// [0] In	src_image: 1 channel greyscale on x component
+// [1] Out	dst_image: 2 channel image of x and y gradient
 __kernel void scharr(read_only image2d_t src_image, write_only image2d_t dst_image)
 {
 	// itermediate sums for horizontal/vertical scharr shared operations
 	float diag1, diag2;
 	float2 grad;
 	// Determine output coordinate
-	int2 coords = {get_global_id(0), get_global_id(1)};
+	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	// calculate intermediate sums from raw pixels
 	diag1 = read_imagef(src_image, sampler, coords - 1).x;

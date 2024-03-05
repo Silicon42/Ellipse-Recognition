@@ -4,10 +4,14 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
+#define KERNEL_SRC_DIR "kernel_src/"
 #define PROGRAM_NAME "scharr"
-#define STR_EXPAND(tok) #tok
-#define STR(tok) STR_EXPAND(tok)
-//#define SCALE_FACTOR 2
+#define INPUT_FNAME "input.png"
+#define OUTPUT_NAME "output"
+
+// macro to stringify defined values
+//#define STR_EXPAND(tok) #tok
+//#define STR(tok) STR_EXPAND(tok)
 
 
 // attempts to get the first available GPU or if none available CPU
@@ -162,7 +166,7 @@ int main()
 	context = clCreateContext(NULL, 1, &device, NULL, NULL, &clErr);
 	handleClError(clErr, "clCreateContext");
 
-	cl_program program = buildProgramFromFile(context, device, PROGRAM_NAME".cl", NULL);
+	cl_program program = buildProgramFromFile(context, device, KERNEL_SRC_DIR PROGRAM_NAME".cl", NULL);
 
 	// Create the kernel
 	cl_kernel kernel = clCreateKernel(program, PROGRAM_NAME, &clErr);
@@ -173,7 +177,7 @@ int main()
 	handleClError(clErr, "clCreateCommandQueue");
 
 	size_t img_size[3], origin[3] = {0};
-	cl_mem in_texture = imageFromFile(context, "input.png", img_size);
+	cl_mem in_texture = imageFromFile(context, INPUT_FNAME, img_size);
 	cl_mem out_texture = imageOutputBuffer(context, img_size[0], img_size[1]);
 
 	// Set buffer as argument to the kernel
@@ -199,7 +203,7 @@ int main()
 	clErr = clEnqueueReadImage(queue, out_texture, CL_TRUE, origin, img_size, 0, 0, (void*)out_data, 0, NULL, NULL);
 	handleClError(clErr, "clEnqueueReadImage");
 
-	stbi_write_png("output.png", img_size[0], img_size[1], 4, out_data, 4*img_size[0]);
+	stbi_write_png(OUTPUT_NAME".png", img_size[0], img_size[1], 4, out_data, 4*img_size[0]);
 	free(out_data);
 
 	printf("Successfully processed image.\n");
