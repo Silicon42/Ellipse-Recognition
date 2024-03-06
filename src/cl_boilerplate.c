@@ -1,5 +1,5 @@
 
-#include "common_error_handlers.h"
+#include "cl_error_handlers.h"
 #include "stb_image.h"
 
 
@@ -16,7 +16,7 @@ cl_device_id getPreferredDevice()
 	handleClError(clErr, "clGetPlatformIDs");
 
 	// use the first device
-	clErr = clGetDeviceIDs(&platform, CL_DEVICE_TYPE_ALL, 1, &device, NULL);
+	clErr = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, NULL);
 	handleClError(clErr, "clGetDeviceIDs");
 
 	return device;
@@ -26,8 +26,7 @@ cl_program buildProgramFromFile(cl_context context, cl_device_id device, const c
 {
 	cl_program program;
 	FILE *program_handle;
-	char *program_log;
-	size_t program_size, log_size;
+	size_t program_size;
 	cl_int clErr;
 
 	// Read program file and place content into buffer
@@ -42,30 +41,21 @@ cl_program buildProgramFromFile(cl_context context, cl_device_id device, const c
 	rewind(program_handle);
 
 	char* program_buffer = (char*)malloc(program_size + 1);
-	fread(program_buffer, sizeof(char), program_size, program_handle);
+	// program may become smaller due to line endings being partially stripped on read
+	program_size = fread(program_buffer, sizeof(char), program_size, program_handle);
 	fclose(program_handle);
+	// terminate the string or createProgram will overrun the buffer
 	program_buffer[program_size] = '\0';
 
 	// Create program from file
 	program = clCreateProgramWithSource(context, 1, (const char**)&program_buffer, &program_size, &clErr);
 	handleClError(clErr, "clCreateProgramWithSource");
-	free(program_buffer);
 
 	// Build program
 	clErr = clBuildProgram(program, 1, &device, args, NULL, NULL);
-	if(clErr)
-	{
-		// Find size of log and print to std output
-		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-		handleClError(clErr, "clGetProgramBuildInfo");
-		program_log = (char*) malloc(log_size+1);
-		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, program_log, NULL);
-		handleClError(clErr, "clGetProgramBuildInfo");
-		program_log[log_size] = '\0';
-		perror((const char*)program_log);
-		free(program_log);
-		exit(1);
-	}
+	handleClBuildProgram(clErr, program, device);
+
+	free(program_buffer);
 
 	return program;
 }

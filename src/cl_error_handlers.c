@@ -79,22 +79,25 @@ const char* clErrStr[] ={
 /*-72*/ "CL_MAX_SIZE_RESTRICTION_EXCEEDED"
 };
 
+void printClError(cl_int cl_error)
+{
+	if (cl_error >= -72 && cl_error <= 0)
+		perror(clErrStr[-cl_error]);
+	else
+		perror(&undefinedErr[6]);	//slightly different output without numbers at beginning
+}
+
 //generic semi-verbose error handling for OpenCL functions
 // cl_error:	error code provided by an OpenCL function
 // from:		name of the function that generated the error code for user clarity
 void handleClError(cl_int cl_error, const char* from)
 {
-	if(cl_error == 0)
+	if(!cl_error)
 		return;
-	else
-	{
-		fputs(from, stderr);
-		fputs("(): ", stderr);
-		if (cl_error >= -72 && cl_error < 0)
-			perror(clErrStr[-cl_error]);
-		else
-			perror(&undefinedErr[6]);	//slightly different output without numbers at beginning
-	}
+
+	fputs(from, stderr);
+	fputs("(): ", stderr);
+	printClError(cl_error);
 
 	exit(cl_error);
 }
@@ -109,4 +112,30 @@ int handleClGetDeviceIDs(cl_int cl_error)
 	//else
 	handleClError(cl_error, "clGetDeviceIDs");
 	return 0;
+}
+
+void handleClBuildProgram(cl_int cl_error, cl_program program, cl_device_id device)
+{
+	if(cl_error)
+	{
+		printClError(cl_error);
+
+		size_t log_size;
+
+		// Find size of log and print to std output
+		cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+		if(cl_error)
+			printClError(cl_error);
+			
+		char* program_log = (char*) malloc(log_size+1);
+		cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, program_log, NULL);
+		if(cl_error)
+			printClError(cl_error);
+		
+		program_log[log_size] = '\0';
+		fputs("------ BUILD FAILED ------\n", stderr);
+		fputs((const char*)program_log, stderr);
+		free(program_log);
+		exit(1);
+	}
 }
