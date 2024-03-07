@@ -5,7 +5,7 @@
 #include "stb_image_write.h"
 
 #define KERNEL_SRC_DIR "kernel/src/"
-#define STAGE_CNT 3
+#define STAGE_CNT 2
 #define INPUT_FNAME "input.png"
 #define OUTPUT_NAME "output"
 
@@ -27,8 +27,7 @@ int main()
 {
 	cl_int clErr;
 	struct queueStage stages[STAGE_CNT] = {
-		{"scharr",	CL_RG,	NULL, NULL, NULL},
-		{"mag_ang",	CL_RGBA,NULL, NULL, NULL},
+		{"scharr",	CL_RGBA,NULL, NULL, NULL},
 		{"canny",	CL_R,	NULL, NULL, NULL}
 	};
 
