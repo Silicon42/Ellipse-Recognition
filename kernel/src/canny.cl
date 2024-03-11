@@ -1,11 +1,12 @@
 const sampler_t lin_samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
 //TODO: check if it's cheaper to manually filter between the adjacent pixels since it would access half the pixels
-#define THRESH 1
+#define THRESH 0.5
 
 // [0] IN	src_image: 4 channel image of x and y gradient (SFLOAT), angle (SNORM),
 //				and gradient magnitude (UFLOAT)
-// [1] OUT	dst_image: 4 channel masked src_image data transferred for pixels 
-//				meeting the gradient threshold and passing non-max suppressing
+// [1] OUT	dst_image: 4 channel masked src_image angle and magnitude transferred
+//				directly and x and y gradient normalized for pixels 
+//				meeting the gradient threshold and passing non-max suppression
 //NOTE: Doesn't implement the hysteresis portion since that is inherently a very 
 // serial operation, blurring and gradient computation is assumed to be already applied
 __kernel void canny(read_only image2d_t src_image, write_only image2d_t dst_image)
@@ -23,5 +24,6 @@ __kernel void canny(read_only image2d_t src_image, write_only image2d_t dst_imag
 	if(any(along > grad.w))	// non-max suppression
 		return;
 	
-	write_imagef(dst_image, coords, grad);//(float4)(grad.hi, 1.0,1.0));
+	grad.lo /= grad.w;
+	write_imagef(dst_image, coords, grad);
 }

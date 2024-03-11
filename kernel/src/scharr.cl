@@ -36,7 +36,7 @@ __kernel void scharr(read_only image2d_t src_image, write_only image2d_t dst_ima
 	//grad = fma(grad, 0.091796875f, 0.5f);
 
 	// normalize angle such that conversion to int types wraps properly
-	ang = 2 * atan2pi(grad.y, grad.x);
+	ang = atan2pi(grad.y, grad.x);
 	mag = length(grad);
 
 	write_imagef(dst_image, coords, (float4)(grad, ang, mag));

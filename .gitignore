@@ -3,6 +3,7 @@
 
 # misc.
 *.png
+*.jpg
 
 # Prerequisites
 *.d

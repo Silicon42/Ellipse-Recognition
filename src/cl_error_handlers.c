@@ -114,28 +114,31 @@ int handleClGetDeviceIDs(cl_int cl_error)
 	return 0;
 }
 
+void printBuildLog(cl_program program, cl_device_id device)
+{
+	size_t log_size;
+	cl_int cl_error;
+
+	// Find size of log and print to std output
+	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+	char* program_log = (char*) malloc(log_size+1);
+	cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, program_log, NULL);
+	if(cl_error)
+		printClError(cl_error);
+	
+	program_log[log_size] = '\0';
+	fputs((const char*)program_log, stderr);
+	free(program_log);
+}
+
 void handleClBuildProgram(cl_int cl_error, cl_program program, cl_device_id device)
 {
 	if(cl_error)
 	{
 		printClError(cl_error);
-
-		size_t log_size;
-
-		// Find size of log and print to std output
-		cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-		if(cl_error)
-			printClError(cl_error);
-			
-		char* program_log = (char*) malloc(log_size+1);
-		cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, program_log, NULL);
-		if(cl_error)
-			printClError(cl_error);
-		
-		program_log[log_size] = '\0';
 		fputs("------ BUILD FAILED ------\n", stderr);
-		fputs((const char*)program_log, stderr);
-		free(program_log);
+		printBuildLog(program, device);
 		exit(1);
 	}
+//	printBuildLog(program, device);
 }
