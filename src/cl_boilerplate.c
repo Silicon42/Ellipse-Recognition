@@ -124,6 +124,8 @@ char isArgMetadataValid(char* metadata)
 	case 'I':
 		if(metadata[0] == 'i')
 			return 1;
+	case 'f':
+	case 'h':
 	case 'F':
 	case 'H':
 		if(metadata[0] == 'f' && ((metadata[1] | LOWER_MASK) != 'i'))	// no int32 backed type for floating point

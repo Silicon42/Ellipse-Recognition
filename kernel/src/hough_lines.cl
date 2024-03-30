@@ -35,9 +35,9 @@ union vec2ToArr {
 	float a[2];
 };
 
-// [1] In	fF4_src_image: 2 channel masked image of strong x and y gradient (SFLOAT), 
+// [0] In	fF4_src_image: 2 channel masked image of strong x and y gradient (SFLOAT), 
 //				angle (SNORM), and gradient magnitude (UFLOAT)
-// [2] Out	fc1_dst_image: 1 channel Hough (lines) accumulator (UFLOAT), x-axis 
+// [1] Out	ff1_dst_image: 1 channel Hough (lines) accumulator (UFLOAT), x-axis 
 //				reperesents rotation 0 to 360, y-axis represents signed distance along 
 //				edge gradient direction to center of image. This aids in finding 
 //				opposing gradient pairs and more evenly distributes Hough space 
@@ -47,11 +47,11 @@ union vec2ToArr {
 // prevents needing barriers to avoid output write collisions
 //NOTE: similar rho values should have similar amounts of work so work groups 
 // should be arranged to keep rho constant within them
-__kernel void hough_lines(read_only image2d_t fF4_src_image, write_only image2d_t fc1_dst_image)
+__kernel void hough_lines(read_only image2d_t fF4_src_image, write_only image2d_t ff1_dst_image)
 {
 	// determine ouput coordinate for work item
 	int2 h_coords = (int2)(get_global_id(0), get_global_id(1));	//TODO: probably need extra logic here to better load balance
-	int2 h_dims = get_image_dim(fc1_dst_image);
+	int2 h_dims = get_image_dim(ff1_dst_image);
 	float2 i_dims = convert_float2(get_image_dim(fF4_src_image) & -2);
 
 	// convert from normal (polar) to normal (cartesian) form
@@ -98,6 +98,6 @@ __kernel void hough_lines(read_only image2d_t fF4_src_image, write_only image2d_
 		i_coords = normal + step;
 	} while(!twice++);
 
-	write_imagef(fc1_dst_image, h_coords, (float4)(accum[0]/32, 0, 0, 1));
-	write_imagef(fc1_dst_image, (int2)(h_coords.x ^ ANGLE_FLIP, (HOUGH_HEIGHT - 1 - h_coords.y)), (float4)(accum[1]/32, 0, 0, 1));
+	write_imagef(ff1_dst_image, h_coords, (float4)(accum[0], 0, 0, 1));
+	write_imagef(ff1_dst_image, (int2)(h_coords.x ^ ANGLE_FLIP, (HOUGH_HEIGHT - 1 - h_coords.y)), (float4)(accum[1], 0, 0, 1));
 }

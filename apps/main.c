@@ -21,7 +21,7 @@
 int main()
 {
 	cl_int clErr;
-	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", NULL};
+	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", NULL};
 /*
 	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", NULL};
 	QStage \
@@ -79,11 +79,13 @@ int main()
 
 	// staged queue settings of which kernels to use and how
 	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_FALSE,CL_FALSE}};
-	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_TRUE,CL_FALSE}};
+	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_FALSE,CL_FALSE}};
+	ArgStaging out[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
 	const QStaging* staging[] = {
 		&(QStaging){0, 2, {REL, {0}}, simple},
 		&(QStaging){1, 2, {REL, {0}}, simple},
 		&(QStaging){2, 1, {DIVIDE, {1, 2, 1}}, diag},
+		&(QStaging){3, 2, {REL, {0, -2, 0}}, out},
 		NULL
 	};
 
