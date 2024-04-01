@@ -440,7 +440,7 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 
 	for(cl_uint j=0; j < arg_cnt; ++j)
 	{
-		printf("[%i] ", j);
+		printf("\n[%i] ", j);
 		cl_kernel_arg_access_qualifier arg_access;
 		clErr = clGetKernelArgInfo(kernel, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(cl_kernel_arg_access_qualifier), &arg_access, NULL);
 		handleClError(clErr, "clGetKernelArgInfo");
@@ -641,7 +641,7 @@ cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_arra
 
 	}
 
-	printf("\nCreating %zu*%zu*%zu buffer.\n", img_size[0], img_size[1], img_size[2]);
+	printf("Creating %zu*%zu*%zu buffer.", img_size[0], img_size[1], img_size[2]);
 	cl_mem img_buffer = clCreateImage(context, flags, img_format, &image_desc, NULL, &clErr);
 	handleClError(clErr, "clCreateImage");
 /*

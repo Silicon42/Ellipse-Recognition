@@ -22,15 +22,6 @@ int main()
 {
 	cl_int clErr;
 	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", NULL};
-/*
-	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", NULL};
-	QStage \
-		scharr = {"scharr", CL_RGBA, 0, REL, {0}},\
-		canny = {"canny", CL_RGBA, 0, REL, {0}},\
-		hough = {"hough_lines", CL_R, 1, DIAG, {HOUGH_ANGLE_RES, -1, 0}};
-*/
-	// NULL pointer terminated QStage* array
-//	QStaging* staging[] = {&scharr, &canny, &hough, NULL};
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -57,21 +48,6 @@ int main()
 	};
 	tracker.args[0].format = img_format;
 	imageFromFile(context, INPUT_FNAME, &tracker.args[0]);
-
-/*	//TODO: need to loop here to calc proper image sizes. move switch-case below to this loop
-	// special processing for the Hough build args
-	unsigned int hough_half_height = sqrt(img_size[0]*img_size[0] + img_size[1]*img_size[1])/2;
-	hough_half_height -= hough.range_param[0];
-	hough.range[1] = hough_half_height*2;
-	hough.range[0] =  hough.range_param[1];
-	hough.range[2] = 1;
-*/
-	/*cl_kernel* kernels = (cl_kernel*)malloc(sizeof(cl_kernel)*kernel_cnt);
-	if(kernels == NULL)
-	{
-		perror("Couldn't allocate kernel array");
-		exit(1);
-	}*/
 
 	// build reference kernels from source
 	cl_kernel kernels[MAX_KERNELS];
@@ -102,45 +78,11 @@ int main()
 	}
 	// allocate output buffer
 	void* out_data = malloc(tracker.max_out_size);
-	//img_format.image_channel_order = CL_RGBA;
-	//cl_mem out_texture = imageOutputBuffer(context, &out_data, &img_format, hough.range);
 
-/*	// Set buffers as arguments to the kernels
-	cl_mem last_buffer = in_texture;
-	size_t* last_size = img_size;
-	for(int i = 0; stages[i]; ++i)
-	{
-		printf("Setting args for %s.\n", (*stages[i]).name);
-		clErr = clSetKernelArg((*stages[i]).kernel, 0, sizeof(cl_mem), &last_buffer);
-		handleClError(clErr, "[0] clSetKernelArg");
-		int* range_param = (*stages[i]).range_param;
-		size_t* range = (*stages[i]).range;
-		switch ((*stages[i]).range_mode)
-		{
-		case REL:
-			range[0] = last_size[0] + range_param[0];
-			range[1] = last_size[1] + range_param[1];
-			range[2] = last_size[2] + range_param[2];
-			break;
-		case DIAG:
-			// range[0];
-			//range[1] = range_param[1];
-			range[2] = last_size[2] + range_param[2];
-			break;
-		default:
-			break;
-		}
-		last_size = range;
+	clErr = clUnloadCompiler();
+	handleClError(clErr, "clUnloadCompiler");
 
-		if(!(*stages[i]).host_readable)
-			(*stages[i]).buffer_texture = imageIntermediateBuffer(context, range, (*stages[i]).output_mode);
-		else
-			(*stages[i]).buffer_texture = out_texture;	//TODO: make this work for multiple output buffers, currently only supports the last one
-		clErr = clSetKernelArg((*stages[i]).kernel, 1, sizeof(cl_mem), &(*stages[i]).buffer_texture);
-		handleClError(clErr, "[1] clSetKernelArg");
-		last_buffer = (*stages[i]).buffer_texture;
-	}
-	*/
+	puts("\n");
 	const size_t origin[3] = {0};
 
 	//------ END OF INITIALIZATION ------//
@@ -151,14 +93,12 @@ int main()
 	for(int i = 0; i < stage_cnt; ++i)
 	{
 		size_t* range = stages[i].range;
-//		if(stages[i].range_mode == DIAG)
-//			range[1] /= 2;
 		printf("Enqueueing %s with range %zu*%zu*%zu.\n", stages[i].name, range[0], range[1], range[2]);
 		clErr = clEnqueueNDRangeKernel(queue, stages[i].kernel, 2, NULL, range, NULL, 0, NULL, NULL);
 		handleClError(clErr, "clEnqueueNDRangeKernel");
 	}
 
-	printf("Processing image.\n");
+	printf("\nProcessing image.\n");
 
 	size_t* last_size = tracker.args[tracker.args_cnt - 1].size;
 	// Enqueue a data read back to the host and wait for it to complete
@@ -173,11 +113,9 @@ int main()
 	//------ START OF DE-INITIALIZATION ------//
 	free(out_data);
 
-	printf("Successfully processed image.\n");
+	printf("\nSuccessfully processed image.\n");
 
 	// Deallocate resources
-	//clReleaseMemObject(in_texture);
-	//handleClError(clErr, "in clReleaseMemObject");
 	for(int i = 0; i < stage_cnt; ++i)
 	{
 		clReleaseKernel(stages[i].kernel);
