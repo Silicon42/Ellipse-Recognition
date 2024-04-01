@@ -23,6 +23,11 @@ cl_device_id getPreferredDevice()
 	return device;
 }
 
+//FIXME: Building multiple kernels from separate files at once has side effects, all the contents are effectively appended together
+// so line numbers don't make sense, defines and globally scoped items stick around when you don't expect them to, syntax errors
+// introduced by the appending, etc.
+// Need to switch to per-file builds with SEPARATE compile and link steps, also add support for headers while at it.
+
 //names is a NULL pointer terminated char* array of the kernel function names/filenames without file extensions
 cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const char* src_dir, const char** names, const char* args, cl_kernel* kernels, cl_uint max_kernels)
 {

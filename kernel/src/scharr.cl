@@ -1,4 +1,3 @@
-const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 //TODO: check if recycling variables via macros reduces private mem usage
 //TODO: check if image reads can be made more simultaneous to boost performance
 // possibly by repeating shifted versions of the image on other channels or if the
@@ -12,6 +11,7 @@ const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDG
 //				(SNORM), and gradient magnitude (UFLOAT)
 __kernel void scharr(read_only image2d_t fc1_src_image, write_only image2d_t fF4_dst_image)
 {
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	// Determine work item coordinate
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 

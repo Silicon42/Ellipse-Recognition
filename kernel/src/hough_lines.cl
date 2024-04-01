@@ -1,4 +1,3 @@
-const sampler_t h_lin_samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR;
 
 //TODO: fix defines and ifdefs so that h_dims and i_dims may be pre-defined and therefore avoid being calculated for each thread
 
@@ -39,6 +38,8 @@ union vec2ToArr {
 // should be arranged to keep rho constant within them
 __kernel void hough_lines(read_only image2d_t fF4_src_image, write_only image2d_t us1_dst_image)
 {
+	const sampler_t lin_samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR;
+
 	// determine ouput coordinate for work item
 	int2 h_coords = (int2)(get_global_id(0), get_global_id(1));	//TODO: probably need extra logic here to better load balance
 //#ifndef ANGLE_BITS
@@ -73,7 +74,7 @@ __kernel void hough_lines(read_only image2d_t fF4_src_image, write_only image2d_
 			// I *THINK* it should end up reading 180 degrees off if that's the case which isn't a problem since
 			// the angle is just used for thresholding and we keep both ones that are aligned and anti-aligned
 			// but I didn't verify this
-			float3 i_grad = read_imagef(fF4_src_image, h_lin_samp, i_coords).xyz;
+			float3 i_grad = read_imagef(fF4_src_image, lin_samp, i_coords).xyz;
 			// convert image gradient angle from +/- 1.0f to 16 bit fixed precision angle,
 			// take difference between proposed normal, if difference is near zero, it's aligned,
 			// if it's near +/- 32768 it's anti-aligned and multiplying by 2 causes it to wrap to near 0 as well
