@@ -18,8 +18,11 @@
 #define STR(tok) STR_EXPAND(tok)
 
 
-int main()
+int main(int argc, char *argv[])
 {
+	(void)argc;
+	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
+
 	cl_int clErr;
 	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", NULL};
 
@@ -47,7 +50,7 @@ int main()
 		.image_channel_data_type = CL_UNORM_INT8
 	};
 	tracker.args[0].format = img_format;
-	imageFromFile(context, INPUT_FNAME, &tracker.args[0]);
+	imageFromFile(context, in_file, &tracker.args[0]);
 
 	// build reference kernels from source
 	cl_kernel kernels[MAX_KERNELS];
