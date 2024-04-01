@@ -211,22 +211,11 @@ cl_channel_order getOrderFromMetadata(const char* metadata)
 void calcSizeByMode(const size_t* in, const RangeData* range, size_t* out)
 {
 
-	//size_t* ref_size;
 	if(!in && range->mode != EXACT && range->mode != SINGLE)
 	{
 		out[0] = 0;	// if you got here you probably didn't specify something correctly
 		return;
 	}
-
-	// default to relative {0,0,0} if range param is NULL
-	//TODO: might change this behavior if it turns out having the values default to specific values is convenient
-	/*if(!range->param && range->mode != SINGLE)
-	{
-		out[0] = in[0];
-		out[1] = in[1];
-		out[2] = in[2];
-		return;
-	}*/
 
 	switch (range->mode)
 	{
@@ -470,6 +459,7 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 
 		// write-only and certain r/w arguments create new mem objects to write their outputs to
 		//NOTE: theoretically you might have an uneeded output that you leave unassigned but I'm not supporting that, just rewrite it without it instead
+		//TODO: add more diagnostic info to created args like channel count and type
 		if(arg_access == CL_KERNEL_ARG_ACCESS_WRITE_ONLY || (arg_access == CL_KERNEL_ARG_ACCESS_READ_WRITE && arg_metadata[3] == 'n'))
 		{
 			if(!isValid)
