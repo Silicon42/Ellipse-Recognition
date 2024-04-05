@@ -1,5 +1,9 @@
 #ifndef CL_BOILERPLATE_H
 #define CL_BOILERPLATE_H
+/**
+ * This file contains the function declarations that someone who just wants to
+ * create a simple data-driven staged queue would need
+*/
 
 //#define CL_VERSION_2_0
 //#define CL_VERSION_2_1
