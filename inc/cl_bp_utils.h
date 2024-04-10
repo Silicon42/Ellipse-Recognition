@@ -15,7 +15,7 @@
 cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3]);
 // validates metadata[0 thru 2] formating and returns true if valid
 char isArgMetadataValid(char* metadata);
-cl_channel_type getTypeFromMetadata(const char* metadata, char isHostReadable);
+cl_channel_type getTypeFromMetadata(const char* metadata);
 cl_channel_order getOrderFromMetadata(const char* metadata);
 
 // in can be NULL if mode is EXACT or SINGLE

@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
 
 	cl_int clErr;
-	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", NULL};
+	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", "robertsX", NULL};
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -57,15 +57,15 @@ int main(int argc, char *argv[])
 	cl_uint kernel_cnt = buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_FALSE,CL_FALSE}};
-	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_FALSE,CL_FALSE}};
-	ArgStaging out[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{3,{REL,{0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
+//	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_FALSE,CL_FALSE}};
+//	ArgStaging out[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{3,{REL,{0}},CL_TRUE,CL_FALSE}};
 	const QStaging* staging[] = {
-		&(QStaging){0, 2, {REL, {0}}, simple},
-		&(QStaging){1, 2, {REL, {0}}, simple},
-		&(QStaging){2, 1, {DIVIDE, {1, 2, 1}}, diag},
-		&(QStaging){3, 2, {REL, {0, -2, 0}}, simple},
-		&(QStaging){4, 2, {REL, {0}}, out},
+		&(QStaging){5, 2, {REL, {0}}, simple},
+//		&(QStaging){1, 2, {REL, {0}}, simple},
+//		&(QStaging){2, 1, {DIVIDE, {1, 2, 1}}, diag},
+//		&(QStaging){3, 2, {REL, {0, -2, 0}}, simple},
+//		&(QStaging){4, 2, {REL, {0}}, out},
 		NULL
 	};
 
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 		handleClError(clErr, "clReleaseKernel");
 	}
 	// allocate output buffer
-	void* out_data = malloc(tracker.max_out_size);
+	char* out_data = (char*)malloc(tracker.max_out_size);
 
 	clErr = clUnloadCompiler();
 	handleClError(clErr, "clUnloadCompiler");
@@ -108,9 +108,11 @@ int main(int argc, char *argv[])
 	clErr = clEnqueueReadImage(queue, tracker.args[tracker.args_cnt - 1].arg, CL_TRUE, origin, last_size, 0, 0, out_data, 0, NULL, NULL);
 	handleClError(clErr, "clEnqueueReadImage");
 
+	readImageAsCharArr(out_data, last_size[0]*last_size[1]*last_size[2]*4, tracker.args[tracker.args_cnt - 1].format);
+
 	// save result
 	//TODO: replace this with displaying or other processing
-	stbi_write_png(OUTPUT_NAME".png", last_size[0], last_size[1], 1, out_data, 1*last_size[0]);
+	stbi_write_png(OUTPUT_NAME".png", last_size[0], last_size[1], 4, out_data, 4*last_size[0]);
 
 	//----------- END OF MAIN LOOP -----------//
 	//------ START OF DE-INITIALIZATION ------//

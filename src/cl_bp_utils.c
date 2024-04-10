@@ -94,60 +94,45 @@ char isArgMetadataValid(char* metadata)
 	}
 }
 
-cl_channel_type getTypeFromMetadata(const char* metadata, char isHostReadable)
+cl_channel_type getTypeFromMetadata(const char* metadata)
 {
-	if(metadata[0] != 'f')
+	if(metadata[0] == 'f')
 	{
-		//TODO: if I ever migrate from stbi to libPNG etc, this will have to be fixed for better bit depth
-		if(isHostReadable)
-		{
-			if(metadata[1] & LOWER_MASK)
-				return CL_UNSIGNED_INT8;
-			return CL_SIGNED_INT8;
-		}
-		
 		switch(metadata[1])
 		{
+		case 'F':
+		case 'f':
+			return CL_FLOAT;
+		case 'H':
+		case 'h':
+			return CL_HALF_FLOAT;
 		case 'c':
-			return CL_UNSIGNED_INT8;
+			return CL_UNORM_INT8;
 		case 's':
-			return CL_UNSIGNED_INT16;
-		case 'i':
-			return CL_UNSIGNED_INT32;
+			return CL_UNORM_INT16;
 		case 'C':
-			return CL_SIGNED_INT8;
+			return CL_SNORM_INT8;
 		case 'S':
-			return CL_SIGNED_INT16;
-		case 'I':
-			return CL_SIGNED_INT32;
+			return CL_SNORM_INT16;
 		}
 		//warning fix/error trap
 		return 0;
 	}
 	//else
-	if(isHostReadable)
-	{
-		if(metadata[1] & LOWER_MASK)
-			return CL_UNORM_INT8;
-		return CL_SNORM_INT8;
-	}
-
 	switch(metadata[1])
 	{
-	case 'F':
-	case 'f':
-		return CL_FLOAT;
-	case 'H':
-	case 'h':
-		return CL_HALF_FLOAT;
 	case 'c':
-		return CL_UNORM_INT8;
+		return CL_UNSIGNED_INT8;
 	case 's':
-		return CL_UNORM_INT16;
+		return CL_UNSIGNED_INT16;
+	case 'i':
+		return CL_UNSIGNED_INT32;
 	case 'C':
-		return CL_SNORM_INT8;
+		return CL_SIGNED_INT8;
 	case 'S':
-		return CL_SNORM_INT16;
+		return CL_SIGNED_INT16;
+	case 'I':
+		return CL_SIGNED_INT32;
 	}
 	//warning fix/error trap
 	return 0;
