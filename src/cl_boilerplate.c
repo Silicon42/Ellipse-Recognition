@@ -278,10 +278,12 @@ void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked)
 	free(data);
 }
 
-// converts format of data to char array compatible read
-void readImageAsCharArr(char* data, size_t length, cl_image_format format)
+// converts format of data to char array compatible read, returns channel count since it's often needed after this and is already called here
+unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
 {
-	switch (format.image_channel_data_type)
+	unsigned char channel_cnt = getChannelCount(arg->format.image_channel_order);
+	size_t length = arg->size[0] * arg->size[1] * arg->size[2] * channel_cnt;
+	switch (arg->format.image_channel_data_type)
 	{
 //	case CL_UNORM_SHORT_565:
 //	case CL_UNORM_SHORT_555:
@@ -289,7 +291,7 @@ void readImageAsCharArr(char* data, size_t length, cl_image_format format)
 	case CL_UNSIGNED_INT8:
 	case CL_SNORM_INT8:
 	case CL_SIGNED_INT8:
-		return;	// no change, data is already 1 byte per channel
+		break;	// no change, data is already 1 byte per channel
 //	case CL_UNORM_INT_101010:
 //	case CL_UNORM_INT_101010_2:
 	case CL_UNORM_INT16:
@@ -297,24 +299,25 @@ void readImageAsCharArr(char* data, size_t length, cl_image_format format)
 	case CL_SNORM_INT16:
 	case CL_SIGNED_INT16:
 		for(size_t i = 0; i < length; ++i)
-			((int8_t*)data)[i] = ((int16_t*)data)[i] >> 8;	// assume 16-bit normalized so msb is most important to preserve
+			data[i] = ((int16_t*)data)[i] >> 8;	// assume 16-bit normalized so msb is most important to preserve
 
-		return;
+		break;
 	case CL_SIGNED_INT32:
 	case CL_UNSIGNED_INT32:
 		for(size_t i = 0; i < length; ++i)
-			((int8_t*)data)[i] = ((int32_t*)data)[i] >> 24;	// assume 32-bit normalized so msb is most important to preserve
+			data[i] = ((int32_t*)data)[i] >> 24;	// assume 32-bit normalized so msb is most important to preserve
 
-		return;
+		break;
 	case CL_HALF_FLOAT:	//TODO: add support for float16
 //		for(size_t i = 0; i < length; ++i)
-//			((int8_t*)data)[i] = ((float*)data)[i] * 128;	// assume +/- 1.0 normalization
+//			data[i] = ((float*)data)[i] * 128 + 0.5;	// assume +/- 1.0 normalization
 
-		return;
+		break;
 	case CL_FLOAT:
 		for(size_t i = 0; i < length; ++i)
-			((int8_t*)data)[i] = ((float*)data)[i] * 128;	// assume +/- 1.0 normalization
+			data[i] = ((float*)data)[i] * 128 + 0.5;	// assume +/- 1.0 normalization
 
-		return;
+		break;
 	}
+	return channel_cnt;
 }

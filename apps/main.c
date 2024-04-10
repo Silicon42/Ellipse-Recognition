@@ -57,11 +57,11 @@ int main(int argc, char *argv[])
 	cl_uint kernel_cnt = buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
 //	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_FALSE,CL_FALSE}};
 //	ArgStaging out[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{3,{REL,{0}},CL_TRUE,CL_FALSE}};
 	const QStaging* staging[] = {
-		&(QStaging){5, 2, {REL, {0}}, simple},
+		&(QStaging){5, 1, {REL, {0}}, simple},
 //		&(QStaging){1, 2, {REL, {0}}, simple},
 //		&(QStaging){2, 1, {DIVIDE, {1, 2, 1}}, diag},
 //		&(QStaging){3, 2, {REL, {0, -2, 0}}, simple},
@@ -108,11 +108,11 @@ int main(int argc, char *argv[])
 	clErr = clEnqueueReadImage(queue, tracker.args[tracker.args_cnt - 1].arg, CL_TRUE, origin, last_size, 0, 0, out_data, 0, NULL, NULL);
 	handleClError(clErr, "clEnqueueReadImage");
 
-	readImageAsCharArr(out_data, last_size[0]*last_size[1]*last_size[2]*4, tracker.args[tracker.args_cnt - 1].format);
+	unsigned char channel_cnt = readImageAsCharArr(out_data, &tracker.args[tracker.args_cnt - 1]);
 
 	// save result
 	//TODO: replace this with displaying or other processing
-	stbi_write_png(OUTPUT_NAME".png", last_size[0], last_size[1], 4, out_data, 4*last_size[0]);
+	stbi_write_png(OUTPUT_NAME".png", last_size[0], last_size[1], channel_cnt, out_data, channel_cnt*last_size[0]);
 
 	//----------- END OF MAIN LOOP -----------//
 	//------ START OF DE-INITIALIZATION ------//

@@ -26,6 +26,6 @@ int prepQStages(cl_context context, const QStaging** staging, const cl_kernel* r
 void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked);
 
 // converts format of data to char array compatible read
-void readImageAsCharArr(char* data, size_t length, cl_image_format format);
+unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
 
 #endif//CL_BOILERPLATE_H

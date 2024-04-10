@@ -254,7 +254,9 @@ char getArgStorageType(cl_channel_type type)
 	}
 }
 
-// currently assumes number of channels is the only thing important, NOT posistioning or ordering
+//TODO: currently assumes number of channels is the only thing important, NOT posistioning or ordering
+// this is likely wrong for the case of RA, INTENSITY, LUMINANCE, and DEPTH, however none of those should
+// be generated as output buffers which is the only time this should matter so it's not high priority to fix
 unsigned char getChannelCount(cl_channel_order order)
 {	// not certain I interpreted the _x channel counts right but it'll do for now until I have a problem
 	switch(order)
