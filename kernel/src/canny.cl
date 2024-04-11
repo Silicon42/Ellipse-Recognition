@@ -16,7 +16,8 @@ __kernel void canny(read_only image2d_t fF2_src_image, write_only image2d_t fF4_
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 	float4 grad = read_imagef(fF2_src_image, coords);
 
-	if (THRESH > grad.w)	// guard to hopefully let some workgroups exit early
+	// if the strength of the gradient doesn't meet the minimum requirement, no further processing needed
+	if (THRESH > grad.w)
 		return;
 	
 	float2 along;

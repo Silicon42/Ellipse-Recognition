@@ -25,7 +25,7 @@ int prepQStages(cl_context context, const QStaging** staging, const cl_kernel* r
 // the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
 void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked);
 
-// converts format of data to char array compatible read
+// converts format of data read from device to char array suitable for writing to typical image file
 unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
 
 #endif//CL_BOILERPLATE_H

@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
 
 	cl_int clErr;
-	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", "robertsX", NULL};
+	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", "robertsX", "canny_short", NULL};
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 	ArgTracker tracker = {.args = ta, .args_cnt = 1, .max_args = MAX_ARGS, .max_out_size = 0};
 	cl_image_format img_format = {
 		.image_channel_order = CL_R,
-		.image_channel_data_type = CL_UNORM_INT8
+		.image_channel_data_type = CL_UNSIGNED_INT8
 	};
 	tracker.args[0].format = img_format;
 	imageFromFile(context, in_file, &tracker.args[0]);
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 //	ArgStaging out[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{3,{REL,{0}},CL_TRUE,CL_FALSE}};
 	const QStaging* staging[] = {
 		&(QStaging){5, 1, {REL, {0}}, simple},
-//		&(QStaging){1, 2, {REL, {0}}, simple},
+		&(QStaging){6, 1, {REL, {0}}, simple},
 //		&(QStaging){2, 1, {DIVIDE, {1, 2, 1}}, diag},
 //		&(QStaging){3, 2, {REL, {0, -2, 0}}, simple},
 //		&(QStaging){4, 2, {REL, {0}}, out},
@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
 
 	// save result
 	//TODO: replace this with displaying or other processing
+	//NOTE: if channel_cnt == 2, then this gets interpreted as gray + alpha so may look strange simply viewing it
 	stbi_write_png(OUTPUT_NAME".png", last_size[0], last_size[1], channel_cnt, out_data, channel_cnt*last_size[0]);
 
 	//----------- END OF MAIN LOOP -----------//
