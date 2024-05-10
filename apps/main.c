@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
 
 	cl_int clErr;
-	const char* kernel_progs[] = {"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", "robertsX", "canny_short", NULL};
+	const char* kernel_progs[] = {"robertsX", "canny_short", "reject_intersections", "find_segment_starts", "segment_debug", NULL};	//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -57,15 +57,24 @@ int main(int argc, char *argv[])
 	cl_uint kernel_cnt = buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple_bounded[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
+	ArgStaging segment_debug[4] = {
+//		{4,{REL,{0}},CL_FALSE,CL_FALSE},
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_TRUE,CL_FALSE}
+	};
+
 //	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_FALSE,CL_FALSE}};
-//	ArgStaging out[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{3,{REL,{0}},CL_TRUE,CL_FALSE}};
 	const QStaging* staging[] = {
-		&(QStaging){5, 1, {REL, {0}}, simple},
-		&(QStaging){6, 1, {REL, {0}}, simple},
-//		&(QStaging){2, 1, {DIVIDE, {1, 2, 1}}, diag},
-//		&(QStaging){3, 2, {REL, {0, -2, 0}}, simple},
-//		&(QStaging){4, 2, {REL, {0}}, out},
+		&(QStaging){0, 1, {REL, {-1,-1,0}}, simple_bounded},
+		&(QStaging){1, 1, {REL, {-1,-1,0}}, simple_bounded},
+		&(QStaging){2, 1, {REL, {0}}, simple},
+		&(QStaging){3, 1, {REL, {0}}, simple},
+//		&(QStaging){4, 1, {REL, {0}}, simple},
+		&(QStaging){4, 1, {REL, {0}}, segment_debug},
 		NULL
 	};
 

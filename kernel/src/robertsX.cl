@@ -13,9 +13,9 @@ __kernel void robertsX(read_only image2d_t uc1_src_image, write_only image2d_t i
 
 	int2 grad;
 	grad.x = read_imageui(uc1_src_image, coords + 1).x;
-	grad.x -= (int)read_imageui(uc1_src_image, coords).x;
+	grad.x -= read_imageui(uc1_src_image, coords).x;
 	grad.y = read_imageui(uc1_src_image, coords + (int2)(0,1)).x;
-	grad.y -= (int)read_imageui(uc1_src_image, coords + (int2)(1,0)).x;
+	grad.y -= read_imageui(uc1_src_image, coords + (int2)(1,0)).x;
 	// correct for 45 deg offset, this is effectively a multiplication by 2*2
 	// rotation matrix w/o the scale fixing component so that it stays an integer operation
 	// since all calculated gradients get scaled the same way the scaling factor doesn't matter

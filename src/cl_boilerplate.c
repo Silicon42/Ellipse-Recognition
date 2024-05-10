@@ -207,7 +207,7 @@ int prepQStages(cl_context context, const QStaging** staging, const cl_kernel* r
 	{
 		if(i==max_stages)
 		{
-			fputs("\nWarning: more stages in staging than max_stages\n", stderr);
+			fputs("\nWarning: more stages in staging than max_stages, aborting further staging\n", stderr);
 			break;
 		}
 
