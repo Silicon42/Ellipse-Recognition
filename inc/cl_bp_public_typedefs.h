@@ -14,6 +14,7 @@ enum rangeMode {
 	REL,	// expand/contract range and output relative to input
 	DIAG,	// exact on [0], contraction(- only, + no useful effect) relative to length of diagonal on [1]*, relative on [2], used for hough_lines
 	DIVIDE,	// divides each component by corresponding param
+	MULT,	// multiplies each component by corresponding param
 };
 
 typedef struct {

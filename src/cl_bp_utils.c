@@ -188,6 +188,11 @@ void calcSizeByMode(const size_t* in, const RangeData* range, size_t* out)
 		out[1] = in[1] / range->param[1];
 		out[2] = in[2] / range->param[2];
 		return;
+	case MULT:
+		out[0] = in[0] * range->param[0];
+		out[1] = in[1] * range->param[1];
+		out[2] = in[2] * range->param[2];
+		return;
 	}
 	out[0]=0;	// if you got here you probably forgot to implement a mode
 }

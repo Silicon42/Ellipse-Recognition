@@ -10,6 +10,7 @@ union l_c8{
 //TODO: see if there's any way to identify intersections on an adjacent pixel, if so, this step could be combined with find_segment_starts.cl
 __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only image2d_t iC1_dst_image)
 {
+	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	//TODO: see if reading as 32 bit values and casting has better performance since it would cut out the conversion step
@@ -21,23 +22,23 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 		return;
 
 	union l_c8 neighbors;
-	neighbors.c.s0 = read_imagei(iC1_src_image, coords + (int2)(1,0)).x;
-	neighbors.c.s1 = read_imagei(iC1_src_image, coords + 1).x;
-	neighbors.c.s2 = read_imagei(iC1_src_image, coords + (int2)(0,1)).x;
-	neighbors.c.s3 = read_imagei(iC1_src_image, coords + (int2)(-1,1)).x;
-	neighbors.c.s4 = read_imagei(iC1_src_image, coords - (int2)(1,0)).x;
-	neighbors.c.s5 = read_imagei(iC1_src_image, coords - 1).x;
-	neighbors.c.s6 = read_imagei(iC1_src_image, coords - (int2)(0,1)).x;
-	neighbors.c.s7 = read_imagei(iC1_src_image, coords - (int2)(-1,1)).x;
+	neighbors.c.s0 = read_imagei(iC1_src_image, samp, coords + (int2)(1,0)).x;
+	neighbors.c.s1 = read_imagei(iC1_src_image, samp, coords + 1).x;
+	neighbors.c.s2 = read_imagei(iC1_src_image, samp, coords + (int2)(0,1)).x;
+	neighbors.c.s3 = read_imagei(iC1_src_image, samp, coords + (int2)(-1,1)).x;
+	neighbors.c.s4 = read_imagei(iC1_src_image, samp, coords - (int2)(1,0)).x;
+	neighbors.c.s5 = read_imagei(iC1_src_image, samp, coords - 1).x;
+	neighbors.c.s6 = read_imagei(iC1_src_image, samp, coords - (int2)(0,1)).x;
+	neighbors.c.s7 = read_imagei(iC1_src_image, samp, coords - (int2)(-1,1)).x;
 
 	//TODO: check if it's more efficient to compact into a char bit vector first for calculations
 	long occupancy = neighbors.l & 0x0101010101010101;	//extract just the occucpancy flags
-
+/*
 	//any situation with more than 4 neighbors must be an intersection, so reject
 	char neighbor_cnt = popcount(occupancy);
 	if(neighbor_cnt > 4)
 		return;
-
+*/
 	// AND-ing a rotation by 1 position of the occupancy with itself results in a boolean vector representing
 	// neighbors that are also neighbors of occupied cells.
 	long mutual_neighbors = occupancy & rotate(occupancy, 8L);
