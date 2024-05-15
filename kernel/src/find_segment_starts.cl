@@ -53,7 +53,11 @@ __kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only 
 	{
 		// or in the special corner case of a closed loop, the angle must go from negative to positive
 		//NOTE: could also be done on gray code in same or fewer steps, ie shift-XOR, mask, ==
-		if(grad_ang < 8)	// positive pass check, done first to hopefully skip more branching
+		//FIXME: sometimes this leads to short near vertical segments consisting of mostly segment starts b/c they'll be generated
+		// right next to normal starts. This either needs special handling later or here
+		//FIXME: There seems to be some rare corner case where this fails to pick up a start on a loop, currently input6.png shows this best
+		// Revisit once I have more info and insight
+		if(grad_ang < 64)	// positive pass check, done first to hopefully skip more branching
 			return;
 		
 		// need to figure which of the 3 cells was occupied,
@@ -65,7 +69,7 @@ __kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only 
 			i = 5;
 		//else i = 7;	defaults to cw of 90 because if it wasn't the first 2 it must be this one
 
-		if(neighbors.a[i] > -8)	// negative pass check
+		if(neighbors.a[i] > -64)	// negative pass check
 			return;
 	}
 

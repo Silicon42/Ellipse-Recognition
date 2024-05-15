@@ -1,6 +1,8 @@
 // Kernel meant to remove interstections from the edge map as they are problematic for processing segments since they would
 // require it to branch
 
+//FIXME: after the last round of bug fixing it seems I don't have a good way to detect T-intersections in some cases, have to look
+// into why that is and how to fix it once I have more info
 union l_c8{
 	long l;
 	char8 c;
@@ -42,6 +44,12 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 	if(neighbor_cnt > 4)
 		return;
 */
+	// reject orphan edge pixels here, technically intersection rejection also creates some more but I don't have a good way
+	// to do that in find_segment_starts.cl without adding an additional output argument and it's not super important, just
+	// a small optimization/cleanup step for nicer debug output
+	if(!occupancy)
+		return;
+
 	// AND-ing a rotation by 1 position of the occupancy with itself results in a boolean vector representing
 	// neighbors that are also neighbors of occupied cells.
 	long mutual_neighbors = occupancy & rotate(occupancy, 8L);
