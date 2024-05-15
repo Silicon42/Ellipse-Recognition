@@ -27,23 +27,14 @@ __kernel void canny_short(read_only image2d_t iS4_src_image, write_only image2d_
 	
 	int2 n_grad = grad.lo*16 / (grad.w*9);	//just shy of 2 to 1 ratio w/o overflowing so that rounding stays bounded to +/- 1 even at the extremes
 
-	// the logic here is too simple to work reliably on thin edges without first upsampling before edge finding since it doen't
-	// check their direction and thus the opposed gradients of a 1 pixel wide line can annihilate each other, might also cause
-	// problems at corners, which is more of what I'm worried about since I don't need 1 pixel wide line support
+	//NOTE: the logic here is too simple to work reliably on thin edges using simple corner centric Roberts cross, need face centric averaging
 	int2 along;
 	along.x = read_imagei(iS4_src_image, samp, coords - n_grad).w;
 	along.y = read_imagei(iS4_src_image, samp, coords + n_grad).w;
 	if(any(grad.w < along))	// non-max suppression
 		return;
 	
-/*	// this doesn't work to fix it
-	int2 along1, along2;
-	along1 = read_imagei(iS4_src_image, samp, coords - n_grad).lo;
-	along2 = read_imagei(iS4_src_image, samp, coords + n_grad).lo;
 
-	if(int2Dot(along1, grad.lo) > grad.w || int2Dot(along2, grad.lo) > grad.w)
-		return;
-*/
 	// compress to 7-bit angle and set occupancy flag
 	write_imagei(iC1_dst_image, coords, (grad.z >> 8) | 1);
 }

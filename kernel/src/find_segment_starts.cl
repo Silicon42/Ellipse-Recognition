@@ -43,34 +43,35 @@ __kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only 
 	//switch(grad_ang + 16 & 0xE0)	// find which 22.5 degree offset octant the angle is part of
 
 	// convert gradient angle to index of bin corresponding to it, +22.5 degrees (+16) to round to nearest bin
-	uchar grad_idx = (grad_ang + 16) >> 5;
-	neighbors.l = rotate(neighbors.l, (long)grad_idx);//assuming the rotation is a right rotation
+	uchar grad_idx = (uchar)(grad_ang + 16) >> 5;
+	// rotate the neighbors so that indexing is now relative to the gradient vector
+	// rotation amount is index count (8) minus grad_idx * 8 bits per byte
+	neighbors.l = rotate(neighbors.l, (long)(8 * (8 - grad_idx)));
 
 	// all neighbors on this side must be empty for this to count as a start
-	if(neighbors.l & 0x0101010000000000)
+	if(neighbors.l & 0xFFFFFF0000000000)
 	{
-		// or in the special corner case of a closed loop, the angle must go from low negative to low positive
+		// or in the special corner case of a closed loop, the angle must go from negative to positive
 		//NOTE: could also be done on gray code in same or fewer steps, ie shift-XOR, mask, ==
-		if(!(grad_ang > 0 && grad_ang < 64))	//low positive check
+		if(grad_ang < 8)	// positive pass check, done first to hopefully skip more branching
 			return;
 		
-		// need 3 checks since we don't know which of the cells was occupied,
-		// can't be switch-case since multiple (should be no more than 2) can be occupied
+		// need to figure which of the 3 cells was occupied,
+		// can't be switch-case since multiple (should ideally be no more than 2) can be occupied
 		char i = 7;
-		if(neighbors.c.s6)
+		if(neighbors.c.s6)	// highest priority to the nearest to 90, most likely to be occupied
 			i = 6;
-		else if(neighbors.c.s5)
+		else if(neighbors.c.s5)	// 2nd highest to ccw of 90 by convention
 			i = 5;
-		
-		if(!(neighbors.a[i] < 0 && neighbors.a[i] > -64))
+		//else i = 7;	defaults to cw of 90 because if it wasn't the first 2 it must be this one
+
+		if(neighbors.a[i] > -8)	// negative pass check
 			return;
-		
-		//TODO: maybe add this connection as part of the segment, would require additional processing
 	}
 
 	//norm_idx = (norm_idx + 4) & 7;	// flip to opposite normal index
 	// at least one neighbor on this side must be populated for this to count as a start
-	if(!(neighbors.l & 0x0000000001010100))
+	if(!(neighbors.l & 0x00000000FFFFFF00))
 		return;
 	
 	// need 3 checks same as above since we don't know which of the cells was occupied

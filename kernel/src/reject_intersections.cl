@@ -34,6 +34,9 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 	//TODO: check if it's more efficient to compact into a char bit vector first for calculations
 	long occupancy = neighbors.l & 0x0101010101010101;	//extract just the occucpancy flags
 /*
+//NOTE: This block is wrong because in some extreme situations, an edge can appear as a constant gradient for multiple pixels
+// without a single clearly defined max, this is most common in simple computer generated images but could theoretically happen
+// in real life as well
 	//any situation with more than 4 neighbors must be an intersection, so reject
 	char neighbor_cnt = popcount(occupancy);
 	if(neighbor_cnt > 4)
