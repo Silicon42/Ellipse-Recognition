@@ -64,7 +64,7 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 
 	union l_c8 is_invalid;
 	//TODO: this threshold might need to be widened or shrunk depending on gradient finding method, currently assumes most angle divergence possible while still belonging to the same arc is 45 degrees
-	is_invalid.c = abs(mutual_diff.c) > (char)32;	// if absolute divergence in angle of adjacent neighbors is more than 45 degrees (45/360 : 1/8 : 32/256)
+	is_invalid.c = abs(mutual_diff.c) > (char)64;	// if absolute divergence in angle of adjacent neighbors is more than 90 degrees (90/360 : 1/4 : 64/256)
 	if(is_invalid.l)
 		return;
 

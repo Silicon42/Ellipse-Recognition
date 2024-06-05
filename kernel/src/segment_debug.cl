@@ -6,9 +6,9 @@ __kernel void segment_debug(read_only image2d_t iC1_canny, read_only image2d_t i
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	int4 out = -1;
-	out.z = read_imagei(iC1_reject_isect, coords).x ? -1 : 0;	// sets blue channel if edge passed intersection rejection
-	out.x = (!out.z && read_imagei(iC1_canny, coords).x) ? -1 : 0;	// sets red channel if edge didn't pass intersection rejection
-	out.y = read_imagei(iC1_seg_start, coords).x ? -1 : 0;	// sets green channel (in combo with blue) if pixel classified as a segment start
+	out.y = read_imagei(iC1_seg_start, coords).x ? -1 : 0;	// sets green channel if pixel classified as a segment start
+	out.z = (!out.y && read_imagei(iC1_reject_isect, coords).x) ? -1 : 0;	// sets blue channel if edge passed intersection rejection and wasn't a start
+	out.x = (!(out.z||out.y) && read_imagei(iC1_canny, coords).x) ? -1 : 0;	// sets red channel if edge didn't pass intersection rejection
 
 	write_imagei(iC4_dst_image, coords, out);
 }

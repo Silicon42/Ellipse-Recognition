@@ -1,11 +1,17 @@
 // Kernel meant to select intial line/arc segment starting points in a non-max
-// suppressed edge image (such as after Canny) and hash them into a 1D array.
+// suppressed edge image (such as after Canny) 
+
+// VVVVV not implemented yet, using a serial reduction to 1D as a separate kernel for now
+//and hash them into a 1D array.
 // Since starts should be extremely sparse, a sufficiently large hash table should
 // have few collisions but still take up less space and have better access patterns
 // than operating on the whole image. If it can't be made sufficiently big enough,
 // then the secondary output can be used to confirm remaining starts after transformation
 // back into uncompressed space and processing on those remaining can be doen in a
 // 2nd(or more) pass
+
+//FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
+
 /*
 union l_c8{
 	long l;
@@ -13,7 +19,8 @@ union l_c8{
 	char a[8];
 };
 */
-__kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only image2d_t iC1_dst_image)
+
+kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only image2d_t uc1_dst_image)
 {
 	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
@@ -60,16 +67,18 @@ __kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only 
 		if(grad_ang < 64)	// positive pass check, done first to hopefully skip more branching
 			return;
 		
-		// need to figure which of the 3 cells was occupied,
-		// can't be switch-case since multiple (should ideally be no more than 2) can be occupied
-		char i = 7;
-		if(neighbors.c.s6)	// highest priority to the nearest to 90, most likely to be occupied
-			i = 6;
-		else if(neighbors.c.s5)	// 2nd highest to ccw of 90 by convention
-			i = 5;
-		//else i = 7;	defaults to cw of 90 because if it wasn't the first 2 it must be this one
+		// need to figure which of the 3 cells was occupied, with priority to most close to the normal vector
+		uchar i = 6;	// set to default option of index corresponding to -90 off of gradient as it's most likely to be occupied
+		if(!neighbors.c.s6)	// if most normal cell isn't occupied,
+		{
+			// prioritize checking the next nearest angle to -90
+			uchar dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
+			i += dir;
+			if(!neighbors.a[i & 7])	// if it's still not occupied, we geussed wrong and it's the opposite direction
+				i -= 2*dir;
+		}
 
-		if(neighbors.a[i] > -64)	// negative pass check
+		if(neighbors.a[i & 7] > -64)	// negative pass check
 			return;
 	}
 
@@ -79,14 +88,17 @@ __kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only 
 		return;
 	
 	// need 3 checks same as above since we don't know which of the cells was occupied
-	char i = 0b10;
-	if(neighbors.c.s2)
-		i = 0b11;
-	else if(neighbors.c.s1)
-		i = 0b01;
+	uchar i = 2;	// set to default option of index corresponding to +90 off of gradient as it's most likely to be occupied
+	if(!neighbors.c.s2)	// if most normal cell isn't occupied,
+	{
+		// prioritize checking the next nearest angle to +90
+		uchar dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
+		i += dir;
+		if(!neighbors.a[i & 7])	// if it's still not occupied, we guessed wrong and it's the opposite direction
+			i -= 2*dir;
+	}
 	
-	//neighbors.a[i] - grad_ang;
-	//TODO: coords should get updated to the coord of the segment continuation here for processing purposes
+	i |= (i + grad_idx) << 5;	// convert from normal-relative index to 0 deg-relative index and OR it on since this is needed later
 
-	write_imagei(iC1_dst_image, coords, i<<6);
+	write_imageui(uc1_dst_image, coords, i);
 }
