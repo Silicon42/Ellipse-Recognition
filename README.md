@@ -5,6 +5,20 @@ Currently includes a Scharr filter based edge detector that simultaneously
 calculates x and y gradients from a single input channel. No performance testing 
 has been done yet. Ellipse recognition has not yet been implemented.
 
+# Cloning this repo
+This repo uses git submodules to pull in the OpenCL headers, so you must use
+```git submodule --init --recursive``` to pull in those before compiling for the
+first time. You also need to get the compiled OpenCL binaries for your platform
+from somewhere. Official SDK binaries can be found here:
+* TODO: add link to binaries
+Then you must edit the OPENCL_ROOT variable on line 11 of the Makefile to point 
+to the directory. If after compiling one of the applications, it fails to run 
+with no output or errors, then it probably needs the DLL to be copied to the 
+same directory as the executable. I do not know why this happens as I've had it 
+just work and pick up the proper DLL from the Windows system files when compiled
+on one computer and not see any instances of OpenCL.DLL when compiled on another
+despite using the same files.
+
 # Attribution
 Thanks to Sean Barrett for his stb image reading and writing libraries found 
 here: https://github.com/nothings/stb . They were a great help with testing my 

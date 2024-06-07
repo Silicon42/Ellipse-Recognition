@@ -8,8 +8,8 @@ CFLAGS += -g -O0 -Wall -Wextra -Werror -Wno-shift-negative-value -Wno-implicit-f
 
 LIBS = -lOpenCL
 
-OPENCL_ROOT := ../OpenCL-SDK-v2023.12.14-Win-x64/#OpenCL/
-OPENCL_INC_DIR := $(OPENCL_ROOT)include/#OpenCL-Headers/
+OPENCL_ROOT := ../OpenCL-SDK-v2024.05.08-Win-x64/#OpenCL/
+OPENCL_INC_DIR := OpenCL/OpenCL-Headers/#$(OPENCL_ROOT)include/#
 OPENCL_WIN64_LIB_DIR := $(OPENCL_ROOT)lib/#lib-v2023.12.14-Win-x64/
 
 OBJ_DIR := obj/
@@ -56,9 +56,9 @@ OBJECTS := $(subst $(SRC_DIR),$(OBJ_DIR),$(SOURCES:.c=.o))
 DEPS := $(OBJECTS:.o=.d) $(APP_OBJECTS:.o=.d)
 
 #####   First Target -- This is what gets built by default #####
-#.PHONY: all
-#all: $(OBJECTS) $(APP_OBJECTS)
-#	@echo compiled all objects
+.PHONY: all
+all: $(OBJECTS) $(APP_OBJECTS)
+	# Compiled all objects.
 
 # VScode Makefile tools is stupid and doesn't allow manually adding targets, instead it only allows
 #  explicitly specified targets so these are dummy rules for the applications.
@@ -69,12 +69,12 @@ scharr_cpu:
 
 # the compile rule for the prerequisites of the final target --
 $(OBJ_DIR)%.o : %.c				# pattern rule picks up the .c as a pre-req for a .o
-	@echo "My pattern rule .c to .o via OBJ_DIR"
-	@mkdir -p '$(@D)'
+	# My pattern rule .c to .o via OBJ_DIR
+	mkdir -p '$(@D)'
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $< $(TARGET_ARCH)
 
 $(BUILD_TARGET) :$(OBJECTS) $(TARGET_OBJ) #$(MODULE_OBJECTS)	# This will drive the creation of the .o files in the OBJdir for the prerequisites 
-	@echo "$@ link rule"
+	# link rule
 	$(CC) $(LDFLAGS) -o $@ $^ $(TARGET_ARCH) $(LOADLIBES) $(LDLIBS)
 #$(MODULE_OBJ_DIR)%.o : %.c
 #	@echo "making $(subst $(MODULE_DIR),./,$@)"
@@ -82,10 +82,9 @@ $(BUILD_TARGET) :$(OBJECTS) $(TARGET_OBJ) #$(MODULE_OBJECTS)	# This will drive t
 
 .PHONY: clean
 clean:
-	$(MAKE) clean -C $(MODULE_DIR)
-	@echo cleaning $(OBJ_DIR)
-	@rm -rf $(OBJ_DIR)			# removing all of the OBJS forces a complete re-compile / re-link
-	@rm -f *.exe				# just for good measure remove the exe as well 
+	@#$(MAKE) clean -C $(MODULE_DIR)
+	rm -rf $(OBJ_DIR)	# removing all of the OBJS forces a complete re-compile / re-link
+	rm -f *.exe			# just for good measure remove the exe as well 
 
 # see automatic generation via -MMD -MP and include $(DEPS) below
 -include $(DEPS)

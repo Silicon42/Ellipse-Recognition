@@ -23,6 +23,7 @@ void mystrchr(char* str, char match, char replace)
 
 int main()
 {
+	printf("Generating diagnostic report.\n\n");
 	// Host/device data structures //
 	cl_uint platform_cnt = 0;
 	cl_platform_id* platforms;
