@@ -121,7 +121,7 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 
 	for(cl_uint j=0; j < arg_cnt; ++j)
 	{
-		printf("\n[%i] ", j);
+		printf("\n\t[%i] ", j);
 		cl_kernel_arg_access_qualifier arg_access;
 		clErr = clGetKernelArgInfo(kernel, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(cl_kernel_arg_access_qualifier), &arg_access, NULL);
 		handleClError(clErr, "clGetKernelArgInfo");
@@ -216,14 +216,17 @@ int prepQStages(cl_context context, const QStaging** staging, const cl_kernel* r
 		// set the name in the current stage and print it, done early to easier identify errors
 		clErr = clGetKernelInfo(ref_kernels[kern_idx], CL_KERNEL_FUNCTION_NAME, sizeof(stages[i].name), &(stages[i].name), NULL);
 		handleClError(clErr, "clGetKernelInfo");
-		printf("\nStaging kernel: %s ", stages[i].name);
+		printf("\n\nStaging kernel: %s", stages[i].name);
 		
 		// it's maybe a little wasteful to always clone the reference kernel every time,
 		// but at least I don't need to manually track if it's been used already this way
+		/*	// clCloneKernel() not available in OpenCL1.2
 		cl_kernel curr_kern = clCloneKernel(ref_kernels[kern_idx], &clErr);
 		handleClError(clErr, "clCloneKernel");
+		*/
+		//FIXME: Temp fix for OpenCL 1.2 support, just assign the ref_kernel and don't free it, means each can only be used once
+		cl_kernel curr_kern = ref_kernels[kern_idx];
 		stages[i].kernel = curr_kern;
-
 		setKernelArgs(context, staging[i], curr_kern, at);
 
 		TrackedArg* ref_arg = getRefArg(at, staging[i]->rel_ref);

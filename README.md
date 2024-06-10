@@ -25,3 +25,7 @@ here: https://github.com/nothings/stb . They were a great help with testing my
 code and very easy to use. I was pleasantly surprised when I found that reading 
 a single channel from an image automatically converted it to greyscale since 
 that was exactly what I needed.
+
+# TODO List
+* Add type read/write type mismatch warning for OpenCL kernel compilation
+* 

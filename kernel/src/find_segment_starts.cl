@@ -20,12 +20,12 @@ union l_c8{
 };
 */
 
-kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only image2d_t uc1_dst_image)
+kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only image2d_t uc1_starts_image)
 {
 	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
-	char grad_ang = read_imagei(iC1_src_image, coords).x;
+	char grad_ang = read_imagei(iC1_edge_image, coords).x;
 
 	// magnitude channel used as bool for occupancy
 	// if gradient angle == 0, it wasn't set in canny_short because even 0 should have the occupancy flag set,
@@ -37,14 +37,14 @@ kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only im
 	//TODO: see if intelligently selecting just 6 pixels to read based on gradient angle shows any significant benefit over 
 	// the current method of reading all 8 adjacent into an array and indexing
 	union l_c8 neighbors;
-	neighbors.c.s0 = read_imagei(iC1_src_image, samp, coords + (int2)(1,0)).x;
-	neighbors.c.s1 = read_imagei(iC1_src_image, samp, coords + 1).x;
-	neighbors.c.s2 = read_imagei(iC1_src_image, samp, coords + (int2)(0,1)).x;
-	neighbors.c.s3 = read_imagei(iC1_src_image, samp, coords + (int2)(-1,1)).x;
-	neighbors.c.s4 = read_imagei(iC1_src_image, samp, coords - (int2)(1,0)).x;
-	neighbors.c.s5 = read_imagei(iC1_src_image, samp, coords - 1).x;
-	neighbors.c.s6 = read_imagei(iC1_src_image, samp, coords - (int2)(0,1)).x;
-	neighbors.c.s7 = read_imagei(iC1_src_image, samp, coords - (int2)(-1,1)).x;
+	neighbors.c.s0 = read_imagei(iC1_edge_image, samp, coords + (int2)(1,0)).x;
+	neighbors.c.s1 = read_imagei(iC1_edge_image, samp, coords + 1).x;
+	neighbors.c.s2 = read_imagei(iC1_edge_image, samp, coords + (int2)(0,1)).x;
+	neighbors.c.s3 = read_imagei(iC1_edge_image, samp, coords + (int2)(-1,1)).x;
+	neighbors.c.s4 = read_imagei(iC1_edge_image, samp, coords - (int2)(1,0)).x;
+	neighbors.c.s5 = read_imagei(iC1_edge_image, samp, coords - 1).x;
+	neighbors.c.s6 = read_imagei(iC1_edge_image, samp, coords - (int2)(0,1)).x;
+	neighbors.c.s7 = read_imagei(iC1_edge_image, samp, coords - (int2)(-1,1)).x;
 
 	//maybe don't do switch since that's really bad branching wise, might not hurt much now due to processing sparsity but could be bad later
 	//switch(grad_ang + 16 & 0xE0)	// find which 22.5 degree offset octant the angle is part of
@@ -68,17 +68,17 @@ kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only im
 			return;
 		
 		// need to figure which of the 3 cells was occupied, with priority to most close to the normal vector
-		uchar i = 6;	// set to default option of index corresponding to -90 off of gradient as it's most likely to be occupied
+		uchar rel_idx = 6;	// set to default option of index corresponding to -90 off of gradient as it's most likely to be occupied
 		if(!neighbors.c.s6)	// if most normal cell isn't occupied,
 		{
 			// prioritize checking the next nearest angle to -90
-			uchar dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
-			i += dir;
-			if(!neighbors.a[i & 7])	// if it's still not occupied, we geussed wrong and it's the opposite direction
-				i -= 2*dir;
+			char dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
+			rel_idx += dir;
+			if(!neighbors.a[rel_idx & 7])	// if it's still not occupied, we guessed wrong and it's the opposite direction
+				rel_idx -= 2*dir;
 		}
 
-		if(neighbors.a[i & 7] > -64)	// negative pass check
+		if(neighbors.a[rel_idx & 7] > -64)	// negative pass check
 			return;
 	}
 
@@ -88,17 +88,17 @@ kernel void find_segment_starts(read_only image2d_t iC1_src_image, write_only im
 		return;
 	
 	// need 3 checks same as above since we don't know which of the cells was occupied
-	uchar i = 2;	// set to default option of index corresponding to +90 off of gradient as it's most likely to be occupied
+	uchar rel_idx = 2;	// set to default option of index corresponding to +90 off of gradient as it's most likely to be occupied
 	if(!neighbors.c.s2)	// if most normal cell isn't occupied,
 	{
 		// prioritize checking the next nearest angle to +90
-		uchar dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
-		i += dir;
-		if(!neighbors.a[i & 7])	// if it's still not occupied, we guessed wrong and it's the opposite direction
-			i -= 2*dir;
+		char dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
+		rel_idx += dir;
+		if(!neighbors.a[rel_idx & 7])	// if it's still not occupied, we guessed wrong and it's the opposite direction
+			rel_idx -= 2*dir;
 	}
 	
-	i |= (i + grad_idx) << 5;	// convert from normal-relative index to 0 deg-relative index and OR it on since this is needed later
+	rel_idx = (rel_idx + grad_idx) | 0xF0;	// convert from normal-relative index to 0 deg-relative index and OR in an occupancy flag in bit 3
 
-	write_imageui(uc1_dst_image, coords, i);
+	write_imageui(uc1_starts_image, coords, rel_idx);
 }

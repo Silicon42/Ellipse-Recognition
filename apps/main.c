@@ -10,8 +10,8 @@
 #define OUTPUT_NAME "images/output"
 #define KERNEL_GLOBAL_BUILD_ARGS "-Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"// -cl-no-subgroup-ifp
 #define HOUGH_ANGLE_RES (1<<11)
-#define MAX_KERNELS 8
-#define MAX_STAGES 8
+#define MAX_KERNELS 16
+#define MAX_STAGES 16
 #define MAX_ARGS 64
 // macro to stringify defined literal values
 #define STR_EXPAND(tok) #tok
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
 
 	cl_int clErr;
-	const char* kernel_progs[] = {"robertsX", "canny_short", "reject_intersections", "find_segment_starts", "segment_debug", "sum_4", NULL};	//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
+	const char* kernel_progs[] = {"robertsX", "canny_short", "reject_intersections", "find_segment_starts", "segment_debug", "sum_4", "serial_reduce", "arc_segments", NULL};	//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -54,15 +54,26 @@ int main(int argc, char *argv[])
 
 	// build reference kernels from source
 	cl_kernel kernels[MAX_KERNELS];
-	cl_uint kernel_cnt = buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
+	/*	//FIXME: temp fix for OpenCL 1.2 support
+	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-	ArgStaging simple_grow1[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
-	ArgStaging simple_shrink1[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
-	ArgStaging simple[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple_grow1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
+	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{8192,1,1}},CL_TRUE,CL_FALSE}};
 //	ArgStaging doubler[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{2,2,1}},CL_TRUE,CL_FALSE}};
-	ArgStaging segment_debug[4] = {
+	ArgStaging arc_segments[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},
+		{2,{REL,{0}},CL_TRUE,CL_FALSE},
+		{3,{REL,{0}},CL_TRUE,CL_FALSE}
+	};
+	ArgStaging segment_debug[] = {
+		{6,{REL,{0}},CL_FALSE,CL_FALSE},
+		{5,{REL,{0}},CL_FALSE,CL_FALSE},
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE,CL_FALSE}
@@ -71,12 +82,14 @@ int main(int argc, char *argv[])
 
 	const QStaging* staging[] = {
 //		&(QStaging){5, 1, {REL, {0}}, doubler},
-		&(QStaging){0, 1, {REL, {0}}, simple_grow1},
-		&(QStaging){5, 1, {REL, {0}}, simple_shrink1},
-		&(QStaging){1, 1, {REL, {0}}, simple},
-		&(QStaging){2, 1, {REL, {0}}, simple},
-		&(QStaging){3, 1, {REL, {0}}, simple},
-		&(QStaging){4, 1, {REL, {0}}, segment_debug},
+		&(QStaging){0, 1, {REL, {0}}, simple_grow1},	//RobertsX
+		&(QStaging){5, 1, {REL, {0}}, simple_shrink1},	//Sum4
+		&(QStaging){1, 1, {REL, {0}}, simple},			//Canny Short
+		&(QStaging){2, 1, {REL, {0}}, simple},			//Intersection Rejection
+		&(QStaging){3, 1, {REL, {0}}, simple},			//Find Segment Starts
+		&(QStaging){6, 1, {SINGLE, {0}}, serial},		//Serial Reduce
+		&(QStaging){7, 3, {REL, {0}}, arc_segments},	//Arc Segments
+		&(QStaging){4, 1, {REL, {0}}, segment_debug},	//Segment Debug
 		NULL
 	};
 
@@ -85,11 +98,13 @@ int main(int argc, char *argv[])
 	int stage_cnt = prepQStages(context, staging, kernels, stages, MAX_STAGES, &tracker);
 
 	// release the reference kernels when done with staging
+	/*	//FIXME: temp fix for OpenCL 1.2 support
 	for(cl_uint i = 0; i < kernel_cnt; ++i)
 	{
 		clReleaseKernel(kernels[i]);
 		handleClError(clErr, "clReleaseKernel");
 	}
+	*/
 	// allocate output buffer
 	char* out_data = (char*)malloc(tracker.max_out_size);
 
