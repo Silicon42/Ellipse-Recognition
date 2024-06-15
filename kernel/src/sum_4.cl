@@ -11,6 +11,7 @@ __kernel void sum_4(read_only image2d_t iS2_src_image, write_only image2d_t iS4_
 
 	short ang, mag;
 	ang = convert_short_sat_rte(atan2pi((float)grad.y, grad.x) * (1<<15));
+	//TODO: add a fix so that we can still use the -cl-fast-relaxed-math compiler arg
 	mag = convert_short_rte(fast_length(convert_float2(grad)));
 
 	write_imagei(iS4_dst_image, coords, (int4)(grad, ang, mag));

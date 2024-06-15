@@ -7,16 +7,16 @@
 //TODO: actually implement multiple attempts to find a GPU, currently just takes the first device of the first platform
 cl_device_id getPreferredDevice()
 {
-	cl_platform_id platform;
+	cl_platform_id platform[4];
 	cl_device_id device;
 	cl_int clErr;
 
 	// use the first platform
-	clErr = clGetPlatformIDs(1, &platform, NULL);
+	clErr = clGetPlatformIDs(4, platform, NULL);
 	handleClError(clErr, "clGetPlatformIDs");
 
 	// use the first device
-	clErr = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, NULL);
+	clErr = clGetDeviceIDs(platform[1], CL_DEVICE_TYPE_ALL, 1, &device, NULL);
 	handleClError(clErr, "clGetDeviceIDs");
 
 	return device;

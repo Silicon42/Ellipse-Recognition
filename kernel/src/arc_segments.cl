@@ -7,10 +7,20 @@ union ul2_ui4{
 	uint4 ui4;
 };
 
+union i_c4{
+	int i;
+	char4 c;
+	uchar4 uc;
+	uchar uca[4];
+};
+
 kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t uc1_starts_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
-	const int2 offsets[8] = {(int2)(1,0),(int2)(1,1),(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1)};
-	short index = get_global_id(0);	// must be scheduled as 1D
+	const int2 offsets[8] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)(1,1)};
+	short index = get_global_id(0) + 1;	// must be scheduled as 1D
+	ushort max_size = read_imageui(us4_start_info, 0).x;
+	if(index >= max_size)	//prevent reading from unitialized memory
+		return;
 	
 	// initialize variables of arcs segment tracing loop for first iteration
 	uint4 start_info = read_imageui(us4_start_info, index);
@@ -38,16 +48,23 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 	// loop until we run out of pixels for the arc segment or hit a start
 	while(!read_imageui(uc1_starts_image, coords).x)
 	{
+		//printf("(%3v2i),", coords);
 		write_imageui(uc1_trace, coords, -1);
 		// convert the reported gradient angle to a 3 bit index prediction for the next pixel we expect to be populated
 		// this is calculated by current angle + derivative + rounding to bin factor(256/16 == 16) + 90 offset for normal(256/4 == 64),
 		// then right shifted so only the 3 most significant bits remain
-		char predicted_angle = curr_angle + prev_angle_diff + 16 + 64;
-		dir_idx = (uchar)predicted_angle >> 5;	// literal needs to be forced to be interpreted as char or else index might overflow
+		char predicted_angle = curr_angle + prev_angle_diff;// + 16 + 64;
+		dir_idx = (uchar)(predicted_angle + 16) >> 5;	// literal needs to be forced to be interpreted as char or else index might overflow
 
 		prev_angle = curr_angle;
-		curr_angle = read_imagei(iC1_grad_image, coords + offsets[dir_idx]).x;
-		if(!curr_angle)
+
+		union i_c4 geusses, diffs;
+		//geusses.i = diffs.i = 0;
+		geusses.c.x = read_imagei(iC1_grad_image, coords + offsets[(dir_idx-1) & 7]).x;
+		geusses.c.y = read_imagei(iC1_grad_image, coords + offsets[dir_idx]).x;
+		geusses.c.z = read_imagei(iC1_grad_image, coords + offsets[(dir_idx+1) & 7]).x;
+
+/*		if(!curr_angle)
 		{	// the guessed offsets get modified to the 2nd closesest pixel to the predicted angle
 			//break;
 			char dir = ((char)(dir_idx << 5) - predicted_angle) < 0 ? -1 : 1;
@@ -61,8 +78,37 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 				if(!curr_angle)
 					break;	// no continuation, end loop and flush accumulated contents to output
 			}
+
+		}*/
+		if(!geusses.i)	// this is an early out for if there is no continuation, but it could be caught at the diffs check instead
+			break;	// no continuation, end loop and flush accumulated contents to output
+
+		// create a mask for the occupied pixels in the geusses from their occupancy flags
+		// this gets used to filter out invalid results of computations on unoccupied geusses
+		int occupancy_mask = geusses.i & 0x010101;
+		occupancy_mask = (occupancy_mask << 8) - occupancy_mask;
+
+		geusses.i &= 0xFEFEFE;	// remove occupancy flag before use
+
+		diffs.uc = abs(geusses.c - predicted_angle);
+		diffs.i |= ~occupancy_mask;	// forces invalid diffs to max value
+
+		uchar best_diff = 3;
+		//if(diffs.uca[best_diff] == 255)
+		//	printf("+\n");
+		for(uchar i = 0; i < 3; ++i)	// select the edge pixel whose gradient most aligns with the predicted angle
+		{	//NOTE: slight assymetry due to evaluation order, could be fixed with unrolling and hardcoding the index
+			best_diff = (diffs.uca[best_diff] > diffs.uca[i]) ? i : best_diff;
 		}
-		curr_angle &= 0xFE;	// remove occupancy flag before use
+
+
+		//printf("diff: %u\n", diffs.uca[best_diff]);
+
+		if(diffs.uca[best_diff] >= 85)	//prevent jumping to completely differently aligned gradients
+			break;	// none of the geusses were aligned with the current angle prediction, end loop and flush accumulated contents to output
+		
+		curr_angle = (char)geusses.uca[best_diff];
+		dir_idx = (dir_idx + best_diff - 1) & 7;
 
 		prev_angle_diff = curr_angle_diff;
 		curr_angle_diff = curr_angle - prev_angle;
@@ -72,8 +118,9 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 
 		// if the total angular acceleration for the arc exceeds the small acceleration threshold,
 		// save the accumulator and restart it as a new arc segment
-		if(abs(angle_accel) > 8)	// this corresponds to a +/- 2.8125 deg per pixel^2 total acceleration noise threshold
+		if(abs(angle_accel) > 6)	// this corresponds to a +/- 2.8125 deg per pixel^2 total acceleration noise threshold
 		{
+			//break;
 			angle_accel = 0;
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
@@ -90,12 +137,13 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		//if we've filled a 64-bit value copy it to the next one and continue
 		if(path_length == 21)
 		{
+			//break;
 			path_accum.ul2.y = path_accum.ul2.x;
 		}
 		// if we have exceeded the maximum size we can store in a single write, we reset and continue with a new one
 		if(path_length >= 42)
 		{
-			break;
+			//break;
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
 			// reset path_accum

@@ -57,16 +57,18 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 	mutual_neighbors = (mutual_neighbors << 8) - mutual_neighbors;
 
 	// the subtract as a long works because all borrows come from the occupancy flags leaving valid angles untouched and invalid
-	// ones get masked out anyway, this means that it works in parallel regardless of it there is hardware vector support or not,
+	// ones get masked out anyway, this means that it works in parallel regardless of if there is hardware vector support or not,
 	// this may or may not be faster than proper vector operations on systems with hardware vector support on a case by case basis
 	union l_c8 mutual_diff;
 	mutual_diff.l = mutual_neighbors & (neighbors.l - rotate(neighbors.l, 8L));
 
 	union l_c8 is_invalid;
 	//TODO: this threshold might need to be widened or shrunk depending on gradient finding method, currently assumes most angle divergence possible while still belonging to the same arc is 45 degrees
-	is_invalid.c = abs(mutual_diff.c) > (char)64;	// if absolute divergence in angle of adjacent neighbors is more than 90 degrees (90/360 : 1/4 : 64/256)
+	is_invalid.c = abs(mutual_diff.c) > (uchar)64;	// if absolute divergence in angle of adjacent neighbors is more than 90 degrees (90/360 : 1/4 : 64/256)
 	if(is_invalid.l)
+	{
+	//	printf("invalid: 0x %08X %08X, diff: 0x %08X %08X, mask: 0x %08X %08X, values: 0x %08X %08X\n", is_invalid.l >> 32, is_invalid.l, mutual_diff.l >> 32, mutual_diff.l, mutual_neighbors >> 32, mutual_neighbors, neighbors.l >> 32, neighbors.l);
 		return;
-
+	}
 	write_imagei(iC1_dst_image, coords, (int)grad_ang);
 }

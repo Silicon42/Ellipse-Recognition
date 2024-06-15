@@ -6,7 +6,7 @@
 // [0] In	uc1_src_image: 1 channel greyscale on x component (UINT8)
 // [1] Out	iS4_dst_image: 4 channel image of x and y gradient (INT16), angle 
 //				(INT16), and gradient magnitude (UINT16)
-__kernel void robertsX(read_only image2d_t uc1_src_image, write_only image2d_t iS2_dst_image)
+__kernel void robertsX(read_only image2d_t uc1_src_image, write_only image2d_t iS4_dst_image)
 {
 	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
@@ -25,8 +25,9 @@ __kernel void robertsX(read_only image2d_t uc1_src_image, write_only image2d_t i
 	grad += (int2)(-grad.y, grad.x);
 
 	short ang, mag;
-	ang =0; // convert_short_sat_rte(atan2pi((float)grad.y, grad.x) * (1<<15));
-	mag =-1;// convert_short_rte(fast_length(convert_float2(grad)));
+	ang = convert_short_sat_rte(atan2pi((float)grad.y, grad.x) * (1<<15));
+	//TODO: add a fix so that we can still use the -cl-fast-relaxed-math compiler arg
+	mag = convert_short_rte(fast_length(convert_float2(grad)));
 
-	write_imagei(iS2_dst_image, coords, (int4)(grad, ang, mag));
+	write_imagei(iS4_dst_image, coords, (int4)(grad, ang, mag));
 }
