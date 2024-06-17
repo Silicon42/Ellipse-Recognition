@@ -33,8 +33,8 @@ __kernel void canny_short(read_only image2d_t iS4_src_image, write_only image2d_
 	along.y = read_imagei(iS4_src_image, samp, coords + n_grad).w;
 	if(any(grad.w < along))	// non-max suppression
 		return;
-	
-
+	if(any(grad.w == along) && ((coords.x + coords.y) & 1))	// constant gradient edge case mitigation
+		return;
 	// compress to 7-bit angle and set occupancy flag
 	write_imagei(iC1_dst_image, coords, (grad.z >> 8) | 1);
 }

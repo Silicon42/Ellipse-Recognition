@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
 	// staged queue settings of which kernels to use and how
 	ArgStaging simple_grow1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
-//	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
 	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{8192,1,1}},CL_TRUE,CL_FALSE}};
 //	ArgStaging doubler[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{2,2,1}},CL_TRUE,CL_FALSE}};
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 
 	const QStaging* staging[] = {
 		&(QStaging){0, 1, {REL, {0}}, simple_grow1},	//RobertsX
-//		&(QStaging){5, 1, {REL, {0}}, simple_shrink1},	//Sum4
+		&(QStaging){5, 1, {REL, {0}}, simple_shrink1},	//Sum4
 		&(QStaging){1, 1, {REL, {0}}, simple},			//Canny Short
 		&(QStaging){2, 1, {REL, {0}}, simple},			//Intersection Rejection
 		&(QStaging){3, 1, {REL, {0}}, simple},			//Find Segment Starts
