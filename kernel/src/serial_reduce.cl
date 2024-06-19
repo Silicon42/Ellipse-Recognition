@@ -22,6 +22,7 @@ __kernel void serial_reduce(read_only image2d_t uc1_src_image, write_only image1
 				++index;
 				if(index == max_size)	// prevent possibly attempting to write past the end of the image, which can freeze the pipeline
 				{
+					printf("serial_reduce(): max index was %u\n", index);
 					write_imageui(us4_dst_image, 0, max_size);
 					return;
 				}

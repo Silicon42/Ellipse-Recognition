@@ -55,7 +55,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		// convert the reported gradient angle to a 3 bit index prediction for the next pixel we expect to be populated
 		// this is calculated by current angle + derivative + rounding to bin factor(256/16 == 16) + 90 offset for normal(256/4 == 64),
 		// then right shifted so only the 3 most significant bits remain
-		char predicted_angle = curr_angle + prev_angle_diff;// + 16 + 64;
+		char predicted_angle = curr_angle;// + prev_angle_diff;// + 16 + 64;
 		dir_idx = (uchar)(predicted_angle + 16) >> 5;	// literal needs to be forced to be interpreted as char or else index might overflow
 
 		prev_angle = curr_angle;
@@ -107,8 +107,9 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 
 
 		//printf("diff: %u\n", diffs.uca[best_diff]);
-
-		if(diffs.uca[best_diff] >= 85)	//prevent jumping to completely differently aligned gradients
+		// prevent jumping to completely differently aligned gradients, also prevents previously processed pixels from overlapping
+		// the geuss region, which can lead to an infinite loop of going back and forth between the two pixels
+		if(diffs.uca[best_diff] >= 32)
 			break;	// none of the geusses were aligned with the current angle prediction, end loop and flush accumulated contents to output
 		
 		curr_angle = (char)geusses.uca[best_diff];
@@ -160,7 +161,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 
 		if(restarts == 255)
 		{
-			printf("Too many restarts: (%i, %i)\n", coords.x, coords.y);
+			printf("Too many restarts: (%i, %i), curr_angle: %i, prev_angle: %i\n", coords.x, coords.y, curr_angle, prev_angle);
 			break;
 		}
 
