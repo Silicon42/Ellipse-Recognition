@@ -16,7 +16,7 @@ __kernel void serial_reduce(read_only image2d_t uc1_src_image, write_only image1
 		for(int x_coord = 0; x_coord < bounds.x; ++x_coord)
 		{
 			uchar value = read_imageui(uc1_src_image, (int2)(x_coord, y_coord)).x;
-			if(value)
+			if(value & 8)
 			{
 				write_imageui(us4_dst_image, index, (uint4)(x_coord , y_coord, value, -1));
 				++index;
@@ -28,6 +28,7 @@ __kernel void serial_reduce(read_only image2d_t uc1_src_image, write_only image1
 			}
 		}
 	}
+	printf("serial_reduce(): max index was %u\n", index);
 	// Index 0 is reserved for the length of the occupied portion of the array
 	write_imageui(us4_dst_image, 0, index);
 }

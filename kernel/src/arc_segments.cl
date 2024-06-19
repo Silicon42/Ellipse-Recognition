@@ -6,14 +6,14 @@ union ul2_ui4{
 	ulong2 ul2;
 	uint4 ui4;
 };
-
+/*
 union i_c4{
 	int i;
 	char4 c;
 	uchar4 uc;
 	uchar uca[4];
 };
-
+*/
 kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t uc1_starts_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
 	const int2 offsets[8] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)(1,1)};
@@ -45,8 +45,10 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 	path_accum.ul2.x = dir_idx;	//shift register that stores return data for what pixels were included in the calculation
 	uchar path_length = 1;
 
-	// loop until we run out of pixels for the arc segment or hit a start
-	while(!read_imageui(uc1_starts_image, coords).x)
+	int restarts = 0;
+
+	// loop until we hit a start or run out of pixels for the arc segment
+	while(!(read_imageui(uc1_starts_image, coords).x & 8))
 	{
 		//printf("(%3v2i),", coords);
 		write_imageui(uc1_trace, coords, -1);
@@ -120,6 +122,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		// save the accumulator and restart it as a new arc segment
 		if(abs(angle_accel) > 6)	// this corresponds to a +/- 2.8125 deg per pixel^2 total acceleration noise threshold
 		{
+			++restarts;
 			//break;
 			angle_accel = 0;
 			//Write path_accum to 2D image
@@ -143,6 +146,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		// if we have exceeded the maximum size we can store in a single write, we reset and continue with a new one
 		if(path_length >= 42)
 		{
+			++restarts;
 			//break;
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
@@ -150,6 +154,12 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 			base_coords = coords;
 			path_length = 0;
 			path_accum.ul2 = 0;
+		}
+
+		if(restarts == 255)
+		{
+			printf("Too many restarts: (%i)\n", coords);
+			break;
 		}
 	}
 

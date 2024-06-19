@@ -9,7 +9,7 @@
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
 #define KERNEL_GLOBAL_BUILD_ARGS "-Werror -g -cl-kernel-arg-info -cl-single-precision-constant"// -cl-fast-relaxed-math"// -cl-no-subgroup-ifp	// atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
-#define HOUGH_ANGLE_RES (1<<11)
+//#define HOUGH_ANGLE_RES (1<<11)
 #define MAX_KERNELS 16
 #define MAX_STAGES 16
 #define MAX_ARGS 64
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 	ArgStaging simple_grow1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
-	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{8192,1,1}},CL_TRUE,CL_FALSE}};
+	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}};
 //	ArgStaging doubler[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{2,2,1}},CL_TRUE,CL_FALSE}};
 	ArgStaging arc_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -70,7 +70,8 @@ int main(int argc, char *argv[])
 		{2,{REL,{0}},CL_TRUE,CL_FALSE},
 		{3,{REL,{0}},CL_TRUE,CL_FALSE}
 	};
-/*	ArgStaging starts_debug[] = {
+//*
+	ArgStaging starts_debug[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -92,7 +93,7 @@ int main(int argc, char *argv[])
 		&(QStaging){1, 1, {REL, {0}}, simple},			//Canny Short
 		&(QStaging){2, 1, {REL, {0}}, simple},			//Intersection Rejection
 		&(QStaging){3, 1, {REL, {0}}, simple},			//Find Segment Starts
-//		&(QStaging){8, 1, {REL, {0}}, starts_debug},	//Starts Debug
+		&(QStaging){8, 1, {REL, {0}}, starts_debug}, NULL,	//Starts Debug
 		&(QStaging){6, 1, {SINGLE, {0}}, serial},		//Serial Reduce
 		&(QStaging){7, 3, {REL, {0}}, arc_segments},	//Arc Segments
 		&(QStaging){4, 1, {REL, {0}}, segment_debug},	//Segment Debug

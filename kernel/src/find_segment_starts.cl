@@ -19,6 +19,12 @@ union l_c8{
 	char a[8];
 };
 */
+union i_c4{
+	int i;
+	char4 c;
+	uchar4 uc;
+	uchar uca[4];
+};
 
 kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only image2d_t uc1_starts_image)
 {
@@ -55,38 +61,11 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	// rotation amount is (array element count (8) minus grad_idx) * 8 bits per byte
 	neighbors.l = rotate(neighbors.l, (long)(8 * (8 - grad_idx)));
 
-	// all neighbors on this side must be empty for this to count as a start
-	if(neighbors.l & 0xFFFFFF0000000000)
-	{
-		// or in the special corner case of a closed loop, the angle must go from negative to positive
-		//NOTE: could also be done on gray code in same or fewer steps, ie shift-XOR, mask, ==
-		//FIXME: sometimes this leads to short near vertical segments consisting of mostly segment starts b/c they'll be generated
-		// right next to normal starts. This either needs special handling later or here
-		//FIXME: There seems to be some rare corner case where this fails to pick up a start on a loop, currently input6.png shows this best
-		// Revisit once I have more info and insight
-		if(grad_ang <= 0)	// positive pass check, done first to hopefully skip more branching
-			return;
-		
-		// need to figure which of the 3 cells was occupied, with priority to most close to the normal vector
-		uchar rel_idx = 6;	// set to default option of index corresponding to -90 off of gradient as it's most likely to be occupied
-		if(!neighbors.c.s6)	// if most normal cell isn't occupied,
-		{
-			// prioritize checking the next nearest angle to -90
-			char dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
-			rel_idx += dir;
-			if(!neighbors.a[rel_idx & 7])	// if it's still not occupied, we guessed wrong and it's the opposite direction
-				rel_idx -= 2*dir;
-		}
-
-		if(neighbors.a[rel_idx & 7] > 0)	// negative pass check
-			return;
-	}
-
-	// at least one neighbor on this side must be populated for this to count as a start
+	// at least one neighbor on this side must be populated for this to potentially count as a start
 	if(!(neighbors.l & 0x00000000FFFFFF00))
 		return;
 	
-	// need 3 checks same as above since we don't know which of the cells was occupied
+	// need to figure which of the 3 cells was occupied, with priority to most close to the normal vector
 	uchar rel_idx = 2;	// set to default option of index corresponding to +90 off of gradient as it's most likely to be occupied
 	if(!neighbors.c.s2)	// if most normal cell isn't occupied,
 	{
@@ -97,7 +76,47 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 			rel_idx -= 2*dir;
 	}
 	
-	rel_idx = (rel_idx + grad_idx -2) | 0xF8;	// convert from normal-relative index to 0 deg-relative index and OR in an occupancy flag in bit 3
+	uchar out_data = (rel_idx + grad_idx -2) | 0xF0;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
+	union i_c4 diffs, mask;
+	// all neighbors on this side must be empty for this to count as a start
+	switch(neighbors.l & 0xFFFFFF0000000000)	// switch used instead of if so that we can break out to end of block
+	{
+	default:
+		// or in the case of a sharp corner, there must be significantly different angles
+		diffs.c = neighbors.c.hi;
+		mask.i = diffs.i & 0x01010100;
+		mask.i = (mask.i << 8) - mask.i;
+		diffs.uc = abs(diffs.c - grad_ang);
+		diffs.i &= mask.i;
+		if(any(diffs.uc >= (uchar)20))
+		{
+			out_data |= 8;	//set start flag
+			break;
+		}
 
-	write_imageui(uc1_starts_image, coords, rel_idx);
+		// or in the special corner case of a closed loop, the angle must go from negative to positive
+		//NOTE: could also be done on gray code in same or fewer steps, ie shift-XOR, mask, ==
+		if(grad_ang <= 64)	// positive pass check, done first to hopefully skip more branching
+			break;
+		
+		/*
+		// need to figure which of the 3 cells was occupied, with priority to most close to the normal vector
+		rel_idx = 6;	// set to default option of index corresponding to -90 off of gradient as it's most likely to be occupied
+		if(!neighbors.c.s6)	// if most normal cell isn't occupied,
+		{
+			// prioritize checking the next nearest angle to -90
+			char dir = ((char)(grad_idx << 5) - grad_ang) < 0 ? -1 : 1;	// sign of the difference determines which bin to check next
+			rel_idx += dir;
+			if(!neighbors.a[rel_idx & 7])	// if it's still not occupied, we guessed wrong and it's the opposite direction
+				rel_idx -= 2*dir;
+		}*/
+
+		neighbors.l &= 0xFFFFFFFF000000FF;
+		if(!any(neighbors.c < (char)-64))	// negative pass check
+			break;
+	case 0:	// no neighbors existed OR intentional fall through
+		out_data |= 8;	//set start flag
+	}
+
+	write_imageui(uc1_starts_image, coords, out_data);
 }

@@ -7,7 +7,7 @@ __kernel void starts_debug(read_only image2d_t iC1_canny, read_only image2d_t iC
 
 	uint4 out = 0;
 	out.w = -1;
-	out.y = read_imageui(uc1_seg_start, coords).x ? -1 : 0;			// sets green channel if pixel classified as a segment start
+	out.y = (read_imageui(uc1_seg_start, coords).x & 8) ? -1 : 0;			// sets green channel if pixel classified as a segment start
 	out.z = read_imagei(iC1_reject_isect, coords).x ? -1 : 0;		// sets blue channel if edge passed intersection rejection
 	out.x = (!out.z && read_imagei(iC1_canny, coords).x) ? -1 : 0;	// sets red channel if edge didn't pass intersection rejection
 

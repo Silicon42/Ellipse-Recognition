@@ -1,4 +1,4 @@
-#define THRESH 16
+#define THRESH 24
 //FIXME: ^ this ends up globally visible b/c of how OpenCL compiles files, see if compiling separately fixes this
 
 int int2Dot(int2 a, int2 b)
