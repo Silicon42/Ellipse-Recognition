@@ -45,7 +45,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 	path_accum.ul2.x = dir_idx;	//shift register that stores return data for what pixels were included in the calculation
 	uchar path_length = 1;
 
-	int restarts = 0;
+	int restarts = 0;	//DEBUG ONLY, remove + test before release
 
 	// loop until we hit a start or run out of pixels for the arc segment
 	while(!(read_imageui(uc1_starts_image, coords).x & 8))
@@ -63,10 +63,11 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		union i_c4 geusses, diffs;
 		//geusses.i = diffs.i = 0;
 		geusses.c.x = read_imagei(iC1_grad_image, coords + offsets[(dir_idx-1) & 7]).x;
-		geusses.c.y = read_imagei(iC1_grad_image, coords + offsets[dir_idx]).x;
+		geusses.c.y = read_imagei(iC1_grad_image, coords + offsets[dir_idx & 7]).x;
 		geusses.c.z = read_imagei(iC1_grad_image, coords + offsets[(dir_idx+1) & 7]).x;
 
-/*		if(!curr_angle)
+		/*
+		if(!curr_angle)
 		{	// the guessed offsets get modified to the 2nd closesest pixel to the predicted angle
 			//break;
 			char dir = ((char)(dir_idx << 5) - predicted_angle) < 0 ? -1 : 1;
@@ -81,7 +82,8 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 					break;	// no continuation, end loop and flush accumulated contents to output
 			}
 
-		}*/
+		}
+		*/
 		if(!geusses.i)	// this is an early out for if there is no continuation, but it could be caught at the diffs check instead
 			break;	// no continuation, end loop and flush accumulated contents to output
 
@@ -158,9 +160,11 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 
 		if(restarts == 255)
 		{
-			printf("Too many restarts: (%i)\n", coords);
+			printf("Too many restarts: (%i, %i)\n", coords.x, coords.y);
 			break;
 		}
+
+		//dir_idx = read_imageui(uc1_starts_image, coords).x;
 	}
 
 	write_imageui(us4_path_image, base_coords, path_accum.ui4);

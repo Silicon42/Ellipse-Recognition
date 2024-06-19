@@ -76,7 +76,7 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 			rel_idx -= 2*dir;
 	}
 	
-	uchar out_data = (rel_idx + grad_idx -2) | 0xF0;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
+	uchar out_data = ((rel_idx + grad_idx -2) & 7) | 0xF0;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
 	union i_c4 diffs, mask;
 	// all neighbors on this side must be empty for this to count as a start
 	switch(neighbors.l & 0xFFFFFF0000000000)	// switch used instead of if so that we can break out to end of block
@@ -111,7 +111,7 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 				rel_idx -= 2*dir;
 		}*/
 
-		neighbors.l &= 0xFFFFFFFF000000FF;
+//		neighbors.l &= 0xFFFFFFFF000000FF;
 		if(!any(neighbors.c < (char)-64))	// negative pass check
 			break;
 	case 0:	// no neighbors existed OR intentional fall through
