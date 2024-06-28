@@ -1,12 +1,12 @@
-#define THRESH 24
+#define THRESH 10
 //FIXME: ^ this ends up globally visible b/c of how OpenCL compiles files, see if compiling separately fixes this
-
+/*
 int int2Dot(int2 a, int2 b)
 {
 	a *= b;
 	return a.x + a.y;
 }
-
+*/
 // Alternate Canny function that expects shorts instead of floats
 // [0] In	iS4_src_image: 4 channel image of x and y gradient (INT16), angle (INT16),
 //				and gradient magnitude (INT16)
@@ -16,7 +16,7 @@ int int2Dot(int2 a, int2 b)
 // serial operation, blurring and gradient computation is assumed to be already applied
 __kernel void canny_short(read_only image2d_t iS4_src_image, write_only image2d_t iC1_dst_image)
 {
-	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 	int4 grad = read_imagei(iS4_src_image, coords);

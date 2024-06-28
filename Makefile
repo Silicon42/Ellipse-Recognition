@@ -4,7 +4,7 @@ MAKEFLAGS += --no-builtin-rules  #black magic removal
 # Note: 
 # If the .d (dependency) files are manually removed the dependencies for include files will not
 # get picked up unless there is a change in the .c file or until the next "make clean" is executed.
-CFLAGS += -g -O0 -Wall -Wextra -Werror -Wno-shift-negative-value -Wno-implicit-fallthrough -Wno-error=deprecated-declarations -DCL_TARGET_OPENCL_VERSION=210
+CFLAGS += -g -O0 -Wall -Wextra -Werror -Wno-shift-negative-value -Wno-implicit-fallthrough -Wno-error=deprecated-declarations -DCL_TARGET_OPENCL_VERSION=120
 
 LIBS = -lOpenCL
 
