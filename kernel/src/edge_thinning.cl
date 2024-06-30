@@ -16,8 +16,8 @@ __kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only imag
 	const int2 offsets[] = {(int2)(-1,0), (int2)(0,-1), (int2)(1,0), (int2)(0,1), (int2)(-1,0)};
 	int dir_idx = (uchar)grad_ang >> 6;	// which quadrant the gradient falls into
 	union s_c2 neighbors;	// populate face-sharing neighbor pixels
-	neighbors.c.x = read_imagei(iC1_canny_image, coords + offsets[dir_idx]).x;
-	neighbors.c.y = read_imagei(iC1_canny_image, coords + offsets[dir_idx + 1]).x;
+	neighbors.c.x = read_imagei(iC1_canny_image, clamped, coords + offsets[dir_idx]).x;
+	neighbors.c.y = read_imagei(iC1_canny_image, clamped, coords + offsets[dir_idx + 1]).x;
 
 	uchar2 diffs;
 	if((neighbors.s & 0x0101) == 0x0101)	// both neighbors must be occupied to be elligible for thinning

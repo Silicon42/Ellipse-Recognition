@@ -1,6 +1,6 @@
 //intended mode is {REL, {1,1,0}}
 //FIXME: VVVVV this ends up globally visible b/c of how OpenCL compiles files, see if compiling separately fixes this
-#define THRESH 512
+#define THRESH 80
 
 const sampler_t edge_clamp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
