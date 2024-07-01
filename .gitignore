@@ -1,9 +1,10 @@
 # VS Code
 .vscode
 
-# misc.
+# images
 *.png
 *.jpg
+*.dng
 
 # Prerequisites
 *.d

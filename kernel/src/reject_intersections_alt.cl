@@ -38,17 +38,22 @@ __kernel void reject_intersections_alt(read_only image2d_t iC1_src_image, write_
 	if(!neighbors.l)
 		return;
 
-	//TODO: check if it's more efficient to compact into a char bit vector first for calculations
 	long occupancy = neighbors.l & 0x0101010101010101;	//extract just the occupancy flags
-	occupancy = (occupancy << 8) - occupancy;	// convert flags to mask
-	union l_c8 diff;
+	long occupancy_mask = (occupancy << 8) - occupancy;	// convert flags to mask
+	union l_c8 diff, is_diff_big;
 	diff.uc = abs(neighbors.c - grad_ang);
-	diff.l |= ~occupancy;
+	is_diff_big.c = diff.uc >= (uchar)32;
+	is_diff_big.l &= occupancy_mask;
 	// reject pixels that are exclusively surrounded by pixels that have high angular differences relative to them (>= +/-45 degrees)
 	// these are typically noise or sharp corners that would be better picked up individually as separate edges
-	if(all(diff.uc >= (uchar)32))
+	if(is_diff_big.l == occupancy_mask)
 		return;
 
+	uchar near_count = popcount(~is_diff_big.l & occupancy_mask);
+	if(near_count > 24)
+		return;
+	if(is_diff_big.l && near_count != 16)
+		return;
 	//NOTE: This block is wrong because in some extreme situations, an edge can appear as a constant gradient for multiple pixels
 	// without a single clearly defined max, this is most common in simple computer generated images but could theoretically happen
 	// in real life as well
