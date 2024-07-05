@@ -34,7 +34,7 @@ __kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2
 
 	float f_ang;
 	if(grad.x)	// this is a fix so that we can still use the -cl-fast-relaxed-math compiler arg without divide by zero issues
-		f_ang = atan2pi((float)grad.y, grad.x);
+		f_ang = atan2pi(grad.y, (double)grad.x);	// needs to be double or else rounding inaccuracies sneak in
 	else
 		f_ang = (grad.y < 0) ? -0.5f : 0.5f;
 	
