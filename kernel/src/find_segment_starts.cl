@@ -52,10 +52,6 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	// rotation amount is (array element count (8) minus grad_idx) * 8 bits per byte
 	neighbors.l = rotate(neighbors.l, (long)(8 * grad_idx));
 
-	if(all(coords == (int2)(587, 708)))
-		printf("0x%.8X %X %.8X\n", neighbors.i.hi, (uchar)grad_ang, neighbors.i.lo);
-
-
 	long occupancy = neighbors.l & 0x0101010101010101;
 	occupancy = (occupancy << 8) - occupancy;
 	union l_c8 diff, is_diff_small;
