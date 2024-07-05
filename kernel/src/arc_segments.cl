@@ -45,11 +45,18 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 	path_accum.ul2.x = dir_idx;	//shift register that stores return data for what pixels were included in the calculation
 	uchar path_length = 1;
 
-	int restarts = 0;	//DEBUG ONLY, remove + test before release
+	ushort watchdog = 0;
+	char min_length_override = 0;
 
 	// loop until we hit a start or run out of pixels for the arc segment
 	while(!(read_imageui(uc1_starts_image, coords).x & 8))
 	{
+		++watchdog;
+		if(!watchdog)
+		{
+			printf("watchdog: segment too long. Is it looped?: (%i, %i), curr_angle: %i, prev_angle: %i\n", coords.x, coords.y, curr_angle, prev_angle);
+			break;
+		}
 		//printf("(%3v2i),", coords);
 		write_imageui(uc1_trace, coords, -1);
 		// convert the reported gradient angle to a 3 bit index prediction for the next pixel we expect to be populated
@@ -65,31 +72,14 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		geusses.c.x = read_imagei(iC1_grad_image, coords + offsets[(dir_idx-1) & 7]).x;
 		geusses.c.y = read_imagei(iC1_grad_image, coords + offsets[dir_idx & 7]).x;
 		geusses.c.z = read_imagei(iC1_grad_image, coords + offsets[(dir_idx+1) & 7]).x;
+		geusses.c.w = read_imagei(iC1_grad_image, coords + offsets[(dir_idx+1) & 7]).x;
 
-		/*
-		if(!curr_angle)
-		{	// the guessed offsets get modified to the 2nd closesest pixel to the predicted angle
-			//break;
-			char dir = ((char)(dir_idx << 5) - predicted_angle) < 0 ? -1 : 1;
-			dir_idx = (dir_idx + dir) & 7;	// & 7 to keep index in 0-7 range
-			curr_angle = read_imagei(iC1_grad_image, coords + offsets[dir_idx]).x;
-			if(!curr_angle)
-			{
-				//3rd guess is on the opposite side of the first guess
-				dir_idx = (dir_idx - 2*dir) & 7;	// & 7 to keep index in 0-7 range
-				curr_angle = read_imagei(iC1_grad_image, coords + offsets[dir_idx]).x;
-				if(!curr_angle)
-					break;	// no continuation, end loop and flush accumulated contents to output
-			}
-
-		}
-		*/
 		if(!geusses.i)	// this is an early out for if there is no continuation, but it could be caught at the diffs check instead
 			break;	// no continuation, end loop and flush accumulated contents to output
 
 		// create a mask for the occupied pixels in the geusses from their occupancy flags
 		// this gets used to filter out invalid results of computations on unoccupied geusses
-		int occupancy_mask = geusses.i & 0x010101;
+		int occupancy_mask = geusses.i & 0x01010101;
 		occupancy_mask = (occupancy_mask << 8) - occupancy_mask;
 
 		geusses.i &= 0xFEFEFE;	// remove occupancy flag before use
@@ -98,8 +88,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		diffs.i |= ~occupancy_mask;	// forces invalid diffs to max value
 
 		uchar best_diff = 3;
-		//if(diffs.uca[best_diff] == 255)
-		//	printf("+\n");
+
 		for(uchar i = 0; i < 3; ++i)	// select the edge pixel whose gradient most aligns with the predicted angle
 		{	//NOTE: slight assymetry due to evaluation order, could be fixed with unrolling and hardcoding the index
 			best_diff = (diffs.uca[best_diff] > diffs.uca[i]) ? i : best_diff;
@@ -117,6 +106,8 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 
 		prev_angle_diff = curr_angle_diff;
 		curr_angle_diff = curr_angle - prev_angle;
+		if(dir_idx & 1)	// if it's a diagonal the diff is less due to being spread over a greater distance
+			curr_angle_diff *= M_SQRT1_2_F;
 		angle_accel += curr_angle_diff - prev_angle_diff;
 
 		// if statements typically not taken so at any given time most work groups won't diverge
@@ -125,8 +116,6 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		// save the accumulator and restart it as a new arc segment
 		if(abs(angle_accel) > 6)	// this corresponds to a +/- 2.8125 deg per pixel^2 total acceleration noise threshold
 		{
-			++restarts;
-			//break;
 			angle_accel = 0;
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
@@ -143,14 +132,11 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		//if we've filled a 64-bit value copy it to the next one and continue
 		if(path_length == 21)
 		{
-			//break;
 			path_accum.ul2.y = path_accum.ul2.x;
 		}
 		// if we have exceeded the maximum size we can store in a single write, we reset and continue with a new one
-		if(path_length >= 42)
+		else if(path_length >= 42)
 		{
-			++restarts;
-			//break;
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
 			// reset path_accum
@@ -158,14 +144,13 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 			path_length = 0;
 			path_accum.ul2 = 0;
 		}
+	}
 
-		if(restarts == 255)
-		{
-			printf("Too many restarts: (%i, %i), curr_angle: %i, prev_angle: %i\n", coords.x, coords.y, curr_angle, prev_angle);
-			break;
-		}
-
-		//dir_idx = read_imageui(uc1_starts_image, coords).x;
+	// if edge was a lone edge of no more than 6 pixels, reject as noise
+	if(watchdog < 5 )//&& !min_length_override)
+	{
+	//	printf(" length \n");
+		return;
 	}
 
 	write_imageui(us4_path_image, base_coords, path_accum.ui4);

@@ -13,7 +13,7 @@ __kernel void segment_debug(read_only image2d_t iC1_canny, read_only image2d_t i
 	out.z = read_imageui(uc1_seg_trace, coords).x ? -1 : 0;	// sets blue channel if arc_segments algorithm visited the pixel
 	if(!out.z)
 		out.z = (!out.y && read_imagei(iC1_reject_isect, coords).x) ? 64 : 0;	// sets fraction of blue channel if edge passed intersection rejection and wasn't a start
-	out.x = (!(out.z||out.y) && read_imagei(iC1_canny, coords).x) ? -1 : 0;	// sets red channel if edge didn't pass intersection rejection
+	out.x = (!(out.z||out.y) && read_imagei(iC1_canny, coords).x) ? 64 : 0;	// sets red channel if edge didn't pass intersection rejection
 
 	write_imageui(uc4_dst_image, coords, out);
 }

@@ -4,6 +4,7 @@
 
 union l_c8{
 	long l;
+	int2 i;
 	char8 c;
 	uchar8 uc;
 	char a[8];
@@ -40,20 +41,27 @@ __kernel void reject_intersections_alt(read_only image2d_t iC1_src_image, write_
 
 	long occupancy = neighbors.l & 0x0101010101010101;	//extract just the occupancy flags
 	long occupancy_mask = (occupancy << 8) - occupancy;	// convert flags to mask
-	union l_c8 diff, is_diff_big;
+	union l_c8 diff, is_diff_small;
 	diff.uc = abs(neighbors.c - grad_ang);
-	is_diff_big.c = diff.uc >= (uchar)32;
-	is_diff_big.l &= occupancy_mask;
+	is_diff_small.c = diff.uc < (uchar)32;
+	is_diff_small.l &= occupancy_mask;
 	// reject pixels that are exclusively surrounded by pixels that have high angular differences relative to them (>= +/-45 degrees)
 	// these are typically noise or sharp corners that would be better picked up individually as separate edges
-	if(is_diff_big.l == occupancy_mask)
+	if(!is_diff_small.l)
 		return;
 
-	uchar near_count = popcount(~is_diff_big.l & occupancy_mask);
-	if(near_count > 24)
+	// any instance where there are more than 2 similarly angled pixels adjacent to a pixel after thinning could result in a
+	// branch starting and since it can't be determined at this level which will be taken, it's best to invalidate the pixel as
+	// an intersection even if it could be retained
+	uchar near_count = popcount(is_diff_small.l);
+	if(near_count > 16)
 		return;
-	if(is_diff_big.l && near_count != 16)
-		return;
+
+	// if there is only one similar angle pixel adjacent and more than one different angle adjacent then this could be an intersection
+	// it could also be the point of a sharp turn-around but that's not particularly important to preserve here
+	//if(popcount(~is_diff_small.l & occupancy_mask) > 8 && near_count != 16)
+	//	return;
+
 	//NOTE: This block is wrong because in some extreme situations, an edge can appear as a constant gradient for multiple pixels
 	// without a single clearly defined max, this is most common in simple computer generated images but could theoretically happen
 	// in real life as well

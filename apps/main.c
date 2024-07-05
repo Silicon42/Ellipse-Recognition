@@ -27,11 +27,15 @@ int main(int argc, char *argv[])
 		"robertsX_char",
 		"non_max_sup",
 		"edge_thinning",
+		"edge_thinning2",
 		"reject_intersections_alt",
 		"find_segment_starts",
 		"starts_debug",
+		"serial_reduce",
+		"arc_segments",
+		"segment_debug",
 		NULL
-	};//   "sum_4", "serial_reduce", "arc_segments", "starts_debug", NULL};	//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
+	};//   "sum_4",   NULL};	//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -68,7 +72,7 @@ int main(int argc, char *argv[])
 	ArgStaging simple_grow1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
 //	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
-/*	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}};
+	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}};
 	ArgStaging arc_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -76,13 +80,13 @@ int main(int argc, char *argv[])
 		{2,{REL,{0}},CL_TRUE,CL_FALSE},
 		{3,{REL,{0}},CL_TRUE,CL_FALSE}
 	};
-*/
+
 	ArgStaging starts_debug[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE,CL_FALSE}
-	};/*
+	};
 	ArgStaging segment_debug[] = {
 		{6,{REL,{0}},CL_FALSE,CL_FALSE},
 		{5,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -91,19 +95,19 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE,CL_FALSE}
 	};
-//	ArgStaging diag[2] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{DIAG,{2048, -4, 0}},CL_FALSE,CL_FALSE}};
-*/
+
 	const QStaging* staging[] = {
 		&(QStaging){0, 1, {REL, {0}}, simple_grow1},	//RobertsX
 		&(QStaging){1, 1, {REL, {0}}, simple},			//Canny Short
 		&(QStaging){2, 1, {REL, {0}}, simple},			//Edge Thinning
-		&(QStaging){3, 1, {REL, {0}}, simple},			//Intersection Rejection
-		&(QStaging){4, 1, {REL, {0}}, simple},			//Find Segment Starts
-		&(QStaging){5, 1, {REL, {0}}, starts_debug},	//Starts Debug
-/*		&(QStaging){6, 1, {SINGLE, {0}}, serial},		//Serial Reduce
-		&(QStaging){7, 3, {REL, {0}}, arc_segments},	//Arc Segments
-		&(QStaging){4, 1, {REL, {0}}, segment_debug},	//Segment Debug
-*/		NULL
+		&(QStaging){3, 1, {REL, {0}}, simple},			//Edge Thinning
+		&(QStaging){4, 1, {REL, {0}}, simple},			//Intersection Rejection
+		&(QStaging){5, 1, {REL, {0}}, simple},			//Find Segment Starts
+//		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
+		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
+		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
+		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
+		NULL
 	};
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier
