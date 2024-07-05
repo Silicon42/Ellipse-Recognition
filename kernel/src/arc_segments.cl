@@ -16,6 +16,7 @@ union i_c4{
 */
 kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t uc1_starts_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
+	int2 bounds = get_image_dim(us4_path_image);
 	const int2 offsets[8] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)(1,1)};
 	short index = get_global_id(0) + 1;	// must be scheduled as 1D
 	ushort max_size = read_imageui(us4_start_info, 0).x;
@@ -126,17 +127,20 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 		}
 
 		coords += offsets[dir_idx];
+		//valid location check, if we ever go off the edges of the image there is no continuation possible
+		if(any(coords < 0 || coords >= bounds))
+			break;
 		path_length++;
 		path_accum.ul2 = (path_accum.ul2.x << 3) | dir_idx;
 
 		//if we've filled a 64-bit value copy it to the next one and continue
-		if(path_length == 21)
+		switch(path_length)
 		{
+		case 21:
 			path_accum.ul2.y = path_accum.ul2.x;
-		}
+			break;
 		// if we have exceeded the maximum size we can store in a single write, we reset and continue with a new one
-		else if(path_length >= 42)
-		{
+		case 42:
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
 			// reset path_accum
