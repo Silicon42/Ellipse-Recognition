@@ -37,19 +37,19 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	// the current method of reading all 8 adjacent into an array and indexing
 	// order is reversed from typical since rotate() is a left rotate only
 	union l_c8 neighbors;
-	neighbors.c.s0 = read_imagei(iC1_edge_image, clamped, coords + (int2)(1, 0)).x;
-	neighbors.c.s1 = read_imagei(iC1_edge_image, clamped, coords + (int2)(1,-1)).x;
-	neighbors.c.s2 = read_imagei(iC1_edge_image, clamped, coords - (int2)(0, 1)).x;
-	neighbors.c.s3 = read_imagei(iC1_edge_image, clamped, coords - 1).x;
-	neighbors.c.s4 = read_imagei(iC1_edge_image, clamped, coords - (int2)(1, 0)).x;
-	neighbors.c.s5 = read_imagei(iC1_edge_image, clamped, coords - (int2)(1,-1)).x;
-	neighbors.c.s6 = read_imagei(iC1_edge_image, clamped, coords + (int2)(0, 1)).x;
-	neighbors.c.s7 = read_imagei(iC1_edge_image, clamped, coords + 1).x;
+	neighbors.c.s0 = read_imagei(iC1_edge_image, clamped, coords - (int2)(1,-1)).x;
+	neighbors.c.s1 = read_imagei(iC1_edge_image, clamped, coords + (int2)(0, 1)).x;
+	neighbors.c.s2 = read_imagei(iC1_edge_image, clamped, coords + 1).x;
+	neighbors.c.s3 = read_imagei(iC1_edge_image, clamped, coords + (int2)(1, 0)).x;
+	neighbors.c.s4 = read_imagei(iC1_edge_image, clamped, coords + (int2)(1,-1)).x;
+	neighbors.c.s5 = read_imagei(iC1_edge_image, clamped, coords - (int2)(0, 1)).x;
+	neighbors.c.s6 = read_imagei(iC1_edge_image, clamped, coords - 1).x;
+	neighbors.c.s7 = read_imagei(iC1_edge_image, clamped, coords - (int2)(1, 0)).x;
 
 	// convert gradient angle to index of bin corresponding to it, +22.5 degrees (+16) to round to nearest bin
 	uchar grad_idx = (uchar)(grad_ang + 16) >> 5;
 	// rotate the neighbors so that indexing is now relative to the gradient vector
-	// rotation amount is (array element count (8) minus grad_idx) * 8 bits per byte
+	// rotation amount is grad_idx * 8 bits per byte
 	neighbors.l = rotate(neighbors.l, (long)(8 * grad_idx));
 
 	long occupancy = neighbors.l & 0x0101010101010101;
@@ -60,21 +60,21 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	is_diff_small.l &= occupancy;
 	uchar rel_idx;
 	// exactly one neighbor on this side must be populated for this to potentially count as a start
-	switch(is_diff_small.i.lo & 0xFFFFFF00)
+	switch(is_diff_small.i.lo)// & 0x00FFFFFF)
 	{
 	default:
 		return;
 	case 0x000000FF:
-		rel_idx = 0;
+		rel_idx = 3;
 		break;
 	case 0x0000FF00:
-		rel_idx = 1;
-		break;
-	case 0x00FF0000:
 		rel_idx = 2;
 		break;
+	case 0x00FF0000:
+		rel_idx = 1;
+		break;
 	case 0xFF000000:
-		rel_idx = 3;
+		rel_idx = 0;
 	}
 	
 	// all neighbors on this side must not be similar angles for this to count as a start
@@ -90,6 +90,6 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 			return;
 	}
 
-	uchar out_data = ((rel_idx + grad_idx -2) & 7) | 0xF8;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
+	uchar out_data = ((rel_idx + grad_idx -1) & 7) | 0xF8;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
 	write_imageui(uc1_starts_image, coords, out_data);
 }
