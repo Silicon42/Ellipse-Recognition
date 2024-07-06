@@ -16,17 +16,17 @@ __kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2
 
 	// gradient is left relative to +45 degree offset for speed
 	int2 grad;
-	grad.x = read_imageui(uc1_src_image, edge_clamp, coords - 1).x;
-	grad.x -= read_imageui(uc1_src_image, edge_clamp, coords).x;
-	grad.y = read_imageui(uc1_src_image, edge_clamp, coords + (int2)(0,-1)).x;
-	grad.y -= read_imageui(uc1_src_image, edge_clamp, coords + (int2)(-1,0)).x;
+	grad.x = read_imageui(uc1_src_image, coords + 1).x;
+	grad.x -= read_imageui(uc1_src_image, coords).x;
+	grad.y = read_imageui(uc1_src_image, coords + (int2)(0,1)).x;
+	grad.y -= read_imageui(uc1_src_image, coords + (int2)(1,0)).x;
 
-	// compute the square of the gradient magnitude, avoids sqrt and still has same ordering
+	// the gradient magnitude
 	int2 grad2 = grad*grad;
 	uint mag;
 	mag = grad2.x + grad2.y;
 	
-	// if the strength of the gradient doesn't meet the minimum threshold, no further processing needed
+	// if the magnitude squared of the gradient doesn't meet the minimum threshold, no further processing needed
 	if (mag < THRESH)
 		return;
 
