@@ -107,10 +107,10 @@ int main(int argc, char *argv[])
 //		&(QStaging){10, 1, {REL, {0}}, gradient_debug},	//Gradient Debug
 		&(QStaging){5, 1, {REL, {0}}, simple},			//Find Segment Starts
 		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
-/*		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
+		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
-*/		NULL
+/**/		NULL
 	};
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier

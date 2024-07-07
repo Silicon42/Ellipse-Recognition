@@ -14,9 +14,15 @@ union i_c4{
 	uchar uca[4];
 };
 */
+union ui2_conv{
+	int2 i;
+	uint2 u;
+};
+
 kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t uc1_starts_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
-	int2 bounds = get_image_dim(us4_path_image);
+	union ui2_conv bounds, coords;
+	bounds.i = get_image_dim(us4_path_image);
 	const int2 offsets[8] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)(1,1)};
 	short index = get_global_id(0) + 1;	// must be scheduled as 1D
 	ushort max_size = read_imageui(us4_start_info, 0).x;
@@ -28,14 +34,14 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 	int2 base_coords = (int2)(start_info.x, start_info.y);
 	uchar dir_idx = start_info.z & 7;	// the cached 0-deg-relative bin index for where the next pixel was found when finding segment starts
 
-	int2 coords = base_coords;
-	write_imageui(uc1_trace, coords, -1);
+	coords.i = base_coords;
+	write_imageui(uc1_trace, coords.i, -1);
 
 	char prev_angle, curr_angle, prev_angle_diff, curr_angle_diff, angle_accel;
-	prev_angle = read_imagei(iC1_grad_image, coords).x & 0xFE;
+	prev_angle = read_imagei(iC1_grad_image, coords.i).x & 0xFE;
 	//char inc_flags = ((short)0b0000111000001110 >> dir_idx) & 0b01010101;	//TODO: compare this perf wise to lookup, reduced space may boost perf
-	coords += offsets[dir_idx];
-	curr_angle = read_imagei(iC1_grad_image, coords).x & 0xFE;
+	coords.i += offsets[dir_idx];
+	curr_angle = read_imagei(iC1_grad_image, coords.i).x & 0xFE;
 
 	prev_angle_diff = curr_angle_diff = curr_angle - prev_angle;
 	// we define arc segments as having a roughly constant angular rate of change along their path_length within some minimum noise floor,
@@ -50,16 +56,16 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 	char min_length_override = 0;
 
 	// loop until we hit a start or run out of pixels for the arc segment
-	while(!(read_imageui(uc1_starts_image, coords).x & 8))
+	while(!(read_imageui(uc1_starts_image, coords.i).x & 8))
 	{
 		++watchdog;
 		if(!watchdog)
 		{
-			printf("watchdog: segment too long. Is it looped?: (%i, %i), curr_angle: %i, prev_angle: %i\n", coords.x, coords.y, curr_angle, prev_angle);
+			printf("watchdog: segment too long. Is it looped?: (%i, %i), curr_angle: %i, prev_angle: %i\n", coords.i.x, coords.i.y, curr_angle, prev_angle);
 			break;
 		}
-		//printf("(%3v2i),", coords);
-		write_imageui(uc1_trace, coords, -1);
+		//printf("(%3v2i),", coords.i);
+		write_imageui(uc1_trace, coords.i, -1);
 		// convert the reported gradient angle to a 3 bit index prediction for the next pixel we expect to be populated
 		// this is calculated by current angle + derivative + rounding to bin factor(256/16 == 16) + 90 offset for normal(256/4 == 64),
 		// then right shifted so only the 3 most significant bits remain
@@ -70,10 +76,10 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 
 		union i_c4 geusses, diffs;
 		//geusses.i = diffs.i = 0;
-		geusses.c.x = read_imagei(iC1_grad_image, coords + offsets[(dir_idx-1) & 7]).x;
-		geusses.c.y = read_imagei(iC1_grad_image, coords + offsets[dir_idx & 7]).x;
-		geusses.c.z = read_imagei(iC1_grad_image, coords + offsets[(dir_idx+1) & 7]).x;
-		geusses.c.w = read_imagei(iC1_grad_image, coords + offsets[(dir_idx+1) & 7]).x;
+		geusses.c.x = read_imagei(iC1_grad_image, coords.i + offsets[(dir_idx-1) & 7]).x;
+		geusses.c.y = read_imagei(iC1_grad_image, coords.i + offsets[dir_idx & 7]).x;
+		geusses.c.z = read_imagei(iC1_grad_image, coords.i + offsets[(dir_idx+1) & 7]).x;
+		geusses.c.w = read_imagei(iC1_grad_image, coords.i + offsets[(dir_idx+1) & 7]).x;
 
 		if(!geusses.i)	// this is an early out for if there is no continuation, but it could be caught at the diffs check instead
 			break;	// no continuation, end loop and flush accumulated contents to output
@@ -121,14 +127,14 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
 			// reset path_accum
-			base_coords = coords;
+			base_coords = coords.i;
 			path_length = 0;
 			path_accum.ul2 = 0;
 		}
 
-		coords += offsets[dir_idx];
+		coords.i += offsets[dir_idx];
 		//valid location check, if we ever go off the edges of the image there is no continuation possible
-		if(any(coords < 0 || coords >= bounds))
+		if(any(coords.u >= bounds.u))
 			break;
 		path_length++;
 		path_accum.ul2 = (path_accum.ul2.x << 3) | dir_idx;
@@ -144,7 +150,7 @@ kernel void arc_segments(read_only image1d_t us4_start_info, read_only image2d_t
 			//Write path_accum to 2D image
 			write_imageui(us4_path_image, base_coords, path_accum.ui4);
 			// reset path_accum
-			base_coords = coords;
+			base_coords = coords.i;
 			path_length = 0;
 			path_accum.ul2 = 0;
 		}
