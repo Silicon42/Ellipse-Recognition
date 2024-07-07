@@ -9,7 +9,7 @@ __kernel void edge_thinning2(read_only image2d_t iC1_canny_image, write_only ima
 	if(!grad_ang)	// only process populated cells
 		return;
 	
-	const int2 offsets[] = {(int2)(1,0), (int2)(0,1), (int2)(-1,0), (int2)(0,-1), (int2)(1,0)};
+	const int2 offsets[] = {(int2)(-1,0), (int2)(0,-1), (int2)(1,0), (int2)(0,1), (int2)(-1,0)};
 	int dir_idx = (uchar)grad_ang >> 6;	// which quadrant the gradient falls into
 	union s_c2 neighbors;	// populate face-sharing neighbor pixels
 	neighbors.c.x = read_imagei(iC1_canny_image, clamped, coords + offsets[dir_idx]).x;
