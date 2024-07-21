@@ -29,7 +29,7 @@ void write_path_accum(write_only image2d_t us4_path_image, int2 coords, union ul
 	write_imageui(us4_path_image, coords, path_accum.ui);
 }*/
 
-kernel void arc_segments(read_only image1d_t is2_start_info, read_only image2d_t uc1_cont_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
+kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t uc1_cont_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
 	union l_i2 bounds, coords;//, base_coords;
 	bounds.i = get_image_dim(us4_path_image);
@@ -38,7 +38,7 @@ kernel void arc_segments(read_only image1d_t is2_start_info, read_only image2d_t
 	short index = get_global_id(0);	// must be scheduled as 1D
 
 	// initialize variables of arcs segment tracing loop for first iteration
-	coords.i = read_imagei(is2_start_info, index).lo;
+	coords.ui = read_imageui(us2_start_info, index).lo;
 	if(!coords.l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 	//base_coords = coords;

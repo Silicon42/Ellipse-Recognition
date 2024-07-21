@@ -50,7 +50,8 @@ cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_arra
 
 	}
 
-	printf("Creating %zu*%zu*%zu buffer.", img_size[0], img_size[1], img_size[2]);
+	printf("Creating %zu*%zu*%zu buffer with format %c%c%i.", img_size[0], img_size[1], img_size[2], \
+	getDeviceRWType(img_format->image_channel_data_type), getArgStorageType(img_format->image_channel_data_type), getChannelCount(img_format->image_channel_order));
 	cl_mem img_buffer = clCreateImage(context, flags, img_format, &image_desc, NULL, &clErr);
 	handleClError(clErr, "clCreateImage");
 /*
@@ -318,7 +319,7 @@ void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata)
 	char found_rw_type = getDeviceRWType(ref_format.image_channel_data_type);
 
 	if(found_rw_type != metadata[0])
-		fprintf(stderr, "\nWarning: possible arg/read type mismatch\n found:%c, expected:%c\n", found_rw_type, metadata[0]);
+		fprintf(stderr, "Warning: possible arg/read type mismatch\n\tfound:%c, expected:%c\n", found_rw_type, metadata[0]);
 
 	char found_storage_type = getArgStorageType(ref_format.image_channel_data_type);
 	char isHalfOrFloat = ((metadata[1] | LOWER_MASK) == 'f') || ((metadata[1] | LOWER_MASK) == 'h');
@@ -332,29 +333,26 @@ void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata)
 			// case/signedness mis-match, can lead to errors based on input range assumptions
 			// signed types translate to -1.0 to 1.0, and unsigned translate to 0.0 to 1.0
 			if(isNotSameSignedness)
-				fputs("\nWarning: possible signedness mismatch, may lead to errors based on input range assumptions\n", stderr);
+				fputs("Warning: possible signedness mismatch, may lead to errors based on input range assumptions\n", stderr);
 		}
 		break;
 	case 'u':
 	case 'i':
 		if(isHalfOrFloat)
-			fputs("\nWarning: possible signed/unsigned integer read attempt from float image\n", stderr);
+			fputs("Warning: possible signed/unsigned integer read attempt from float image\n", stderr);
 		else if(isNotSameSignedness)
-			fputs("\nWarning: possible integer signedness mismatch\n", stderr);
-		break;
-	default:
-		break;
+			fputs("Warning: possible integer signedness mismatch\n", stderr);
 	}
 
 	//check minimum expected channels
 	unsigned char expected_channels = metadata[2] - '0';
 	if(expected_channels > 4)
-		fputs("\nWarning: non-conforming metadata found\n", stderr);
+		fputs("Warning: non-conforming metadata found\n", stderr);
 	else
 	{
 		char found_channels = getChannelCount(ref_format.image_channel_order);
 		if(found_channels < expected_channels)
-			fputs("\nWarning: less channels available to read than expected\n", stderr);
+			fputs("Warning: less channels available to read than expected\n", stderr);
 	}
 }
 

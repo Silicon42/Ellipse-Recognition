@@ -121,7 +121,7 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 
 	for(cl_uint j=0; j < arg_cnt; ++j)
 	{
-		printf("\n\t[%i] ", j);
+		printf("\n* [%i] ", j);
 		cl_kernel_arg_access_qualifier arg_access;
 		clErr = clGetKernelArgInfo(kernel, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(cl_kernel_arg_access_qualifier), &arg_access, NULL);
 		handleClError(clErr, "clGetKernelArgInfo");
@@ -150,13 +150,13 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 		{
 			if(!isValid)
 			{
-				fputs("\nCouldn't parse argument metadata, can't create image object", stderr);
+				fputs("Couldn't parse argument metadata, can't create image object", stderr);
 				exit(1);
 			}
 
 			if(at->args_cnt >= at->max_args)
 			{
-				fputs("\nNot enough room in ArgTracker.args array", stderr);
+				fputs("Not enough room in ArgTracker.args array", stderr);
 				exit(1);
 			}
 
@@ -179,7 +179,7 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 			this_t_arg->arg = createImageBuffer(context, this_s_arg->is_host_readable, this_s_arg->is_array, &(this_t_arg->format), this_t_arg->size);
 
 			clErr = clSetKernelArg(kernel, j, sizeof(cl_mem), &(this_t_arg->arg));
-			handleClError(clErr, "\nclSetKernelArg");
+			handleClError(clErr, "clSetKernelArg");
 
 			at->args_cnt++;
 		}
@@ -189,10 +189,12 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 			if(isValid)
 				verifyReadArgTypeMatch(ref_arg->format, arg_metadata);
 			else
-				fputs("\nWarning: invalid argument metadata on argument to be read, can't provide type warnings\n", stderr);
+				fputs("Warning: invalid argument metadata on argument to be read, can't provide type warnings\n", stderr);
 		
+			printf("Using %zu*%zu*%zu buffer with format %c%c%i.", ref_arg->size[0],ref_arg->size[1],ref_arg->size[2], \
+			getDeviceRWType(ref_arg->format.image_channel_data_type), getArgStorageType(ref_arg->format.image_channel_data_type), getChannelCount(ref_arg->format.image_channel_order));
 			clErr = clSetKernelArg(kernel, j, sizeof(cl_mem), &(ref_arg->arg));
-			handleClError(clErr, "\nclSetKernelArg");
+			handleClError(clErr, "clSetKernelArg");
 		}
 	}
 }
