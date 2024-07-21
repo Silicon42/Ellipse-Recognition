@@ -9,10 +9,11 @@ __kernel void gradient_debug(read_only image2d_t iC1_grad_image, write_only imag
 		return;
 	
 	coords = coords * 3 + 1;
-	const int2 offsets[8] = {(int2)(1,0),(int2)(1,1),(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1)};
+	const int2 offsets[] = {(int2)(1,0),(int2)(1,1),(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)(-1,-1),(int2)(0,-1),(int2)(1,-1),
+							(int2)(1,0),(int2)(1,1)};
 	int dir_idx = (uchar)(grad_ang + 16) >> 5;	// which octant the gradient falls into
 
 	write_imagei(iC4_debug_image, coords, -1);
 	write_imagei(iC4_debug_image, coords + offsets[dir_idx], (int4)(-1,0,0,-1));
-	write_imagei(iC4_debug_image, coords + offsets[(dir_idx + 2) & 7], (int4)(0,-1,0,-1));
+	write_imagei(iC4_debug_image, coords + offsets[dir_idx + 2], (int4)(0,-1,0,-1));
 }

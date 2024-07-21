@@ -12,12 +12,12 @@ __kernel void starts_debug(read_only image2d_t iC1_canny, read_only image2d_t iC
 	{
 		char val = grad_ang | 0x1F;
 		out.z = val;		// sets blue channel if edge passed intersection rejection
-		if(read_imageui(uc1_seg_start, coords).x & 8)
+		if((read_imageui(uc1_seg_start, coords).x & 0x88) == 0x88)
 			out.y = val;	// sets green channel if pixel classified as a segment start
 	}
 	else
-		out.y = (read_imageui(uc1_seg_start, coords).x & 8) ? -1 : 0;	// sets full green channel if pixel classified as a segment start but not edge
-	out.x = (!out.z && read_imagei(iC1_canny, coords).x) ? 127 : 0;	// sets red channel if edge didn't pass intersection rejection
+		out.y = !((read_imageui(uc1_seg_start, coords).x & 0x88) == 0x88) - 1;	// sets full green channel if pixel classified as a segment start but not edge
+	out.x = (!out.z && read_imagei(iC1_canny, coords).x) ? 127 : 0;		// sets red channel if edge didn't pass intersection rejection
 
 	write_imageui(uc4_dst_image, coords, out);
 }

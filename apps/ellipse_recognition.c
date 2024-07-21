@@ -100,13 +100,13 @@ int main(int argc, char *argv[])
 
 	const QStaging* staging[] = {
 		&(QStaging){0, 1, {REL, {0}}, simple_shrink1},	//RobertsX
-		&(QStaging){1, 1, {REL, {0}}, simple},			//Canny Short
+		&(QStaging){1, 1, {REL, {0}}, simple},			//Non-Max Suppression
 		&(QStaging){2, 1, {REL, {0}}, simple},			//Edge Thinning
 		&(QStaging){3, 1, {REL, {0}}, simple},			//Edge Thinning
 		&(QStaging){4, 1, {REL, {0}}, simple},			//Intersection Rejection
 //		&(QStaging){10, 1, {REL, {0}}, gradient_debug},	//Gradient Debug
 		&(QStaging){5, 1, {REL, {0}}, simple},			//Find Segment Starts
-		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
+//		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
 		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug

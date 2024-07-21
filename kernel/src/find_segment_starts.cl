@@ -19,6 +19,9 @@ union i_c4{
 	uchar uca[4];
 };
 
+//NOTE: return value is in the form 0bv###siii where "i" is the 3-bit direction index, "s" denotes if the entry is a start,
+// "v" denotes if the index is valid (may be invalid due to multiple nearby continuations), and # is unassigned padding/occupancy indicator
+
 kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only image2d_t uc1_starts_image)
 {
 	//const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
@@ -37,18 +40,18 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	// the current method of reading all 8 adjacent into an array and indexing
 	// order is reversed from typical since rotate() is a left rotate only
 	union l_c8 neighbors;
-	neighbors.c.s0 = read_imagei(iC1_edge_image, clamped, coords - (int2)(1, 0)).x;
-	neighbors.c.s1 = read_imagei(iC1_edge_image, clamped, coords - (int2)(1,-1)).x;
-	neighbors.c.s2 = read_imagei(iC1_edge_image, clamped, coords + (int2)(0, 1)).x;
+	neighbors.c.s0 = read_imagei(iC1_edge_image, clamped, coords + (int2)(-1, 0)).x;
+	neighbors.c.s1 = read_imagei(iC1_edge_image, clamped, coords + (int2)(-1, 1)).x;
+	neighbors.c.s2 = read_imagei(iC1_edge_image, clamped, coords + (int2)( 0, 1)).x;
 	neighbors.c.s3 = read_imagei(iC1_edge_image, clamped, coords + 1).x;
-	neighbors.c.s4 = read_imagei(iC1_edge_image, clamped, coords + (int2)(1, 0)).x;
-	neighbors.c.s5 = read_imagei(iC1_edge_image, clamped, coords + (int2)(1,-1)).x;
-	neighbors.c.s6 = read_imagei(iC1_edge_image, clamped, coords - (int2)(0, 1)).x;
+	neighbors.c.s4 = read_imagei(iC1_edge_image, clamped, coords + (int2)( 1, 0)).x;
+	neighbors.c.s5 = read_imagei(iC1_edge_image, clamped, coords + (int2)( 1,-1)).x;
+	neighbors.c.s6 = read_imagei(iC1_edge_image, clamped, coords + (int2)( 0,-1)).x;
 	neighbors.c.s7 = read_imagei(iC1_edge_image, clamped, coords - 1).x;
 
 	// convert gradient angle to index of bin corresponding to it
 	uchar grad_idx = (uchar)grad_ang >> 5;
-	// rotate the neighbors so that indexing is now relative to the gradient vector
+	// left rotate the neighbors so that indexing is now relative to the gradient vector
 	// rotation amount is grad_idx * 8 bits per byte
 	neighbors.l = rotate(neighbors.l, (long)(8 * grad_idx));
 
@@ -62,34 +65,41 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	// exactly one neighbor on this side must be populated for this to potentially count as a start
 	switch(is_diff_small.i.lo)
 	{
-	default:
+	default:	// indeterminate, multiple adjacent pixels have possibly valid continuations
+		//TODO: it might be useful to OR in the occupancy of the nearby pixels in place of the start flag and index in this situation
+		//printf("how did you get here?\n");
+		//write_imageui(uc1_starts_image, coords, 0x70);	//	indicate occupied but indeterminate pixel
+	//case 0:		// no similar angle continuations
 		return;
 	case 0x000000FF:
-		rel_idx = 3;
-		break;
-	case 0x0000FF00:
 		rel_idx = 2;
 		break;
-	case 0x00FF0000:
+	case 0x0000FF00:
 		rel_idx = 1;
 		break;
-	case 0xFF000000:
+	case 0x00FF0000:
 		rel_idx = 0;
+		break;
+	case 0xFF000000:
+		rel_idx = -1;
 	}
 	
+	uchar out_data = ((rel_idx + grad_idx) & 7) | 0xF0;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
 	// all neighbors on this side must not be similar angles for this to count as a start
-	if(is_diff_small.i.hi)
+	union i_c4 roll_over;
+	switch(is_diff_small.i.hi)
 	{
-		// or in the special corner case of a closed loop, we add a start at the zero crossing
-		if(grad_ang >= 32 || grad_ang < -32)
-			return;
-		union i_c4 roll_over;
-		roll_over.c = grad_ang ^ neighbors.c.hi;
-		roll_over.i &= 0xE0E0E0E0 & is_diff_small.i.hi;
-		if(all(roll_over.c != (char)0xE0))
-			return;
+		default:	// or in the special corner case of a closed loop, we add a start at the zero crossing
+			if(grad_ang >= 32 || grad_ang < -32)
+				break;
+			roll_over.c = grad_ang ^ neighbors.c.hi;
+			roll_over.i &= 0xE0E0E0E0 & is_diff_small.i.hi;
+			if(all(roll_over.c != (char)0xE0))
+				break;
+			// fall-through
+		case 0:	// all left side neighbors empty or dissimilar
+			out_data |= 8;	// set start flag
 	}
 
-	uchar out_data = ((rel_idx + grad_idx -1) & 7) | 0xF8;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
 	write_imageui(uc1_starts_image, coords, out_data);
 }

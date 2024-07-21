@@ -140,5 +140,4 @@ void handleClBuildProgram(cl_int cl_error, cl_program program, cl_device_id devi
 		printBuildLog(program, device);
 		exit(1);
 	}
-//	printBuildLog(program, device);
 }
