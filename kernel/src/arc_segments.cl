@@ -1,6 +1,7 @@
 // defines for how many octals may be packed into path accumulator longs
-#define ACCUM_STRUCT_LEN1 19
+#define ACCUM_STRUCT_LEN1 21
 #define ACCUM_STRUCT_LEN2 40
+#define ACCEL_THRESH 20
 //NOTE: all memory accesses to the 2D texture are basically random on a work item level and have minimal 2D locality within the
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an
 // absolute minimum
@@ -25,13 +26,13 @@ union l_i2{
 /*
 void write_path_accum(write_only image2d_t us4_path_image, int2 coords, union ul2_ui4 path_accum, uchar path_length)
 {
-	path_accum.uc.sF |= path_length << 1;
+	path_accum.uc.s8 |= path_length << 1;
 	write_imageui(us4_path_image, coords, path_accum.ui);
 }*/
 
 kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t uc1_cont_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
-	union l_i2 bounds, coords;//, base_coords;
+	union l_i2 bounds, coords, base_coords;
 	bounds.i = get_image_dim(us4_path_image);
 	const int2 offsets[] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)-1,(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)1,
 							(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)-1,(int2)(0,-1)};	// repeat for addition overrun
@@ -41,7 +42,8 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 	coords.ui = read_imageui(us2_start_info, index).lo;
 	if(!coords.l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
-	//base_coords = coords;
+	
+	base_coords = coords;
 
 	// the cached 0-deg-relative bin index for where the next pixel was found when finding segment starts
 	uchar cont_idx = read_imageui(uc1_cont_image, coords.i).x & 7;	//	start specified in start_info is assumed to be valid and have start flag, so can be safely masked to just index
@@ -69,7 +71,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 
 	cont_idx = read_imageui(uc1_cont_image, coords.i).x;
 
-	uint watchdog = 0;
+	ushort watchdog = 0;
 
 	// loop until we hit a start or run out of pixels for the arc segment
 	while((cont_idx & 0x88) == 0x80)	// check valid and not start
@@ -111,14 +113,14 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 
 		// if the total angular acceleration for the arc exceeds the small acceleration threshold,
 		// save the accumulator and restart it as a new arc segment
-		if(max_accel - min_accel > 6)	// this corresponds to a ??? deg per pixel^2 total acceleration noise threshold
+		if(max_accel - min_accel > ACCEL_THRESH)	// this corresponds to a ??? deg per pixel^2 total acceleration noise threshold
 		{
 			angle_accel = max_accel = min_accel = 0;
 			//Write path_accum to 2D image
-			path_accum.uc.sF |= path_length << 1;
-			write_imageui(us4_path_image, coords.i, path_accum.ui);
+			path_accum.uc.s8 |= path_length;
+			write_imageui(us4_path_image, base_coords.i, path_accum.ui);
 			// reset path_accum
-			//base_coords = coords;
+			base_coords = coords;
 			path_length = 1;
 			path_accum.ul = (ulong2)(cont_idx, 0);
 		}
@@ -130,19 +132,19 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 			// if we have exceeded the maximum size we can store in a single write, we reset and continue with a new one
 			case ACCUM_STRUCT_LEN2:
 				//Write path_accum to 2D image
-				path_accum.uc.sF |= -2;	//flag as extended arc
-				write_imageui(us4_path_image, coords.i, path_accum.ui);
+				path_accum.uc.s8 |= 0x3F;	//flag as extended arc
+				write_imageui(us4_path_image, base_coords.i, path_accum.ui);
 				// reset path_accum
-				//base_coords = coords;
+				base_coords = coords;
 				path_length = 1;
 				path_accum.ul = (ulong2)(cont_idx, 0);
 				break;
 			// if we have exceeded the maximum size we can store in a single long, swap to the 2nd long in the accumulator
 			case ACCUM_STRUCT_LEN1:
-				path_accum.ul.y = path_accum.ul.x;
+				path_accum.ul.y = path_accum.ul.x & -64L;
 			default:
+				path_accum.ul.x |= (long)cont_idx << (3 * (path_length - (path_length < ACCUM_STRUCT_LEN1 ? 0 : ACCUM_STRUCT_LEN1)));
 				++path_length;
-				path_accum.ul.x = (path_accum.ul.x << 3) | cont_idx;
 			}
 		}
 	}
@@ -154,6 +156,6 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 		return;
 	}
 
-	path_accum.uc.sF |= path_length << 1;
-	write_imageui(us4_path_image, coords.i, path_accum.ui);
+	path_accum.uc.s8 |= path_length;
+	write_imageui(us4_path_image, base_coords.i, path_accum.ui);
 }
