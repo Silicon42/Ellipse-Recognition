@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 		"arc_segments",
 		"segment_debug",
 		"gradient_debug",
+		"colored_retrace",
 		NULL
 	};//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
@@ -97,6 +98,11 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE,CL_FALSE}
 	};
+	ArgStaging retrace[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_TRUE,CL_FALSE}
+	};
 
 	const QStaging* staging[] = {
 		&(QStaging){0, 1, {REL, {0}}, simple_shrink1},	//RobertsX
@@ -109,7 +115,8 @@ int main(int argc, char *argv[])
 //		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
 		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
-		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
+//		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
+		&(QStaging){10, 4, {REL, {0}}, retrace},		//Colored Retrace
 /**/		NULL
 	};
 

@@ -20,25 +20,27 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 	union l_i2 coords;
 	union ul2_ui4 path;
 	coords.ui = read_imageui(us2_start_info, index).lo;
-	while(1)
+	uchar is_extended = 1;
+	while(is_extended)
 	{
+		write_imageui(uc4_trace_image, coords.i, base_color + 64);
 		path.ui = read_imageui(us4_path_image, coords.i);
 		uchar path_len = path.uc.s8 & 0x3F;
 		if(path_len == 0)	// if length indicates 0 here, then there was no further processing on this work item
 			return;
-		if(path_len > ACCUM_STRUCT_LEN2)	//TODO: indicating continuation might not be neccessary, for now it's left in though
+
+		is_extended = path_len > ACCUM_STRUCT_LEN2;
+		if(is_extended)	//TODO: indicating continuation might not be neccessary, for now it's left in though
 			path_len = ACCUM_STRUCT_LEN2;
 		
 		for(; path_len > 0; --path_len)
 		{
-			write_imageui(uc4_trace_image, coords.i, base_color);
 			if(path_len == ACCUM_STRUCT_LEN1)
 				path.ul.x |= path.ul.y & -64L;
 			
 			coords.i += offsets[path.ul.x & 7];
 			path.ul.x >>= 3;
+			write_imageui(uc4_trace_image, coords.i, base_color);
 		}
-
-
 	}
 }
