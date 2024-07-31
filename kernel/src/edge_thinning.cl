@@ -10,7 +10,13 @@ __kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only imag
 	if(!grad_ang)	// only process populated cells
 		return;
 	
+	// directions get reveresed on the 2nd edge thinning by changing the lookup table, there might be a better way to do this
+#ifndef SECOND_THINNING
 	const int2 offsets[] = {(int2)(1,0), (int2)(0,1), (int2)(-1,0), (int2)(0,-1), (int2)(1,0)};
+#else
+	const int2 offsets[] = {(int2)(-1,0), (int2)(0,-1), (int2)(1,0), (int2)(0,1), (int2)(-1,0)};
+#endif//SECOND_THINNING
+
 	int dir_idx = (uchar)grad_ang >> 6;	// which quadrant the gradient falls into
 	union s_conv neighbors;	// populate face-sharing neighbor pixels
 	neighbors.c.x = read_imagei(iC1_canny_image, clamped, coords + offsets[dir_idx]).x;
