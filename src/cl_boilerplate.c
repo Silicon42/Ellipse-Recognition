@@ -34,12 +34,16 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 	char str_buff[1024];
 
 	// count number of names in NULL terminated char* array
-	int k_src_cnt = 0;
+	cl_uint k_src_cnt = 0;
 	while(names[k_src_cnt] != NULL)
 		++k_src_cnt;
 
-	printf("\nFound %i kernel source files\nReading...\n", k_src_cnt);
+	printf("\nFound %i kernel source files\n", k_src_cnt);
+	// warn user if they specified a program with more kernels than they provided space for
+	if(k_src_cnt > max_kernels)
+		fprintf(stderr, "\nWARNING: more kernel sources provided than specified max_kernels: %i", max_kernels);
 
+/*
 	// allocate pointer array for kernel sources
 	char** k_srcs = (char**)malloc(sizeof(char*) * k_src_cnt);
 	if(k_srcs == NULL)
@@ -47,11 +51,13 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 		perror("\nCouldn't allocate kernel source array");
 		exit(1);
 	}
-
+*/
 	// Read kernel source file and place content into buffer
-	for(int i=0; i<k_src_cnt; ++i)
+	cl_uint kernel_cnt = 0;
+	for(cl_uint i=0; i<k_src_cnt; ++i)
 	{
 		snprintf(str_buff, sizeof(str_buff)-1, "%s%s.cl", src_dir, names[i]);
+		printf("Reading \"%s\"\n", str_buff);
 
 		FILE* k_src_handle = fopen(str_buff, "r");
 		if(k_src_handle == NULL)
@@ -65,51 +71,66 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 		long k_src_size = ftell(k_src_handle);
 		rewind(k_src_handle);
 
-		k_srcs[i] = (char*)malloc(k_src_size + 1);
-		if(k_srcs[i] == NULL)
+		char* k_src = malloc(k_src_size + 1);
+		if(k_src == NULL)
 		{
 			perror("\nCouldn't allocate kernel source string");
 			exit(1);
 		}
 		// program may become smaller due to line endings being partially stripped on read
-		k_src_size = fread(k_srcs[i], sizeof(char), k_src_size, k_src_handle);
+		k_src_size = fread(k_src, sizeof(char), k_src_size, k_src_handle);
 		fclose(k_src_handle);
 		// terminate the string so we don't have to track sizes
-		k_srcs[i][k_src_size] = '\0';
+		k_src[k_src_size] = '\0';
+
+		// Create program from file
+		cl_program program = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &clErr);
+		handleClError(clErr, "clCreateProgramWithSource");
+
+		// Build program
+		puts("Building program...");
+		clErr = clBuildProgram(program, 1, &device, args, NULL, NULL);
+		handleClBuildProgram(clErr, program, device);
+		puts("Done.\n");
+
+		free(k_src);
+
+		// create kernels from the built program
+		if(kernel_cnt < max_kernels)
+		{
+			cl_uint kernels_ret;
+			clErr = clCreateKernelsInProgram(program, max_kernels - kernel_cnt, kernels + kernel_cnt, &kernels_ret);
+			handleClError(clErr, "clCreateKernelsInProgram");
+			kernel_cnt += kernels_ret;
+		}
+		else
+		{
+			// this assumes that there can only be at most one kernel program per file, otherwise there can only
+			// be enough for some of the kernels in a file without ever sending out an error message
+			perror("Out of kernel slots, kernel not created.\n");
+		}
+
+		// done with program, safe to release it now so we don't need to track it
+		// It won't be fully released yet since the kernels have references to it
+		clReleaseProgram(program);
+		handleClError(clErr, "clReleaseProgram");
+
 	}
 
-	// Create program from file
-	cl_program program = clCreateProgramWithSource(context, k_src_cnt, (const char**)k_srcs, NULL, &clErr);
-	handleClError(clErr, "clCreateProgramWithSource");
-
 	// done with the sources
-	for(int i=0; i<k_src_cnt; ++i)
-		free(k_srcs[i]);
-	free(k_srcs);
+//	for(int i=0; i<k_src_cnt; ++i)
+//		free(k_srcs[i]);
+//	free(k_srcs);
 
-	// Build program
-	puts("Building program...\n");
-	clErr = clBuildProgram(program, 1, &device, args, NULL, NULL);
-	handleClBuildProgram(clErr, program, device);
-
-	// warn user if they specified a program with more kernels than they provided space for
+/*	// warn user if they specified a program with more kernels than they provided space for
 	size_t kernel_cnt;
 	clErr = clGetProgramInfo(program, CL_PROGRAM_NUM_KERNELS, sizeof(size_t), &kernel_cnt, NULL);
 	handleClError(clErr, "clGetProgramInfo");
 	if(kernel_cnt > max_kernels)
 		fputs("\nWARNING: more kernels exist in program than specified max_kernels", stderr);
-	
-	// create kernels from the built program
-	cl_uint kernels_ret;
-	clErr = clCreateKernelsInProgram(program, max_kernels, kernels, &kernels_ret);
-	handleClError(clErr, "clCreateKernelsInProgram");
+*/
 
-	// done with program, safe to release it now so we don't need to track it
-	// It won't be fully released yet since the kernels have references to it
-	clReleaseProgram(program);
-	handleClError(clErr, "clReleaseProgram");
-
-	return kernels_ret;
+	return kernel_cnt;
 }
 
 // returns the max number of bytes needed for reading out of any of the host readable buffers

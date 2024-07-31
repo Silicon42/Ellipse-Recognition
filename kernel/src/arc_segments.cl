@@ -1,6 +1,5 @@
 #include "cast_helpers.cl"
 #include "path_struct_defs.cl"
-// defines for how many octals may be packed into path accumulator longs
 #define ACCEL_THRESH 20
 //NOTE: all memory accesses to the 2D texture are basically random on a work item level and have minimal 2D locality within the
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an

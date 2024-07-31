@@ -27,15 +27,9 @@ a single channel from an image automatically converted it to greyscale since
 that was exactly what I needed.
 
 # TODO List
-* Fix flaw between find_segment_starts and arc_segments where the connection 
-of a start to it's continuation is not goverened by the same logic, ie closest 
-match to expected angle, possibly break that out as a function. Currently not 
-causing any issues but should definitely be fixed before release
 * Add type read/write type mismatch warning for OpenCL kernel compilation by 
 parsing raw input for mis-matched read/write calls
 * verify artificial vector bithacks actually provide a perf benefit
 * verify early exits for various kernels actually provide a perf benefit
 * attempt hash-style fast reduce and see if there's a significant perf benefit 
 over single threading
-* add a fix for atan2pi() so that we can still use the -cl-fast-relaxed-math 
-compiler arg

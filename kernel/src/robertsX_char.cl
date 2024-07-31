@@ -1,5 +1,3 @@
-//intended mode is {REL, {1,1,0}}
-//FIXME: VVVVV this ends up globally visible b/c of how OpenCL compiles files, see if compiling separately fixes this
 #define THRESH 80
 #ifndef double	// fallback for devices without double support
 // it's not super critical to function that this be a double in this file but it does prevent a rounding error
@@ -8,7 +6,6 @@
 // prevents the compiler from erroring out on it
 #endif//double
 
-#include "samplers.cl"
 // Roberts Cross gradient operator, less reads than Sobel/Scharr, math is mostly int add, less float mul
 // should be faster with more fine resolution fidelity but more easily disturbed by noise
 

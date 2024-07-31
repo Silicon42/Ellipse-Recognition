@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		"arc_segments",
 		"segment_debug",
 		"gradient_debug",
-	//	"colored_retrace",
+		"colored_retrace",
 		NULL
 	};//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
