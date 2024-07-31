@@ -11,14 +11,8 @@
 // 2nd(or more) pass
 
 //FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
-
-union i_c4{
-	int i;
-	char4 c;
-	uchar4 uc;
-	uchar uca[4];
-};
-
+#include "cast_helpers.cl"
+#include "samplers.cl"
 //NOTE: return value is in the form 0bv###siii where "i" is the 3-bit direction index, "s" denotes if the entry is a start,
 // "v" denotes if the index is valid (may be invalid due to multiple nearby continuations), and # is unassigned padding/occupancy indicator
 
@@ -39,7 +33,7 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	//TODO: see if intelligently selecting just 6 pixels to read based on gradient angle shows any significant benefit over 
 	// the current method of reading all 8 adjacent into an array and indexing
 	// order is reversed from typical since rotate() is a left rotate only
-	union l_c8 neighbors;
+	union l_conv neighbors;
 	neighbors.c.s0 = read_imagei(iC1_edge_image, clamped, coords + (int2)(-1, 0)).x;
 	neighbors.c.s1 = read_imagei(iC1_edge_image, clamped, coords + (int2)(-1, 1)).x;
 	neighbors.c.s2 = read_imagei(iC1_edge_image, clamped, coords + (int2)( 0, 1)).x;
@@ -57,7 +51,7 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 
 	long occupancy = neighbors.l & 0x0101010101010101;
 	occupancy = (occupancy << 8) - occupancy;
-	union l_c8 diff, is_diff_small;
+	union l_conv diff, is_diff_small;
 	diff.uc = abs(neighbors.c - grad_ang);
 	is_diff_small.c = diff.uc < (uchar)32;
 	is_diff_small.l &= occupancy;
@@ -86,7 +80,7 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	
 	uchar out_data = ((rel_idx + grad_idx) & 7) | 0xF0;	// convert from normal-relative index to 0 deg-relative index and OR occupancy flag/padding
 	// all neighbors on this side must not be similar angles for this to count as a start
-	union i_c4 roll_over;
+	union i_conv roll_over;
 	switch(is_diff_small.i.hi)
 	{
 		default:	// or in the special corner case of a closed loop, we add a start at the zero crossing

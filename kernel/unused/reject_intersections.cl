@@ -3,7 +3,7 @@
 
 //FIXME: after the last round of bug fixing it seems I don't have a good way to detect T-intersections in some cases, have to look
 // into why that is and how to fix it once I have more info
-union l_c8{
+union l_conv{
 	long l;
 	char8 c;
 	char a[8];
@@ -23,7 +23,7 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 	if(!grad_ang)
 		return;
 
-	union l_c8 neighbors;
+	union l_conv neighbors;
 	neighbors.c.s0 = read_imagei(iC1_src_image, samp, coords + (int2)(1,0)).x;
 	neighbors.c.s1 = read_imagei(iC1_src_image, samp, coords + 1).x;
 	neighbors.c.s2 = read_imagei(iC1_src_image, samp, coords + (int2)(0,1)).x;
@@ -59,10 +59,10 @@ __kernel void reject_intersections(read_only image2d_t iC1_src_image, write_only
 	// the subtract as a long works because all borrows come from the occupancy flags leaving valid angles untouched and invalid
 	// ones get masked out anyway, this means that it works in parallel regardless of if there is hardware vector support or not,
 	// this may or may not be faster than proper vector operations on systems with hardware vector support on a case by case basis
-	union l_c8 mutual_diff;
+	union l_conv mutual_diff;
 	mutual_diff.l = mutual_neighbors & (neighbors.l - rotate(neighbors.l, 8L));
 
-	union l_c8 is_invalid;
+	union l_conv is_invalid;
 	//TODO: this threshold might need to be widened or shrunk depending on gradient finding method, currently assumes most angle divergence possible while still belonging to the same arc is 45 degrees
 	is_invalid.c = abs(mutual_diff.c) > (uchar)64;	// if absolute divergence in angle of adjacent neighbors is more than 90 degrees (90/360 : 1/4 : 64/256)
 	if(is_invalid.l)

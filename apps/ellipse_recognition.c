@@ -8,7 +8,7 @@
 #define KERNEL_SRC_DIR "kernel/src/"
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
-#define KERNEL_GLOBAL_BUILD_ARGS "-Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"	// atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
+#define KERNEL_GLOBAL_BUILD_ARGS "-Ikernel/inc -Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"	// atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 #define MAX_KERNELS 16
 #define MAX_STAGES 16
 #define MAX_ARGS 64
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		"arc_segments",
 		"segment_debug",
 		"gradient_debug",
-		"colored_retrace",
+	//	"colored_retrace",
 		NULL
 	};//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
@@ -49,10 +49,6 @@ int main(int argc, char *argv[])
 	// Create the command queue
 	cl_command_queue queue = clCreateCommandQueue(context, device, 0, &clErr);
 	handleClError(clErr, "clCreateCommandQueue");
-
-	// Safe to release context since the queue now has a reference, this way we don't need to do it later
-	//clReleaseContext(context);
-	handleClError(clErr, "clReleaseContext");
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
 	// create input buffer, done early to get image size prior to kernel build phase
@@ -116,13 +112,17 @@ int main(int argc, char *argv[])
 		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
-		&(QStaging){10, 4, {REL, {0}}, retrace},		//Colored Retrace
+//		&(QStaging){10, 4, {REL, {0}}, retrace},		//Colored Retrace
 /**/		NULL
 	};
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier
 	QStage stages[MAX_STAGES];
 	int stage_cnt = prepQStages(context, staging, kernels, stages, MAX_STAGES, &tracker);
+
+	// safe to release the context here since it's never used after this point
+	clReleaseContext(context);
+	handleClError(clErr, "clReleaseContext");
 
 	// release the reference kernels when done with staging
 	/*	//FIXME: temp fix for OpenCL 1.2 support

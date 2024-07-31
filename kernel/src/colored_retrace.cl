@@ -1,3 +1,6 @@
+
+#include "cast_helpers.cl"
+#include "path_struct_defs.cl"
 // used to convert a single angle channel to a colorized version for better semantic viewing
 // alternatively used to provide a unique color to individual "angle" items
 // returns a color based on the angle on a color wheel as 3 0.0f to 1.0f values
@@ -8,7 +11,7 @@ float3 index_colorize(int index)
 	float3 angles = (float3)(0.0f, 0.66666667f, -0.66666667f);
 	angles += angles;
 
-	return fma(sinpi(modf(angles, &garbage)), 0.5, 0.5);
+	return fma(sinpi(modf(angles, &garbage)), 0.5f, 0.5f);
 }
 
 kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2d_t us4_path_image, write_only image2d_t uc4_trace_image)
@@ -17,8 +20,8 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 	float3 base_color = index_colorize(index);
 	const int2 offsets[] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)-1,(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)1};
 	// initialize variables of arcs segment tracing loop for first iteration
-	union l_i2 coords;
-	union ul2_ui4 path;
+	union l_conv coords;
+	union ul2_conv path;
 	coords.ui = read_imageui(us2_start_info, index).lo;
 	uchar is_extended = 1;
 	while(is_extended)

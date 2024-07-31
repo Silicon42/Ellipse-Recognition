@@ -16,7 +16,7 @@ cl_device_id getPreferredDevice()
 	handleClError(clErr, "clGetPlatformIDs");
 
 	// use the first device
-	clErr = clGetDeviceIDs(platform[0], CL_DEVICE_TYPE_ALL, 1, &device, NULL);
+	clErr = clGetDeviceIDs(platform[0], CL_DEVICE_TYPE_CPU, 1, &device, NULL);
 	handleClError(clErr, "clGetDeviceIDs");
 
 	return device;
@@ -37,6 +37,8 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 	int k_src_cnt = 0;
 	while(names[k_src_cnt] != NULL)
 		++k_src_cnt;
+
+	printf("\nFound %i kernel source files\nReading...\n", k_src_cnt);
 
 	// allocate pointer array for kernel sources
 	char** k_srcs = (char**)malloc(sizeof(char*) * k_src_cnt);
@@ -86,6 +88,7 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 	free(k_srcs);
 
 	// Build program
+	puts("Building program...\n");
 	clErr = clBuildProgram(program, 1, &device, args, NULL, NULL);
 	handleClBuildProgram(clErr, program, device);
 

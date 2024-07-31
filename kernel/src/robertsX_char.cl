@@ -2,14 +2,13 @@
 //FIXME: VVVVV this ends up globally visible b/c of how OpenCL compiles files, see if compiling separately fixes this
 #define THRESH 80
 #ifndef double	// fallback for devices without double support
-//TODO: need to figure out how to warn the user that this has happened since it can effect later files and
-// prevents the compiler from erroring out on it
-
 // it's not super critical to function that this be a double in this file but it does prevent a rounding error
 #define double float
+//TODO: need to figure out how to warn the user that this has happened since it can effect later files and
+// prevents the compiler from erroring out on it
 #endif//double
-const sampler_t edge_clamp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
+#include "samplers.cl"
 // Roberts Cross gradient operator, less reads than Sobel/Scharr, math is mostly int add, less float mul
 // should be faster with more fine resolution fidelity but more easily disturbed by noise
 

@@ -1,6 +1,5 @@
 
-const sampler_t clamped = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
-
+#include "samplers.cl"
 // Alternate Canny function that expects chars instead of floats
 // [0] In	uc2_grad_image: 4 channel image of x and y gradient (INT16), angle (INT16),
 //				and gradient magnitude (INT16)

@@ -1,14 +1,7 @@
 // Kernel meant to remove interstections from the edge map as they are problematic for processing segments since they would
 // require it to branch
-
-
-union l_c8{
-	long l;
-	int2 i;
-	char8 c;
-	uchar8 uc;
-	char a[8];
-};
+#include "samplers.cl"
+#include "cast_helpers.cl"
 
 __kernel void reject_intersections_alt(read_only image2d_t iC1_src_image, write_only image2d_t iC1_dst_image)
 {
@@ -23,7 +16,7 @@ __kernel void reject_intersections_alt(read_only image2d_t iC1_src_image, write_
 	if(!grad_ang)
 		return;
 
-	union l_c8 neighbors;
+	union l_conv neighbors;
 	neighbors.c.s0 = read_imagei(iC1_src_image, clamped, coords + (int2)(1,0)).x;
 	neighbors.c.s1 = read_imagei(iC1_src_image, clamped, coords + 1).x;
 	neighbors.c.s2 = read_imagei(iC1_src_image, clamped, coords + (int2)(0,1)).x;
@@ -41,7 +34,7 @@ __kernel void reject_intersections_alt(read_only image2d_t iC1_src_image, write_
 
 	long occupancy = neighbors.l & 0x0101010101010101;	//extract just the occupancy flags
 	long occupancy_mask = (occupancy << 8) - occupancy;	// convert flags to mask
-	union l_c8 diff, is_diff_small;
+	union l_conv diff, is_diff_small;
 	diff.uc = abs(neighbors.c - grad_ang);
 	is_diff_small.c = diff.uc < (uchar)32;
 	is_diff_small.l &= occupancy_mask;
@@ -79,10 +72,10 @@ __kernel void reject_intersections_alt(read_only image2d_t iC1_src_image, write_
 	// the subtract as a long works because all borrows come from the occupancy flags leaving valid angles untouched and invalid
 	// ones get masked out anyway, this means that it works in parallel regardless of if there is hardware vector support or not,
 	// this may or may not be faster than proper vector operations on systems with hardware vector support on a case by case basis
-	union l_c8 mutual_diff;
+	union l_conv mutual_diff;
 	mutual_diff.l = mutual_neighbors & (neighbors.l - rotate(neighbors.l, 8L));
 
-	union l_c8 is_invalid;
+	union l_conv is_invalid;
 	//TODO: this threshold might need to be widened or shrunk depending on gradient finding method, currently assumes most angle divergence possible while still belonging to the same arc is 45 degrees
 	is_invalid.c = abs(mutual_diff.c) > (uchar)64;	// if absolute divergence in angle of adjacent neighbors is more than 90 degrees (90/360 : 1/4 : 64/256)
 	if(is_invalid.l)

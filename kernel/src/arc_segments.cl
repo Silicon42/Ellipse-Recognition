@@ -1,30 +1,12 @@
+#include "cast_helpers.cl"
+#include "path_struct_defs.cl"
 // defines for how many octals may be packed into path accumulator longs
-#define ACCUM_STRUCT_LEN1 21
-#define ACCUM_STRUCT_LEN2 40
 #define ACCEL_THRESH 20
 //NOTE: all memory accesses to the 2D texture are basically random on a work item level and have minimal 2D locality within the
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an
 // absolute minimum
-union ul2_ui4{
-	ulong2 ul;
-	uint4 ui;
-	uchar16 uc;
-};
 /*
-union i_c4{
-	int i;
-	char4 c;
-	uchar4 uc;
-	uchar uca[4];
-};
-*/
-union l_i2{
-	long l;
-	int2 i;
-	uint2 ui;
-};
-/*
-void write_path_accum(write_only image2d_t us4_path_image, int2 coords, union ul2_ui4 path_accum, uchar path_length)
+void write_path_accum(write_only image2d_t us4_path_image, int2 coords, union ul2_conv path_accum, uchar path_length)
 {
 	path_accum.uc.s8 |= path_length << 1;
 	write_imageui(us4_path_image, coords, path_accum.ui);
@@ -32,7 +14,7 @@ void write_path_accum(write_only image2d_t us4_path_image, int2 coords, union ul
 
 kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t uc1_cont_image, read_only image2d_t iC1_grad_image, write_only image2d_t us4_path_image, write_only image2d_t uc1_trace)
 {
-	union l_i2 bounds, coords, base_coords;
+	union l_conv bounds, coords, base_coords;
 	bounds.i = get_image_dim(us4_path_image);
 	const int2 offsets[] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)-1,(int2)(0,-1),(int2)(1,-1),(int2)(1,0),(int2)1,
 							(int2)(0,1),(int2)(-1,1),(int2)(-1,0),(int2)-1,(int2)(0,-1)};	// repeat for addition overrun
@@ -65,7 +47,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 	// this means that we want to track overall drift of this angular "acceleration" which we would like to stay near 0 and if
 	// it deviates, then we need to start a new arc segment and reset the angular acceleration to be just based on the last 3 pixels?? might be slightly off with that logic
 	angle_accel = max_accel = min_accel = 0;
-	union ul2_ui4 path_accum;
+	union ul2_conv path_accum;
 	path_accum.ul.x = cont_idx;	//shift register that stores return data for what pixels were included in the calculation
 	uchar path_length = 1;
 

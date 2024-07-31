@@ -1,9 +1,6 @@
 // Thins diagonal edge results from canny in the direction of the gradient so that intersection rejection is more feasible
-
-union s_c2{
-	short s;
-	char2 c;
-};
+#include "cast_helpers.cl"
+#include "samplers.cl"
 
 __kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only image2d_t iC1_thinned_image)
 {
@@ -15,7 +12,7 @@ __kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only imag
 	
 	const int2 offsets[] = {(int2)(1,0), (int2)(0,1), (int2)(-1,0), (int2)(0,-1), (int2)(1,0)};
 	int dir_idx = (uchar)grad_ang >> 6;	// which quadrant the gradient falls into
-	union s_c2 neighbors;	// populate face-sharing neighbor pixels
+	union s_conv neighbors;	// populate face-sharing neighbor pixels
 	neighbors.c.x = read_imagei(iC1_canny_image, clamped, coords + offsets[dir_idx]).x;
 	neighbors.c.y = read_imagei(iC1_canny_image, clamped, coords + offsets[dir_idx + 1]).x;
 
