@@ -18,7 +18,6 @@
 
 kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only image2d_t uc1_starts_image)
 {
-	//const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	char grad_ang = read_imagei(iC1_edge_image, coords).x;
@@ -29,10 +28,10 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	if(!grad_ang)
 		return;
 
-	// read adjacent pixels into an array such that elements progress clockwise around the central pixel starting from the 3 o'clock position
-	//TODO: see if intelligently selecting just 6 pixels to read based on gradient angle shows any significant benefit over 
-	// the current method of reading all 8 adjacent into an array and indexing
-	// order is reversed from typical since rotate() is a left rotate only
+	// read adjacent pixels into an array such that elements progress counter-clockwise around the central pixel
+	// starting from the 9 o'clock position, this is so that a left rotate() by a proportional amount to the angle
+	// of the normal partitions the pixels such that all pixel values to the right of the normal are in the lower half
+	// and values to the left are in the upper half
 	union l_conv neighbors;
 	neighbors.c.s0 = read_imagei(iC1_edge_image, clamped, coords + (int2)(-1, 0)).x;
 	neighbors.c.s1 = read_imagei(iC1_edge_image, clamped, coords + (int2)(-1, 1)).x;
@@ -47,7 +46,7 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	uchar grad_idx = (uchar)grad_ang >> 5;
 	// left rotate the neighbors so that indexing is now relative to the gradient vector
 	// rotation amount is grad_idx * 8 bits per byte
-	neighbors.l = rotate(neighbors.l, (long)(8 * grad_idx));
+	neighbors.l = rotate(neighbors.l, 8L * grad_idx);
 
 	long occupancy = neighbors.l & 0x0101010101010101;
 	occupancy = (occupancy << 8) - occupancy;
@@ -61,9 +60,9 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	{
 	default:	// indeterminate, multiple adjacent pixels have possibly valid continuations
 		//TODO: it might be useful to OR in the occupancy of the nearby pixels in place of the start flag and index in this situation
-		//printf("how did you get here?\n");
+		printf("how did you get here?\n");
 		//write_imageui(uc1_starts_image, coords, 0x70);	//	indicate occupied but indeterminate pixel
-	//case 0:		// no similar angle continuations
+	case 0:		// no similar angle continuations
 		return;
 	case 0x000000FF:
 		rel_idx = 2;

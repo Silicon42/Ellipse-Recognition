@@ -1,11 +1,6 @@
 #ifndef CAST_HELPERS_CL
 #define CAST_HELPERS_CL
 
-union ul2_conv{
-	ulong2 ul;
-	uint4 ui;
-	uchar16 uc;
-};
 
 union l_conv{
 	long l;

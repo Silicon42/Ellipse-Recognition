@@ -16,7 +16,7 @@ cl_device_id getPreferredDevice()
 	handleClError(clErr, "clGetPlatformIDs");
 
 	// use the first device
-	clErr = clGetDeviceIDs(platform[0], CL_DEVICE_TYPE_CPU, 1, &device, NULL);
+	clErr = clGetDeviceIDs(platform[0], CL_DEVICE_TYPE_GPU, 1, &device, NULL);
 	handleClError(clErr, "clGetDeviceIDs");
 
 	return device;

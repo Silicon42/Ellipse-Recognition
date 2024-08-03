@@ -64,6 +64,7 @@ all: $(OBJECTS) $(APP_OBJECTS)
 #  explicitly specified targets so these are dummy rules for the applications.
 ellipse_recognition:
 diagnostics:
+gen_color_LUT:
 scharr_cpu:
 
 # the compile rule for the prerequisites of the final target --
