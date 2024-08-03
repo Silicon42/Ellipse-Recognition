@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
 	ArgStaging retrace[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE,CL_FALSE}
 	};
 

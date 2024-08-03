@@ -63,8 +63,10 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 		coords.i += offsets[cont_idx];
 		//valid location check, if we ever go off the edges of the image there is no continuation possible
 		if(any(coords.ui >= bounds.ui))
+		{
+			printf("line ended out of bounds\n");
 			break;
-
+		}
 		// update angle tracking variables
 		prev_angle = curr_angle;
 		// read angle + continuation data from inputs for this pixel
@@ -122,7 +124,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 
 	// if edge was a lone edge of no more than 6 pixels, reject as noise
 //	printf("len: %i	", watchdog);
-	if(watchdog < 5 )
+	if(watchdog < 5 && (cont_data & 0x88) != 0x88)
 		return;
 
 	write_data_accum(path_accum, path_length, ui4_path_image, base_coords.i);

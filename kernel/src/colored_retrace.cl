@@ -3,7 +3,7 @@
 #include "cast_helpers.cl"
 #include "path_struct_defs.cl"
 
-kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2d_t ui4_path_image, write_only image2d_t uc4_trace_image)
+kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2d_t ui4_path_image, read_only image2d_t uc1_starts_image, write_only image2d_t uc4_trace_image)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	uint3 base_color = scatter_colorize(index);
@@ -15,7 +15,7 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 	if(!coords.l)
 		return;
 	//uchar is_extended = 1;
-	while(1)
+	do
 	{
 		uchar path_len = read_data_accum(&path, ui4_path_image, coords.i);
 		if(path_len == 0)	// if length indicates 0 here, then there was no further processing on this work item
@@ -36,5 +36,5 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 			write_imageui(uc4_trace_image, coords.i, (uint4)(base_color/2, -1));
 			path.x >>= 3;
 		}
-	}
+	} while((read_imageui(uc1_starts_image, coords.i).x & 0x88) != 0x88);
 }
