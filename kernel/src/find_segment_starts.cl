@@ -62,8 +62,8 @@ kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only i
 	{
 	default:	// indeterminate, multiple adjacent pixels have possibly valid continuations
 		//TODO: it might be useful to OR in the occupancy of the nearby pixels in place of the start flag and index in this situation
-		printf("how did you get here?\n");
-		//write_imageui(uc1_starts_image, coords, 0x70);	//	indicate occupied but indeterminate pixel
+		printf("how did you get here? (%i, %i)\n", coords);
+		write_imageui(uc1_starts_image, coords, 0x70);	//	indicate occupied but indeterminate pixel
 	case 0:		// no similar angle continuations
 		return;
 	case 0x000000FF:

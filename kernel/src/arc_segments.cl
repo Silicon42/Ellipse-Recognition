@@ -69,7 +69,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 		coords.i += offsets[cont_idx];
 		if(any(xy_hist.combined == coords.l))
 		{
-			printf("Loop @ (%i, %i)\n", coords.i.x, coords.i.y);
+			printf("Loop @ (%i, %i)\n", coords.i);
 			break;
 		}
 		//valid location check, if we ever go off the edges of the image there is no continuation possible
