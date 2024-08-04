@@ -7,6 +7,11 @@
 
 kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t uc1_cont_image, read_only image2d_t iC1_grad_image, write_only image2d_t ui4_path_image, write_only image2d_t uc1_trace)
 {
+	union {
+		long16 combined;
+		int2 coords[16];
+	} xy_hist;
+	xy_hist.combined = -1;
 	union l_conv bounds, coords, base_coords, prev_coords;
 	bounds.i = get_image_dim(ui4_path_image);
 	const int2 offsets[] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1),(int2)(1,0),1,
@@ -60,7 +65,13 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 		
 		cont_idx = cont_data & 7;	// clear validity to use as index
 		prev_coords = coords;
+		xy_hist.coords[watchdog & 0xF] = coords.i;
 		coords.i += offsets[cont_idx];
+		if(any(xy_hist.combined == coords.l))
+		{
+			printf("Loop @ (%i, %i)\n", coords.i.x, coords.i.y);
+			break;
+		}
 		//valid location check, if we ever go off the edges of the image there is no continuation possible
 		if(any(coords.ui >= bounds.ui))
 		{

@@ -1,3 +1,5 @@
+#ifndef COLORIZER_CL
+#define COLORIZER_CL
 
 constant uchar intensity[1024] = {
 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 
@@ -70,3 +72,5 @@ uint3 scatter_colorize(int index)
 	index *= 633;	// approximation of 1024 * phi
 	return (uint3)(intensity[index & 0x3FF],intensity[(index+341) & 0x3FF],intensity[(index-341) & 0x3FF]);
 }
+
+#endif//COLORIZER_CL

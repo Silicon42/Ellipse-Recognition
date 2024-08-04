@@ -16,6 +16,8 @@
 //NOTE: return value is in the form 0bv###siii where "i" is the 3-bit direction index, "s" denotes if the entry is a start,
 // "v" denotes if the index is valid (may be invalid due to multiple nearby continuations), and # is unassigned padding/occupancy indicator
 
+//TODO: need to add an is_supported flag so that small segments that support other separately detected small segments don't get deleted
+// This might be decently involved to actually implement
 kernel void find_segment_starts(read_only image2d_t iC1_edge_image, write_only image2d_t uc1_starts_image)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
