@@ -5,6 +5,7 @@
 *.png
 *.jpg
 *.dng
+*.bmp
 
 # Prerequisites
 *.d

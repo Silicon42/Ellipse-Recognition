@@ -9,7 +9,7 @@ kernel void lost_seg_debug(read_only image2d_t uc4_retrace, read_only image2d_t 
 		color = (uint4)(0,0,0,-1);
 		break;
 	case 0x88:	// valid thread-start
-		color = -1;
+		color = (read_imageui(uc4_retrace, coords).w) ? -1 : (uint4)(64,64,64,-1);
 		break;
 	case 0x80:	// valid single-continuation non-start edge pixel
 		color = read_imageui(uc4_retrace, coords);
