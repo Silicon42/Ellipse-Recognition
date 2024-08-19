@@ -2,10 +2,10 @@
 #include "cast_helpers.cl"
 #include "samplers.cl"
 
-__kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only image2d_t iC1_thinned_image)
+__kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only image2d_t iC1_thinned)
 {
-	int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	char grad_ang = read_imagei(iC1_canny_image, coords).x;
+	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
+	const char grad_ang = read_imagei(iC1_canny_image, coords).x;
 
 	if(!grad_ang)	// only process populated cells
 		return;
@@ -30,5 +30,5 @@ __kernel void edge_thinning(read_only image2d_t iC1_canny_image, write_only imag
 			return;	// current pixel is removed in thinning, skip writing out
 	}
 	// pixel was retained, write input value to output
-	write_imagei(iC1_thinned_image, coords, grad_ang);
+	write_imagei(iC1_thinned, coords, grad_ang);
 }

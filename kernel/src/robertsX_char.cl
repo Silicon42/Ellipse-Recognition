@@ -1,4 +1,5 @@
 #define THRESH 80
+
 #ifndef double	// fallback for devices without double support
 // it's not super critical to function that this be a double in this file but it does prevent a rounding error
 #define double float
@@ -10,11 +11,11 @@
 // should be faster with more fine resolution fidelity but more easily disturbed by noise
 
 // [0] In	uc1_src_image: 1 channel greyscale on x component (UINT8)
-// [1] Out	uc2_grad_image: 2 channel image of x and y gradient (INT8)
-__kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2d_t uc2_grad_image)
+// [1] Out	uc2_grad: 2 channel image of x and y gradient (INT8)
+__kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2d_t uc2_grad)
 {
 	// Determine work item coordinate
-	int2 coords = (int2)(get_global_id(0), get_global_id(1));
+	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	// gradient components relative to +45 degree offset for speed
 	int2 grad;
@@ -24,9 +25,8 @@ __kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2
 	grad.y -= read_imageui(uc1_src_image, coords + (int2)(1,0)).x;
 
 	// the gradient magnitude squared
-	int2 grad2 = grad*grad;
-	uint mag2;
-	mag2 = grad2.x + grad2.y;
+	const int2 grad2 = grad*grad;
+	const uint mag2 = grad2.x + grad2.y;
 	
 	// if the magnitude squared of the gradient doesn't meet the minimum threshold, no further processing needed
 	if (mag2 < THRESH)
@@ -40,7 +40,7 @@ __kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2
 	else
 		f_ang = (grad.y < 0) ? -0.5f : 0.5f;
 	
-	uchar ang = (char)floor(f_ang * 128) + 32;		// convert to fixed precision and correct for 45 deg offset
+	uchar ang = (char)floor(f_ang * 128) + 32;	// convert to fixed precision and correct for 45 deg offset
 
-	write_imageui(uc2_grad_image, coords, (uint4)(ang, mag, 0, -1));
+	write_imageui(uc2_grad, coords, (uint4)(ang, mag, 0, -1));
 }

@@ -1,6 +1,8 @@
 #ifndef CAST_HELPERS_CL
 #define CAST_HELPERS_CL
 
+//TODO: check if unions are faster or pointer conversion macros
+#define AS_LONG(x)	(*(long*)&(x))
 
 union l_conv{
 	long l;
@@ -8,7 +10,7 @@ union l_conv{
 	uint2 ui;
 	char8 c;
 	uchar8 uc;
-	char a[8];
+	uchar uca[8];
 };
 
 union i_conv{
@@ -21,6 +23,8 @@ union i_conv{
 union s_conv{
 	short s;
 	char2 c;
+	uchar2 uc;
+	char ca[2];
 };
 
 #endif//CAST_HELPERS_CL

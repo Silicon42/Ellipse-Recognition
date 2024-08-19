@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 		"non_max_sup",
 		"edge_thinning",
 		"edge_thinning2",
-		"reject_intersections_alt",
+		"link_edge_pixels",
 		"find_segment_starts",
 		"starts_debug",
 		"serial_reduce",
@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 		"gradient_debug",
 		"colored_retrace",
 		"lost_seg_debug",
+		"link_debug",
 		NULL
 	};//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
 
@@ -73,8 +74,9 @@ int main(int argc, char *argv[])
 //	ArgStaging simple_grow1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
+	ArgStaging starts[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{2,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
 	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}};
-	ArgStaging gradient_debug[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}};
+	ArgStaging mul3[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}};
 	ArgStaging arc_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -114,10 +116,11 @@ int main(int argc, char *argv[])
 		&(QStaging){1, 1, {REL, {0}}, simple},			//Non-Max Suppression
 		&(QStaging){2, 1, {REL, {0}}, simple},			//Edge Thinning
 		&(QStaging){3, 1, {REL, {0}}, simple},			//Edge Thinning
-		&(QStaging){4, 1, {REL, {0}}, simple},			//Intersection Rejection
-//		&(QStaging){10, 2, {REL, {0}}, gradient_debug},	//Gradient Debug
-		&(QStaging){5, 1, {REL, {0}}, simple},			//Find Segment Starts
-		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
+//		&(QStaging){10, 2, {REL, {0}}, mul3},			//Gradient Debug
+		&(QStaging){4, 1, {REL, {0}}, simple},			//Link Edge Pixels
+		&(QStaging){5, 1, {REL, {0}}, starts},			//Find Segment Starts
+		&(QStaging){13, 2, {REL, {0}}, mul3},			//Link Debug
+//		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
 /*		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
