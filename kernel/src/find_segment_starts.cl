@@ -13,8 +13,8 @@
 //FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
 #include "cast_helpers.cl"
 #include "neighbor_utils.cl"
-//NOTE: return value is in the form 0bS00soiii where "S" is the start indicator flag, "s" is the support indicator flag
-// "o" is occupancy indicator flag, "i" is the 3-bit direction index,
+//NOTE: return value is in the form 0bSE0lriii where "S" is the start indicator flag, "E" is a forced end indicator flag,
+// "l" is the left support indicator flag, "r" is occupancy/right continuation indicator flag, and "i" is the 3-bit direction index
 
 //TODO: need to add an is_supported flag so that small segments that support other separately detected small segments don't get deleted
 // This might be decently involved to actually implement
@@ -25,9 +25,24 @@ kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_
 
 	uchar cont_data = read_imageui(uc1_cont, coords).x;
 
-	uchar left_data, left_idx;
 	char grad_ang;
-	int2 left_coords;
+	uchar adjacent_data, adjacent_idx;
+	int2 adjacent_coords;
+	uchar is_forced_end = 0;
+
+	// y-junction prevention, stops multiple starts that would join to process a shared region
+	if(cont_data & 8)	// if valid right continuation
+	{
+		adjacent_idx = cont_data & 7;
+		adjacent_coords = coords + offsets[adjacent_idx];
+		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x;
+		// right continuation's left continuation is populated and the link is not mutual, then set forced end flag which will be OR'ed later
+		if(adjacent_data & 0x10)
+			is_forced_end = (((adjacent_data >> 5) ^ adjacent_idx) == 4) ? 0 : 0x40;
+		else
+			is_forced_end = 0x40;
+	}
+
 	switch(cont_data & 0x18)
 	{
 	default:	// if cont_data is null, it was not an edge and therefore has no continuation flags set,
@@ -35,28 +50,28 @@ kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_
 		return;	// therefore this work item can exit early, vast majority exits here
 
 	case 0x18:	// both sides have a continuation
-		left_idx = cont_data >> 5;
+		adjacent_idx = cont_data >> 5;
 		cont_data &= 0x1F;	// only right continuation and left support flag will ever be written to output regardless of path taken from this point
-		left_coords = coords + offsets[left_idx];
-		left_data = read_imageui(uc1_cont, left_coords).x & 15;
-
+		adjacent_coords = coords + offsets[adjacent_idx];
+		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x & 0xF;
 		// if the left continuation is a mutual link, it is likely not a start but needs more logic.
 		// the one exception is if it qualifies for a loop breaking start
 		// else if it's not a mutual link, there was a fork and this is a start
-		if((left_data ^ left_idx) == 0b1100)
+		if((adjacent_data ^ adjacent_idx) == 0xC)
 		{
 			grad_ang = read_imagei(iC1_grad_ang, coords).x;
 			if(grad_ang < 0)	// to qualify for a loop breaking start, the grad angle must be non-negative
 				break;	//pass on only continuation data, no start flag
 
-			grad_ang |= read_imagei(iC1_grad_ang, left_coords).x;
-			if((grad_ang & 0xC0) < 0)	// the gradient angle of the left neighbor must OR with it to a non-negative
+			grad_ang = read_imagei(iC1_grad_ang, adjacent_coords).x;
+			if(grad_ang > 0)	// the gradient angle of the left neighbor must be negative
 				break;	//pass on only continuation data, no start flag
 		}
-	//	printf("!\n");
 		// fall-through to add start flag
 	case 0x08:
-		cont_data |= 0xE0;
+		if(is_forced_end)	// if it starts and ends on the same pixel, it's just noise/quantization artifacts and should be discarded
+			return;
+		cont_data |= 0x80;
 	}
 /*
 	if(!(cont_data & 16))
@@ -120,5 +135,5 @@ kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_
 			out_data |= 8;	// set start flag
 	}
 */
-	write_imageui(uc1_starts_cont, coords, cont_data);
+	write_imageui(uc1_starts_cont, coords, cont_data | is_forced_end);
 }

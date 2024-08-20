@@ -34,9 +34,6 @@ __kernel void link_edge_pixels(read_only image2d_t iC1_grad_ang, write_only imag
 	if(!is_diff_small_mask)
 		return;
 
-	//if(all(coords == (int2)(447,83)))
-	//	printf("%i %i %i %i %i %i %i %i\n", neighbors.c.s0, neighbors.c.s1, neighbors.c.s2, neighbors.c.s3, neighbors.c.s4, neighbors.c.s5, neighbors.c.s6, neighbors.c.s7);
-	
 	// any instance where there are more than 2 similarly angled pixels adjacent to a pixel after thinning could result in a
 	// branch starting and since it can't be determined at this level which will be taken
 	uchar cont_data = 0;
@@ -57,7 +54,7 @@ __kernel void link_edge_pixels(read_only image2d_t iC1_grad_ang, write_only imag
 		// in order for this to be treated correctly across the over/underflow boundary this must
 		// be acheived by a half difference added to the index
 		char ref_ang = (index2.c.x + index2.c.y - 4) << 4;
-		char order = (index2.c.x > index2.c.y) ^ ((char)(grad_ang - ref_ang) < (char)0);	// done as subtraction to allow roll over
+		char order = (index2.c.x > index2.c.y) ^ ((char)(grad_ang - ref_ang) < 0);	// done as subtraction to allow roll over
 		// apparently subtraction and presumably other math operations automatically promotes the involved operands to a type
 		// larger than a char despite all of them being chars which causes it to fail to roll-over without a cast so that's why
 		// the above line needs a cast before the comparison happens

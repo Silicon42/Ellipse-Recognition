@@ -1,4 +1,4 @@
-// displays occupancy and gradient direction of input via a 3x bigger output image
+// displays left and right link direction of input via a 3x bigger output image
 
 __kernel void link_debug(read_only image2d_t uc1_cont, write_only image2d_t iC4_debug_image)
 {
