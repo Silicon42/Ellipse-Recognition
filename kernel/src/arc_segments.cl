@@ -26,8 +26,9 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 	base_coords = coords;
 
 	// the cached 0-deg-relative bin index for where the next pixel was found when finding segment starts
-	uchar cont_idx = read_imageui(uc1_cont_image, coords.i).x & 7;	//	start specified in start_info is assumed to be valid and have start flag, so can be safely masked to just index
-	uchar cont_data = 0;
+	uchar cont_data = read_imageui(uc1_cont_image, coords.i).x;	
+	uchar cont_idx = cont_data & 7;	// start specified in start_info is assumed to be valid and have start flag, so can be safely masked to just index
+	uchar is_supported = cont_data & 0x10;	// there was another supporting pixel at the start
 	write_imageui(uc1_trace, coords.i, -1);
 
 	char prev_angle, curr_angle, prev_angle_diff, curr_angle_diff, angle_accel, max_accel, min_accel;
@@ -52,7 +53,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 	ushort watchdog = 0;
 
 	// loop until we hit a start or run out of pixels for the arc segment
-	while((cont_data & 0x88) == 0x80)	// check valid and not start
+	while((cont_data & 0xC8) == 0x08)	// check start flag and forced end flag not set, and continuation flag set
 	{
 		++watchdog;
 		// infinite loop prevention
@@ -135,7 +136,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 
 	// if edge was a lone edge of no more than 6 pixels, reject as noise
 //	printf("len: %i	", watchdog);
-	if(watchdog < 5 && (cont_data & 0x88) != 0x88)
+	if(watchdog < 5 && !((cont_data & 8) || is_supported))	// right or left of the traversed edge was connected to separate processing
 		return;
 
 	write_data_accum(path_accum, path_length, ui4_path_image, base_coords.i);
