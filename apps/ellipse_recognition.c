@@ -41,8 +41,9 @@ int main(int argc, char *argv[])
 		"lost_seg_debug",
 		"link_debug",
 		"starts_link_debug",
+		"colored_retrace_starts",
 		NULL
-	};//"scharr", "canny", "hough_lines", "peaks", "inv_hough_lines", 
+	};
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
@@ -72,24 +73,23 @@ int main(int argc, char *argv[])
 	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-//	ArgStaging simple_grow1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{1,1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
 	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
 	ArgStaging starts[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{2,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
 	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}};
-	ArgStaging mul3[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}};
+	ArgStaging mul3[]   = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}};
 	ArgStaging arc_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},
-		{2,{REL,{0}},CL_TRUE,CL_FALSE},
-		{3,{REL,{0}},CL_TRUE,CL_FALSE}
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},
+		{2,{REL,{0}},CL_TRUE, CL_FALSE},
+		{3,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 
 	ArgStaging starts_debug[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE,CL_FALSE}
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging segment_debug[] = {
 		{6,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -97,18 +97,24 @@ int main(int argc, char *argv[])
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE,CL_FALSE}
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging retrace[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE,CL_FALSE}
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+	};
+	ArgStaging retrace_starts[] = {
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging lost_seg[] = {
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{5,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE,CL_FALSE}
+		{6,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 
 	const QStaging* staging[] = {
@@ -126,8 +132,9 @@ int main(int argc, char *argv[])
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
 		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
-//		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
-/**/		NULL
+		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
+		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
+/**/		NULL										////-END-////
 	};
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier

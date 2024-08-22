@@ -1,23 +1,29 @@
-kernel void lost_seg_debug(read_only image2d_t uc4_retrace, read_only image2d_t uc1_cont_data, write_only image2d_t uc4_out)
+kernel void lost_seg_debug(read_only image2d_t uc4_retrace, read_only image2d_t uc4_retrace_starts, read_only image2d_t uc1_cont_data, write_only image2d_t uc4_out)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	uint4 color;
-	uchar cont_data = read_imageui(uc1_cont_data, coords).x;
-	switch(cont_data & 0x88)
-	{
-	case 0:		// non-edge pixel
-		color = (uint4)(0,0,0,-1);
-		break;
-	case 0x88:	// valid thread-start
-		color = (read_imageui(uc4_retrace, coords).w) ? -1 : (uint4)(64,64,64,-1);
-		break;
-	case 0x80:	// valid single-continuation non-start edge pixel
+	// color from retrace_starts image gets highest priority
+	uint4 color = read_imageui(uc4_retrace_starts, coords);
+	// retrace gets 2nd priority
+	if(!color.w)
 		color = read_imageui(uc4_retrace, coords);
-		if(all(color == 0))
-			color = (uint4)(-1,0,0,-1);
-		break;
-	default:	// multiple-continuation edge pixel
-		color = (uint4)(-1,-1,0,-1);
+	// any other remaining pixels got rejected or unintentionally lost and are decided based on the results of cont_data
+	if(!color.w)
+	{
+		uchar cont_data = read_imageui(uc1_cont_data, coords).x;
+		switch(cont_data & 0x88)
+		{
+		case 0:		// non-edge pixel
+			color = (uint4)(0,0,0,-1);	// full black
+			break;
+		case 0x88:	// valid thread-start, start flag and right continuation flag set
+			color = -1;	// full white
+			break;
+		case 0x08:	// valid right-continuation non-start edge pixel
+			color = (uint4)(-1,0,0,-1);	// full red
+			break;
+		default:	// start with no right continuation
+			color = (uint4)(-1,-1,0,-1);	// full yellow
+		}
 	}
 	
 	write_imageui(uc4_out, coords, color);

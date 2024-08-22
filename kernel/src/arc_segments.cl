@@ -14,8 +14,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 	xy_hist.combined = -1;
 	union l_conv bounds, coords, base_coords, prev_coords;
 	bounds.i = get_image_dim(ui4_path_image);
-	const int2 offsets[] = {(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1),(int2)(1,0),1,
-							(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1)};	// repeat for addition overrun
+	const int2 offsets[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
 	short index = get_global_id(0);	// must be scheduled as 1D
 
 	// initialize variables of arcs segment tracing loop for first iteration
@@ -57,7 +56,7 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 	{
 		++watchdog;
 		// infinite loop prevention
-		//FIXME: this is a temporary fix, a proper logical fix that prevents the loops from forming needs to be added
+		//NOTE: this should be fixed with the move to link based intersection rejection but I'll leave it for now just in case
 		if(!watchdog)
 		{
 			printf("watchdog: segment too long. Is it looped?: (%i, %i), curr_angle: %i, prev_angle: %i\n", coords.i.x, coords.i.y, curr_angle, prev_angle);
@@ -134,9 +133,10 @@ kernel void arc_segments(read_only image1d_t us2_start_info, read_only image2d_t
 		write_imageui(uc1_trace, coords.i, -1);
 	}
 
-	// if edge was a lone edge of no more than 6 pixels, reject as noise
 //	printf("len: %i	", watchdog);
-	if(watchdog < 5 && !((cont_data & 8) || is_supported))	// right or left of the traversed edge was connected to separate processing
+	// if edge was a lone edge of no more than 5 pixels and has no additional supporting segments, reject as noise
+	// 5 is chosen semi-arbitrarily because that's the minimum number of points to fit an ellipse
+	if(watchdog <= 5 && !((cont_data & 8) || is_supported))	// right or left of the traversed edge was connected to separate processing
 		return;
 
 	write_data_accum(path_accum, path_length, ui4_path_image, base_coords.i);
