@@ -10,11 +10,13 @@
 enum rangeMode {
 //	PAD,	// pad to multiple of work group dimensions
 	EXACT,	// set range/size to param
-	SINGLE,	// meant for primarily serial workloads, [0] == false -> 1 hardware workgroup, [0] == true -> single work item
+//	SINGLE,	// meant for primarily serial workloads, [0] == false -> 1 hardware workgroup, [0] == true -> single work item
 	REL,	// expand/contract range and output relative to input
 	DIAG,	// exact on [0], contraction(- only, + no useful effect) relative to length of diagonal on [1]*, relative on [2], used for hough_lines
 	DIVIDE,	// divides each component by corresponding param
 	MULT,	// multiplies each component by corresponding param
+	ROW,	// REL on y axis, EXACT on x and z
+	COLUMN,	// REL on x axis, EXACT on y and z
 };
 
 typedef struct {

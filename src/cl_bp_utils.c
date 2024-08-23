@@ -156,7 +156,7 @@ cl_channel_order getOrderFromMetadata(const char* metadata)
 void calcSizeByMode(const size_t* in, const RangeData* range, size_t* out)
 {
 
-	if(!in && range->mode != EXACT && range->mode != SINGLE)
+	if(!in && range->mode != EXACT)// && range->mode != SINGLE)
 	{
 		out[0] = 0;	// if you got here you probably didn't specify something correctly
 		return;
@@ -168,34 +168,53 @@ void calcSizeByMode(const size_t* in, const RangeData* range, size_t* out)
 		out[0] = range->param[0];
 		out[1] = range->param[1];
 		out[2] = range->param[2];
-		return;
-	case SINGLE:	//TODO: make this check the target device to find out how many threads to a hardware compute unit
+		break;
+/*	case SINGLE:	//TODO: make this check the target device to find out how many threads to a hardware compute unit
 		out[0] = 1;
 		out[1] = 1;
 		out[2] = 1;
-		return;
-	case REL:
+		break;
+*/	case REL:
 		out[0] = in[0] + range->param[0];
 		out[1] = in[1] + range->param[1];
 		out[2] = in[2] + range->param[2];
-		return;
+		break;
 	case DIAG:
 		out[0] = range->param[0];
 		out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + range->param[1]) & -2;	//diagonal length truncated down to even
 		out[2] = in[2] + range->param[2];
-		return;
+		break;
 	case DIVIDE:
 		out[0] = in[0] / range->param[0];
 		out[1] = in[1] / range->param[1];
 		out[2] = in[2] / range->param[2];
-		return;
+		break;
 	case MULT:
 		out[0] = in[0] * range->param[0];
 		out[1] = in[1] * range->param[1];
 		out[2] = in[2] * range->param[2];
-		return;
+		break;
+	case ROW:
+		out[0] = range->param[0];
+		out[1] = in[1] + range->param[1];
+		out[2] = range->param[2];
+		break;
+	case COLUMN:
+		out[0] = in[0] + range->param[0];
+		out[1] = range->param[1];
+		out[2] = range->param[2];
+		break;
+	default:
+		out[0]=0;	// if you got here you probably forgot to implement a mode
+		perror("Unknown range mode!\n");
 	}
-	out[0]=0;	// if you got here you probably forgot to implement a mode
+	// if any of the values of out are 0, the range will be invalid
+	if(!out[0] || !out[1] || !out[2])
+	{
+		perror("Invalid range!\n");
+		exit(1);
+	}
+	return;
 }
 
 //TODO: add ifdefs for OpenCL versions to the following 3 helper functions

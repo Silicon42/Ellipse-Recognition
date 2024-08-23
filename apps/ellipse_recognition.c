@@ -73,11 +73,27 @@ int main(int argc, char *argv[])
 	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-	ArgStaging simple_shrink1[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}};
-	ArgStaging simple[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
-	ArgStaging starts[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{2,{REL,{0}},CL_FALSE,CL_FALSE},{1,{REL,{0}},CL_TRUE,CL_FALSE}};
-	ArgStaging serial[] = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}};
-	ArgStaging mul3[]   = {{1,{REL,{0}},CL_FALSE,CL_FALSE},{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}};
+	ArgStaging simple_shrink1[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}
+	};
+	ArgStaging simple[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+	};
+	ArgStaging starts[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+	};
+	ArgStaging serial[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}
+	};
+	ArgStaging mul3[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}
+	};
 	ArgStaging arc_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -128,7 +144,7 @@ int main(int argc, char *argv[])
 		&(QStaging){5, 1, {REL, {0}}, starts},			//Find Segment Starts
 //		&(QStaging){14, 2, {REL, {0}}, mul3},			//Starts Link Debug
 //		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
-		&(QStaging){7, 1, {SINGLE, {0}}, serial},		//Serial Reduce
+		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
 		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
