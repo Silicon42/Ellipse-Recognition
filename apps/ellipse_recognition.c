@@ -26,7 +26,8 @@ int main(int argc, char *argv[])
 
 	cl_int clErr;
 	const char* kernel_progs[] = {
-		"robertsX_char",
+//		"robertsX_char",
+		"scharr3_char",
 		"non_max_sup",
 		"edge_thinning",
 		"edge_thinning2",
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
 	ArgTracker tracker = {.args = ta, .args_cnt = 1, .max_args = MAX_ARGS, .max_out_size = 0};
 	cl_image_format img_format = {
 		.image_channel_order = CL_R,
-		.image_channel_data_type = CL_UNSIGNED_INT8
+		.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
 	};
 	tracker.args[0].format = img_format;
 	imageFromFile(context, in_file, &tracker.args[0]);
@@ -134,7 +135,8 @@ int main(int argc, char *argv[])
 	};
 
 	const QStaging* staging[] = {
-		&(QStaging){0, 1, {REL, {0}}, simple_shrink1},	//RobertsX
+//		&(QStaging){0, 1, {REL, {0}}, simple_shrink1},	//RobertsX
+		&(QStaging){0, 1, {REL, {0}}, simple},			//Scharr 3*3
 		&(QStaging){1, 1, {REL, {0}}, simple},			//Non-Max Suppression
 		&(QStaging){2, 1, {REL, {0}}, simple},			//Edge Thinning
 		&(QStaging){3, 1, {REL, {0}}, simple},			//Edge Thinning
