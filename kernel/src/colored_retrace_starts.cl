@@ -8,7 +8,7 @@ kernel void colored_retrace_starts(read_only image1d_t us2_start_info, read_only
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	uint3 base_color = scatter_colorize(index);
-	const int2 offsets[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
+
 	// initialize variables of arcs segment tracing loop for first iteration
 	union l_conv coords;
 	coords.ui = read_imageui(us2_start_info, index).lo;

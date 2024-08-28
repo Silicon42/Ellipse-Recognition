@@ -9,7 +9,7 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	uint3 base_color = scatter_colorize(index);
-	const int2 offsets[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
+	//const int2 offsets[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
 	// initialize variables of arcs segment tracing loop for first iteration
 	union l_conv coords;
 	ulong2 path;
@@ -34,7 +34,7 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 		for(uchar i = 0; i < path_len; ++i)
 		{
 			if(i == ACCUM_STRUCT_LEN1)
-				path.x = path.y;
+				path.x = path.y >> 6;
 
 			coords.i += offsets[path.x & 7];
 			write_imageui(uc4_trace_image, coords.i, (uint4)(base_color/2, -1));

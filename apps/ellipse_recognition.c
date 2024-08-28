@@ -100,7 +100,8 @@ int main(int argc, char *argv[])
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},
 		{2,{REL,{0}},CL_TRUE, CL_FALSE},
-		{3,{REL,{0}},CL_TRUE, CL_FALSE}
+		{3,{REL,{0}},CL_TRUE, CL_FALSE},
+		{4,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 
 	ArgStaging starts_debug[] = {
@@ -109,28 +110,28 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging segment_debug[] = {
+		{7,{REL,{0}},CL_FALSE,CL_FALSE},
 		{6,{REL,{0}},CL_FALSE,CL_FALSE},
 		{5,{REL,{0}},CL_FALSE,CL_FALSE},
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging retrace[] = {
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},
+		{5,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging retrace_starts[] = {
+		{5,{REL,{0}},CL_FALSE,CL_FALSE},
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging lost_seg[] = {
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{6,{REL,{0}},CL_FALSE,CL_FALSE},
+		{7,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 

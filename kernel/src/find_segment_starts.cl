@@ -13,6 +13,7 @@
 //FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
 #include "cast_helpers.cl"
 #include "neighbor_utils.cl"
+#include "offsets_LUT.cl"
 //NOTE: return value is in the form 0bSE0lriii where "S" is the start indicator flag, "E" is a forced end indicator flag,
 // "l" is the left support indicator flag, "r" is occupancy/right continuation indicator flag, and "i" is the 3-bit direction index
 
@@ -21,7 +22,7 @@
 kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_t iC1_grad_ang, write_only image2d_t uc1_starts_cont)
 {
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	const int2 offsets[] = {(int2)(1,0), 1, (int2)(0,1), (int2)(-1,1), (int2)(-1,0), -1, (int2)(0,-1), (int2)(1,-1)};
+	//const int2 offsets[] = {(int2)(1,0), 1, (int2)(0,1), (int2)(-1,1), (int2)(-1,0), -1, (int2)(0,-1), (int2)(1,-1)};
 
 	uchar cont_data = read_imageui(uc1_cont, coords).x;
 
