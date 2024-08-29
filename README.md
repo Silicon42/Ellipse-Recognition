@@ -7,7 +7,7 @@ has been done yet. Ellipse recognition has not yet been implemented.
 
 # Cloning this repo
 This repo uses git submodules to pull in the OpenCL headers, so you must use
-```git submodule --init --recursive``` to pull in those before compiling for the
+```git submodule update --init --recursive``` to pull in those before compiling for the
 first time. You also need to get the compiled OpenCL binaries for your platform
 from somewhere. Official SDK binaries can be found here:
 * TODO: add link to binaries
