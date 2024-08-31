@@ -25,11 +25,15 @@ where _ denotes an unused bit.
 #define ACCUM_STRUCT_LEN2 40
 #define LEN_BITS_MASK 0x3F
 
+// arcs consisting of less than this many pixels get flaged as short
+#define SHORT_ARC_THRESH 5
+
 struct arc_data{	//TODO: check how to ensure optimal packing
 	char is_flat;		// flag for if the arc segment has little deflection on it's length
 	char is_cw;			// flag for if the arc's handedness, ie if the gradient is inward or outward
+	char is_short;		// flag for if the arc's length consists of < SHORT_ARC_THRESH pixels
 	char2 offset_end;	// position delta of the end coords from the start coords
-	short2 start;		// start coords
+	char2 offset_mid;	// position delta of the arc midpoint coords from the start coords
 	float2 center;		// rough estimate of the center coords of the arc
 };
 
@@ -54,8 +58,8 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	// set arc data in struct for writing
 	union arc_rw arcRW;
 	struct arc_data* arc = &(arcRW.data);
-	arc->start = convert_short2(base_coords);
-	// get offset vector
+	arc->is_short = len < SHORT_ARC_THRESH;
+	// get end offset vector
 	int2 offset_end = end_coords - base_coords;
 	arc->offset_end = convert_char2(offset_end);
 
@@ -66,6 +70,7 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 		offset_mid += offsets[accum.x & 7];
 		accum.x >>= 3;
 	}
+	arc->offset_mid = convert_char2(offset_mid);
 
 	// determine state of flag for flatness which we define as the midpoint of the chord having a small displacement
 	// from the approximate halfway point of the arc, in the case of a nearly flat arc the halfway point should be 

@@ -5,7 +5,7 @@
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an
 // absolute minimum
 
-kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d_t uc1_cont_info, read_only image2d_t iC1_grad_ang, write_only image2d_t ui4_path, write_only image2d_t ui4_arc_data, write_only image2d_t uc1_trace)
+kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d_t uc1_cont_info, read_only image2d_t iC1_grad_ang, write_only image2d_t ui4_path, write_only image2d_t ui4_arc_data)//, write_only image2d_t uc1_trace)
 {
 	//TODO: loops shouldn't be a problem anymore so once you're convinced, this should be taken out for a speedup
 	union {
@@ -29,14 +29,14 @@ kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d
 	uchar cont_data = read_imageui(uc1_cont_info, coords.i).x;	
 	uchar cont_idx = cont_data & 7;	// start specified in start_info is assumed to be valid and have start flag, so can be safely masked to just index
 	uchar is_supported = cont_data & 0x10;	// there was another supporting pixel at the start
-	write_imageui(uc1_trace, coords.i, -1);
+//	write_imageui(uc1_trace, coords.i, -1);
 
 	char prev_angle, curr_angle, prev_angle_diff, curr_angle_diff, angle_accel, max_accel, min_accel;
 	prev_angle = read_imagei(iC1_grad_ang, coords.i).x;
 	coords.i += offsets[cont_idx];
 //	if(any(coords.u >= bounds.u))
 //		return;
-	write_imageui(uc1_trace, coords.i, -1);
+//	write_imageui(uc1_trace, coords.i, -1);
 
 	curr_angle = read_imagei(iC1_grad_ang, coords.i).x;
 
@@ -88,6 +88,9 @@ kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d
 		// update angle diff tracking variables
 		prev_angle_diff = curr_angle_diff;
 		curr_angle_diff = curr_angle - prev_angle;
+//TODO: make this based on rough angle relative to diff between cont_idx and avg of last 2 angles,
+// this should result in a much more accurate estimation of rate of change and in combination with
+// a change in edge linking, remove the need for thinning by allowing face adjacent pixels higher priority
 		if(cont_idx & 1)	// if it's a diagonal the diff is less due to being spread over a greater distance
 			curr_angle_diff *= M_SQRT1_2_F;
 		
@@ -131,7 +134,7 @@ kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d
 			}
 		}
 		// mark current pixel in debug trace
-		write_imageui(uc1_trace, coords.i, -1);
+//		write_imageui(uc1_trace, coords.i, -1);
 	}
 
 //	printf("len: %i	", watchdog);

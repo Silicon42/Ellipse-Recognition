@@ -11,8 +11,8 @@
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 // Intel CPUs seem to not calculate atan2pi() correctly if -cl-fast-relaxed-math is set and collapse to only either +/- 0.5
 #define KERNEL_GLOBAL_BUILD_ARGS "-Ikernel/inc -Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"
-#define MAX_KERNELS 16
-#define MAX_STAGES 16
+#define MAX_KERNELS 32
+#define MAX_STAGES 32
 #define MAX_ARGS 64
 // macro to stringify defined literal values
 #define STR_EXPAND(tok) #tok
@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
 		"link_debug",
 		"starts_link_debug",
 		"colored_retrace_starts",
+		"serial_reduce_arcs",
 		NULL
 	};
 
@@ -83,33 +84,33 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 	ArgStaging starts[] = {
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_starts_cont
 	};
 	ArgStaging serial[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}
+		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}	//is2_start_coords
 	};
 	ArgStaging mul3[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}
 	};
 	ArgStaging arc_segments[] = {
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},
-		{2,{REL,{0}},CL_TRUE, CL_FALSE},
-		{3,{REL,{0}},CL_TRUE, CL_FALSE},
-		{4,{REL,{0}},CL_TRUE, CL_FALSE}
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_start_coords
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
+		{2,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
+		{3,{REL,{0}},CL_TRUE, CL_FALSE}		//ui4_arc_data
+//		{4,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_trace
 	};
 
 	ArgStaging starts_debug[] = {
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_thin
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_seg_start
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_dst_image
 	};
-	ArgStaging segment_debug[] = {
+/*	ArgStaging segment_debug[] = {	//DEPRECATED
 		{7,{REL,{0}},CL_FALSE,CL_FALSE},
 		{6,{REL,{0}},CL_FALSE,CL_FALSE},
 		{5,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -117,22 +118,22 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
-	ArgStaging retrace[] = {
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},
-		{5,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+*/	ArgStaging retrace[] = {
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_start_info
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_path_image
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_starts_image
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_trace_image
 	};
 	ArgStaging retrace_starts[] = {
-		{5,{REL,{0}},CL_FALSE,CL_FALSE},
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_start_info
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_path_image
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_trace_image
 	};
 	ArgStaging lost_seg[] = {
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{7,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{REL,{0}},CL_TRUE, CL_FALSE}
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//uc4_retrace
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc4_retrace_starts
+		{6,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_data
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_out
 	};
 
 	const QStaging* staging[] = {
@@ -147,12 +148,13 @@ int main(int argc, char *argv[])
 		&(QStaging){5, 1, {REL, {0}}, starts},			//Find Segment Starts
 //		&(QStaging){14, 2, {REL, {0}}, mul3},			//Starts Link Debug
 //		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
-		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce
+		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
-//		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug
-		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
+//		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
+/*		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
 		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
 		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
+*/		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Arcs
 /**/		NULL										////-END-////
 	};
 

@@ -1,3 +1,4 @@
+//DEPRECATED
 // Debug kernel that combines the outputs of canny_short, reject_intersections, find_segment_starts, and construct_segments
 // for visualization purposes
 
