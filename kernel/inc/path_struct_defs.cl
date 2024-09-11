@@ -2,6 +2,7 @@
 #define PATH_STRUCT_DEFS_CL
 
 #include "offsets_LUT.cl"
+#include "math_helpers.cl"
 
 //TODO: actually define this as a bitfield
 /*
@@ -30,8 +31,8 @@ where _ denotes an unused bit.
 
 struct arc_data{	//TODO: check how to ensure optimal packing
 	char is_flat;		// flag for if the arc segment has little deflection on it's length
-	char is_cw;			// flag for if the arc's handedness, ie if the gradient is inward or outward
 	char is_short;		// flag for if the arc's length consists of < SHORT_ARC_THRESH pixels
+	char ccw_mult;		// represents arc's handedness, ie if the gradient is inward or outward, 1 for cw, -1 for ccw
 	char2 offset_end;	// position delta of the end coords from the start coords
 	char2 offset_mid;	// position delta of the arc midpoint coords from the start coords
 	float2 center;		// rough estimate of the center coords of the arc
@@ -41,6 +42,7 @@ struct arc_data{	//TODO: check how to ensure optimal packing
 union arc_rw{
 	struct arc_data data;
 	uint4 ui4;
+	ulong2 ul2;
 };
 
 void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, write_only image2d_t ui4_arc_data, const int2 base_coords, const int2 end_coords)
@@ -49,7 +51,7 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	if(len <= ACCUM_STRUCT_LEN1)
 		accum = accum.yx;
 
-//	printf("%2i %11o %10o %11o %10o\n", len, accum.y >> 30, accum.y & 0x1FFFFFFF, accum.x >> 30, accum.x & 0x1FFFFFFF);
+	//printf("%2i %11o %10o %11o %10o\n", len, accum.y >> 30, accum.y & 0x1FFFFFFF, accum.x >> 30, accum.x & 0x1FFFFFFF);
 
 	accum.y |= len;
 
@@ -88,8 +90,8 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	}
 	else
 	{
-		int b = 2 * (offset_end.x * offset_mid.y - offset_mid.x * offset_end.y);
-		if(b == 0)
+		int b = 2 * cross_2d_i(offset_end, offset_mid);
+		if(b == 0)	//prevent divide by zero
 			arc->center = (float2)(INFINITY, INFINITY);
 			// cw/ccw is meaningless here since it's flat and the start, mid and end points are co-linear
 		else
@@ -104,15 +106,14 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 			a0 = offset_mid.x + offset_mid.y;
 			temp = offset_end * offset_end;
 			a1 = offset_end.x + offset_end.y;
-			
 
-			float2 center = convert_float2(a0 * perp_end - a1 * perp_mid);
+			float2 center = convert_float2(a0 * perp_end - a1 * perp_mid);	// center direction relative to start, not to scale
+			// cw arcs have center in similar direction to the cw perpendicular of the offset to the arc half point and
+			// ccw arcs have center in opposing direction. This means cw arcs have positive dot product and ccw negative
+			arc->ccw_mult = sign(dot(center, convert_float2(perp_mid)));
 			center = convert_float2(base_coords) + (center / b);
 			arc->center = center;
 
-			// cw arcs have center in similar direction to the cw perpendicular of the offset to the arc half point and
-			// ccw arcs have center in opposing direction. This means cw arcs have positive dot product and ccw negative
-			arc->is_cw = dot(center, convert_float2(perp_mid)) > 0;
 		}
 	}
 
