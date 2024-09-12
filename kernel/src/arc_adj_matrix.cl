@@ -1,4 +1,4 @@
-#include "cast_helpers.cl"
+//#include "cast_helpers.cl"
 #include "path_struct_defs.cl"
 //#include "math_helpers.cl"
 #define MAX_CANDIDATES 2	// depending on how well this works this might get increased

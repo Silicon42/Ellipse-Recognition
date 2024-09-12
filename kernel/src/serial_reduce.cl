@@ -2,9 +2,9 @@
 // This might get replaced with a simple hash and retry on collision method later so that it's not a serial bottleneck
 //NOTE: must be scheduled as 1D using EXACT rangeMode with param {1,1,1}
 
-__kernel void serial_reduce(read_only image2d_t uc1_src_image, write_only image1d_t is2_start_coords)
+__kernel void serial_reduce(read_only image2d_t uc1_src_image, write_only image1d_t iS2_start_coords)
 {
-	ushort max_size = get_image_width(is2_start_coords);	//TODO: this can probably be replaced optionally with a define
+	ushort max_size = get_image_width(iS2_start_coords);	//TODO: this can probably be replaced optionally with a define
 	if(get_global_id(0))	// only thread 0 proccesses anything here
 		return;
 	
@@ -18,7 +18,7 @@ __kernel void serial_reduce(read_only image2d_t uc1_src_image, write_only image1
 			uchar value = read_imageui(uc1_src_image, coords).x;
 			if((value & 0x88) == 0x88)	// check validity and start flags present
 			{
-				write_imagei(is2_start_coords, index, (int4)(coords, 0, -1));
+				write_imagei(iS2_start_coords, index, (int4)(coords, 0, -1));
 				++index;
 				if(index == max_size)	// prevent possibly attempting to write past the end of the image, which can freeze the pipeline
 				{

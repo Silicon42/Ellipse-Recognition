@@ -33,3 +33,13 @@ parsing raw input for mis-matched read/write calls
 * verify early exits for various kernels actually provide a perf benefit
 * attempt hash-style fast reduce and see if there's a significant perf benefit 
 over single threading
+* split compilation into a separate program
+* add configuration hashing for auto-rebuild support (low priority)
+* add a second debug kernel compile list so they aren't all mixed together in
+the same list
+* make the boilerplate fully data driven so that recompilation of the C portion
+only happens for serious changes to how the program launches/outputs data, also 
+would get rid of all the "unused variable" warnings
+* FIXME: somewhere in the boilerplate I missed a check for the underlying type 
+code (u/i) on the creation of the buffer and instead relied on capitalization of 
+the type/width code which can also have that info but is a lot easier to get wrong

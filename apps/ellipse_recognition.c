@@ -91,8 +91,13 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_starts_cont
 	};
 	ArgStaging serial[] = {
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//uc1_src_image
 		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}	//is2_start_coords
+	};
+	ArgStaging serial2[] = {	//serial_reduce_arcs
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_arc_segments
+		{1,{EXACT,{16384,3,1}},CL_TRUE,CL_FALSE},	//is2_start_coords
+		{1,{EXACT,{1,1,1}},CL_TRUE,CL_FALSE}		//us4_lengths
 	};
 	ArgStaging mul3[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
@@ -158,11 +163,11 @@ int main(int argc, char *argv[])
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
-		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
+/*		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
 		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
 		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
 		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test
-//		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Arcs
+*/		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Arcs
 /**/		NULL										////-END-////
 	};
 

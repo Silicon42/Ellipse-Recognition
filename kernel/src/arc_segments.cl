@@ -5,7 +5,7 @@
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an
 // absolute minimum
 
-kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d_t uc1_cont_info, read_only image2d_t iC1_grad_ang, write_only image2d_t ui4_path, write_only image2d_t ui4_arc_data)//, write_only image2d_t uc1_trace)
+kernel void arc_segments(read_only image1d_t iS2_start_coords, read_only image2d_t uc1_cont_info, read_only image2d_t iC1_grad_ang, write_only image2d_t ui4_path, write_only image2d_t ui4_arc_data)//, write_only image2d_t uc1_trace)
 {
 	//TODO: loops shouldn't be a problem anymore so once you're convinced, this should be taken out for a speedup
 	union {
@@ -19,7 +19,7 @@ kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d
 	short index = get_global_id(0);	// must be scheduled as 1D
 
 	// initialize variables of arcs segment tracing loop for first iteration
-	coords.ui = read_imageui(us2_start_coords, index).lo;
+	coords.i = read_imagei(iS2_start_coords, index).lo;
 	if(!coords.l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 	
