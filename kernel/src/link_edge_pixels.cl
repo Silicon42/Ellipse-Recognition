@@ -1,5 +1,3 @@
-// Kernel meant to remove interstections from the edge map as they are problematic for processing segments since they would
-// require it to branch
 #include "vec_sum_reduce.cl"
 #include "neighbor_utils.cl"
 

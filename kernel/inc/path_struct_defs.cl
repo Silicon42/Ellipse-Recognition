@@ -67,11 +67,12 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 
 	// find the offset of the halfway point on the path by partially reconstructing it
 	int2 offset_mid = 0;
-	for(len /= 2; len > 0; --len)
+	for(int i = len / 2; i > 0; --i)
 	{
 		offset_mid += offsets[accum.x & 7];
 		accum.x >>= 3;
 	}
+
 	arc->offset_mid = convert_char2(offset_mid);
 
 	// determine state of flag for flatness which we define as the midpoint of the chord having a small displacement
@@ -90,30 +91,29 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	}
 	else
 	{
-		int b = 2 * cross_2d_i(offset_end, offset_mid);
-		if(b == 0)	//prevent divide by zero
+		int scale_div = 2 * cross_2d_i(offset_end, offset_mid);
+		if(scale_div == 0)	//prevent divide by zero
 			arc->center = (float2)(INFINITY, INFINITY);
 			// cw/ccw is meaningless here since it's flat and the start, mid and end points are co-linear
 		else
 		{
 			//solve for center of circle
 			int2 temp, perp_end, perp_mid;
-			perp_mid = (int2)(offset_mid.y, -offset_mid.x);
-			perp_end = (int2)(offset_end.y, -offset_end.x);
+			perp_mid = perp_2d_i(offset_mid);
+			perp_end = perp_2d_i(offset_end);
 
-			int a0, a1;
-			temp = offset_mid * offset_mid;
-			a0 = offset_mid.x + offset_mid.y;
-			temp = offset_end * offset_end;
-			a1 = offset_end.x + offset_end.y;
+			int mag2_end, mag2_mid;
+			mag2_end = mag2_2d_i(offset_end);
+			mag2_mid = mag2_2d_i(offset_mid);
 
-			float2 center = convert_float2(a0 * perp_end - a1 * perp_mid);	// center direction relative to start, not to scale
+			// center direction relative to start, not to scale yet
+			float2 center = convert_float2(mag2_mid * perp_end - mag2_end * perp_mid);
+
 			// cw arcs have center in similar direction to the cw perpendicular of the offset to the arc half point and
 			// ccw arcs have center in opposing direction. This means cw arcs have positive dot product and ccw negative
 			arc->ccw_mult = sign(dot(center, convert_float2(perp_mid)));
-			center = convert_float2(base_coords) + (center / b);
+			center = convert_float2(base_coords) + (center / scale_div);
 			arc->center = center;
-
 		}
 	}
 

@@ -119,7 +119,7 @@ kernel void arc_segments(read_only image1d_t us2_start_coords, read_only image2d
 			// if we have exceeded the maximum size we can store in a single write, we reset and continue with a new one
 			case ACCUM_STRUCT_LEN2:
 				//Write path_accum to 2D image
-				write_data_accum(path_accum, LEN_BITS_MASK, ui4_path, ui4_arc_data, base_coords.i, prev_coords.i);
+				write_data_accum(path_accum, /*LEN_BITS_MASK*/path_length, ui4_path, ui4_arc_data, base_coords.i, prev_coords.i);
 				// reset path_accum
 				base_coords = prev_coords;
 				path_length = 1;

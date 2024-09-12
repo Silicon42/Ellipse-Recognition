@@ -18,7 +18,7 @@ __kernel void serial_reduce_arcs(read_only image2d_t ui4_arc_segments, write_onl
 		{
 			union l_conv value;
 			value.ui = read_imageui(ui4_arc_segments, coords).lo;
-			if(!value)	// check occupancy for current pixel
+			if(!value.l)	// check occupancy for current pixel
 				continue;
 			
 			write_imagei(is2_start_coords, index, (int4)(coords, 0, -1));

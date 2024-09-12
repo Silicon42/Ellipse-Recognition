@@ -44,6 +44,8 @@ int main(int argc, char *argv[])
 		"starts_link_debug",
 		"colored_retrace_starts",
 		"serial_reduce_arcs",
+		"arc_adj_matrix",
+		"search_region_test",
 		NULL
 	};
 
@@ -135,6 +137,11 @@ int main(int argc, char *argv[])
 		{6,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_data
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_out
 	};
+	ArgStaging search_debug[] = {
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc4_lost_seg
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_debug
+	};
 
 	const QStaging* staging[] = {
 //		&(QStaging){0, 1, {REL, {0}}, simple_shrink1},	//RobertsX
@@ -151,10 +158,11 @@ int main(int argc, char *argv[])
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
 		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
-/*		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
+		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
 		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
 		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
-*/		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Arcs
+		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test
+//		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Arcs
 /**/		NULL										////-END-////
 	};
 

@@ -37,13 +37,13 @@ kernel void arc_adj_matrix(read_only image1d_t iS2_start_coords, read_only image
 		int2 B_start = read_imagei(iS2_start_coords, i).lo;
 		float2 B_start_f = convert_float2(B_start);		// start of arc B as float2
 
+		float2 A_to_B = B_start_f - A_end;				// vector from end of arc A to start of arc B
+		float dist = fast_length(A_to_B);
 		// if it's at or above the max search radius away from the end,
 		// skip it, it's not likely part of the same ellipse, also prevents it from
-		float dist = fast_distance(B_start_f, A_end);
 		if(dist >= radius)
 			continue;
 
-		float2 A_to_B = B_start_f - A_end;				// vector from end of arc A to start of arc B
 
 		// if start of arc B is outside the tangent line at the end of arc A,
 		// A_to_B will have a component in the direction of A_radial_e so dot product will be positive,
@@ -53,7 +53,7 @@ kernel void arc_adj_matrix(read_only image1d_t iS2_start_coords, read_only image
 
 		// if start of arc B doesn't progress in same direction as arc A's handedness,
 		// it can't be the next in the chain of arcs, so skip
-		if(cross_2d(A_radial_e, A_to_B) * arc_A->ccw_mult < 0)
+		if(cross_2d(A_radial_e, A_to_B) * arc_A->ccw_mult > 0)
 			continue;
 
 		union arc_rw arc_B_packed;
@@ -77,7 +77,7 @@ kernel void arc_adj_matrix(read_only image1d_t iS2_start_coords, read_only image
 		//FIXME: it's likely that due to slight over-estimates of arc radius that some that should get matched
 		// together here won't quite make the cut and it's not as simple as making a small negative threshold.
 		// perhaps a fall back solution that traverses a few pixels in the case of shared start and end points?
-		if(cross_2d(A_radial_e, B_radial_s) * arc_A->ccw_mult < 0)
+		if(cross_2d(A_radial_e, B_radial_s) * arc_A->ccw_mult > 0)
 			continue;
 
 		// could add a B chord len search region check here for better symmetry but it would be mostly redundant
