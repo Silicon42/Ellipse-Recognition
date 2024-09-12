@@ -1,8 +1,8 @@
 // Debugging kernel that mimics the processing of a single primary arc in the same way as arc_adj_matrix.cl
-// and highlights search regions and arcs found
+// and highlights regions excluded by checks, un-highlighted region is the final search area
 #include "path_struct_defs.cl"
 
-#define POKE_COORDS (int2)(149, 49)
+#define POKE_COORDS (int2)(209, 323)//(510, 191)//(530, 647)
 
 kernel void search_region_test(read_only image2d_t ui4_arc_data, read_only image2d_t uc4_lost_seg, write_only image2d_t uc4_debug)
 {
@@ -47,6 +47,7 @@ kernel void search_region_test(read_only image2d_t ui4_arc_data, read_only image
 	if(cross_2d(A_radial_e, A_to_B) * arc_A->ccw_mult > 0.f)
 		color.z += 64;
 
+	//printf("%i\n", arc_A->ccw_mult);
 	if(all(coords == convert_int2(arc_A->center)))
 		color = -1;
 	write_imageui(uc4_debug, coords, color);

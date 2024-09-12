@@ -79,9 +79,9 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	// from the approximate halfway point of the arc, in the case of a nearly flat arc the halfway point should be 
 	// nearly exactly the arc midpoint and very near to the chord midpoint
 	int2 mid_displacement = 2*offset_mid - offset_end;
-	mid_displacement *= mid_displacement;
-	int disp_dist2 = mid_displacement.x + mid_displacement.y;
-	arc->is_flat = disp_dist2 < 4;
+	int disp_dist2 = mag2_2d_i(mid_displacement);
+	arc->is_flat = disp_dist2 <= 4;
+	//TODO: some of this could probably be re-worked to have less if statements
 
 	if(len < 2)
 	{
@@ -92,27 +92,31 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	else
 	{
 		int scale_div = 2 * cross_2d_i(offset_end, offset_mid);
+		// cw arcs have cross product of midpoint to endpoint positive and ccw negative
+		// since scale_div already includes a scaled version of the cross product, just use that
+		arc->ccw_mult = sign(scale_div);
+
+		int2 perp_end = perp_2d_i(offset_end);
+
 		if(scale_div == 0)	//prevent divide by zero
-			arc->center = (float2)(INFINITY, INFINITY);
+			arc->center = convert_float2(perp_end) * 1099511627776.f;	// 2^40 to make it lose all fine detail at 2^16 scale
 			// cw/ccw is meaningless here since it's flat and the start, mid and end points are co-linear
 		else
 		{
 			//solve for center of circle
-			int2 temp, perp_end, perp_mid;
+			int2 perp_mid;
 			perp_mid = perp_2d_i(offset_mid);
-			perp_end = perp_2d_i(offset_end);
 
 			int mag2_end, mag2_mid;
 			mag2_end = mag2_2d_i(offset_end);
 			mag2_mid = mag2_2d_i(offset_mid);
 
 			// center direction relative to start, not to scale yet
-			float2 center = convert_float2(mag2_mid * perp_end - mag2_end * perp_mid);
+			int2 center_dir = mag2_mid * perp_end - mag2_end * perp_mid;
+			//scale correctly, now it's a relative offset to start
+			float2 center = convert_float2(center_dir) / scale_div;
 
-			// cw arcs have center in similar direction to the cw perpendicular of the offset to the arc half point and
-			// ccw arcs have center in opposing direction. This means cw arcs have positive dot product and ccw negative
-			arc->ccw_mult = sign(dot(center, convert_float2(perp_mid)));
-			center = convert_float2(base_coords) + (center / scale_div);
+			center = convert_float2(base_coords) + center;
 			arc->center = center;
 		}
 	}
