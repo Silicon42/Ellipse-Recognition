@@ -3,10 +3,12 @@
 //#include "math_helpers.cl"
 #define MAX_CANDIDATES 2	// depending on how well this works this might get increased
 
-kernel void arc_adj_matrix(read_only image1d_t iS2_start_coords, read_only image2d_t ui4_arc_data, write_only image1d_t us2_sparse_adj_matrix)
+//TODO: fix this to work with the split arc list, currently hardcoded to work with the cw list only
+kernel void arc_adj_matrix(read_only image2d_t iS2_start_coords, read_only image1d_t us4_lengths, read_only image2d_t ui4_arc_data, write_only image1d_t us2_sparse_adj_matrix)
 {
-	const ushort max_index = read_imagei(iS2_start_coords, 0).x;	//find how many to iterate over
-	const ushort index = get_global_id(0) + 1;	// must be scheduled as 1D
+	const ushort max_index = read_imageui(us4_lengths, 0).z;	//find how many to iterate over
+	const ushort index = get_global_id(0);
+	//const uchar arc_dir = get_global_id(1);
 	if(index > max_index)
 		return;
 	
@@ -31,7 +33,7 @@ kernel void arc_adj_matrix(read_only image1d_t iS2_start_coords, read_only image
 	uchar is_worst = 0;
 
 	//TODO: revisit these checks once you understand the Candy's Theorem constraint, should be more efficient
-	for(uint i = 1; i <= max_index; ++i)
+	for(uint i = 0; i < max_index; ++i)
 	{
 		// check which location to evaluate for adjacency
 		int2 B_start = read_imagei(iS2_start_coords, i).lo;
