@@ -4,6 +4,7 @@
 #ifndef double	// fallback for devices without double support
 // it's not super critical to function that this be a double in this file but it does prevent a rounding error
 #define double float
+#warning "No double support on the requested platform, falling back to float."
 //TODO: need to figure out how to warn the user that this has happened since it can effect later files and
 // prevents the compiler from erroring out on it
 #endif//double
