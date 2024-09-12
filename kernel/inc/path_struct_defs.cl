@@ -80,7 +80,7 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	// nearly exactly the arc midpoint and very near to the chord midpoint
 	int2 mid_displacement = 2*offset_mid - offset_end;
 	int disp_dist2 = mag2_2d_i(mid_displacement);
-	arc->is_flat = disp_dist2 <= 4;
+	arc->is_flat = disp_dist2 <= 2;
 	//TODO: some of this could probably be re-worked to have less if statements
 
 	if(len < 2)
@@ -94,13 +94,15 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 		int scale_div = 2 * cross_2d_i(offset_end, offset_mid);
 		// cw arcs have cross product of midpoint to endpoint positive and ccw negative
 		// since scale_div already includes a scaled version of the cross product, just use that
-		arc->ccw_mult = sign(scale_div);
+		arc->ccw_mult = (scale_div >= 0) * 2 - 1;
 
 		int2 perp_end = perp_2d_i(offset_end);
 
 		if(scale_div == 0)	//prevent divide by zero
-			arc->center = convert_float2(perp_end) * 1099511627776.f;	// 2^40 to make it lose all fine detail at 2^16 scale
+		{
+			arc->center = convert_float2(perp_end) * -1099511627776.f;	// 2^40 to make it lose all fine detail at 2^16 scale
 			// cw/ccw is meaningless here since it's flat and the start, mid and end points are co-linear
+		}
 		else
 		{
 			//solve for center of circle
