@@ -4,7 +4,10 @@
 #include "cast_helpers.cl"
 #include "path_struct_defs.cl"
 
-__kernel void serial_reduce_arcs(read_only image2d_t ui4_arc_segments, write_only image2d_t iS2_start_coords, write_only image1d_t us4_lengths)
+__kernel void serial_reduce_arcs(
+	read_only image2d_t ui4_arc_segments,
+	write_only image2d_t iS2_start_coords,
+	write_only image1d_t us4_lengths)
 {
 	uint max_size = get_image_width(iS2_start_coords);	//TODO: this can probably be replaced optionally with a define
 	

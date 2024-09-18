@@ -1,0 +1,6 @@
+#ifndef MIDPOINT_CIRCLE_CL
+#define MIDPOINT_CIRCLE_CL
+
+
+
+#endif//MIDPOINT_CIRCLE_CL

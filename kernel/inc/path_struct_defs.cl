@@ -80,7 +80,7 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	// nearly exactly the arc midpoint and very near to the chord midpoint
 	int2 mid_displacement = 2*offset_mid - offset_end;
 	int disp_dist2 = mag2_2d_i(mid_displacement);
-	arc->is_flat = disp_dist2 <= 2;
+	arc->is_flat = disp_dist2 < 2;
 	
 	int scale_div = 2 * cross_2d_i(offset_end, offset_mid);
 	// cw arcs have cross product of midpoint to endpoint positive and ccw negative
