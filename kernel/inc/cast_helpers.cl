@@ -4,6 +4,11 @@
 //TODO: check if unions are faster or pointer conversion macros
 #define AS_LONG(x)	(*(long*)&(x))
 
+union f_i_conv{
+	float f;
+	int i;
+};
+
 union ui4_array{
 	uint4 ui4;
 	uint arr[4];

@@ -5,7 +5,11 @@
 #include "cast_helpers.cl"
 #include "path_struct_defs.cl"
 
-kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2d_t ui4_path_image, read_only image2d_t uc1_starts_image, write_only image2d_t uc4_trace_image)
+kernel void colored_retrace(
+	read_only image1d_t iS2_start_info,
+	read_only image2d_t ui4_path_image,
+	read_only image2d_t uc1_starts_image,
+	write_only image2d_t uc4_trace_image)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	uint3 base_color = scatter_colorize(index);
@@ -13,7 +17,7 @@ kernel void colored_retrace(read_only image1d_t us2_start_info, read_only image2
 	// initialize variables of arcs segment tracing loop for first iteration
 	union l_conv coords;
 	ulong2 path;
-	coords.ui = read_imageui(us2_start_info, index).lo;
+	coords.i = read_imagei(iS2_start_info, index).lo;
 	//only populated items in the array need to be processed
 	if(!coords.l)
 		return;
