@@ -4,8 +4,24 @@
 #define MAX_CANDIDATES 2	// depending on how well this works this might get increased
 
 //TODO: fix this to work with the split arc list, currently hardcoded to work with the cw list only
-kernel void arc_adj_matrix(read_only image2d_t iS2_start_coords, read_only image1d_t us4_lengths, read_only image2d_t ui4_arc_data, write_only image1d_t us2_sparse_adj_matrix)
+kernel void arc_adj_matrix(
+	read_only image2d_t iS2_start_coords,
+	read_only image1d_t us4_lengths,
+	read_only image2d_t ui4_arc_data,
+	write_only image1d_t us2_sparse_adj_matrix)
 {
+	int2 indices = (int2)(get_global_id(0), get_global_id(1));
+	uint4 lengths = read_imageui(us4_lengths, 0);
+	// only process valid entries
+	if(indices.x >= ((uint*)&lengths)[indices.y])
+		return;
+
+	int2 coords = read_imagei(iS2_start_coords, indices).lo;
+	union arc_rw arc_raw;
+	arc_raw.ui4 = read_imageui(ui4_arc_data, coords);
+	struct arc_data* arc = &arc_raw.data;
+
+
 	const ushort max_index = read_imageui(us4_lengths, 0).z;	//find how many to iterate over
 	const ushort index = get_global_id(0);
 	//const uchar arc_dir = get_global_id(1);

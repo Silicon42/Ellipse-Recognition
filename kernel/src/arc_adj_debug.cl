@@ -35,4 +35,5 @@ kernel void arc_adj_debug(
 	case 2:		//cw, colorize as positive index
 		color.xyz = scatter_colorize(indices.x);
 	}
+	//draw_line(coo)
 }

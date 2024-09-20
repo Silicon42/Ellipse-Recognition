@@ -30,6 +30,7 @@ where _ denotes an unused bit.
 #define SHORT_ARC_THRESH 5
 
 struct arc_data{	//TODO: check how to ensure optimal packing
+	char len;			// arc length in pixels traversed
 	char is_flat;		// flag for if the arc segment has little deflection on it's length
 	char is_short;		// flag for if the arc's length consists of < SHORT_ARC_THRESH pixels
 	char ccw_mult;		// represents arc's handedness, ie if the gradient is inward or outward, 1 for cw, -1 for ccw
@@ -80,7 +81,7 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 	// nearly exactly the arc midpoint and very near to the chord midpoint
 	int2 mid_displacement = 2*offset_mid - offset_end;
 	int disp_dist2 = mag2_2d_i(mid_displacement);
-	arc->is_flat = disp_dist2 < 2;
+	arc->is_flat = disp_dist2 <= 2;
 	
 	int scale_div = 2 * cross_2d_i(offset_end, offset_mid);
 	// cw arcs have cross product of midpoint to endpoint positive and ccw negative
@@ -106,6 +107,58 @@ void write_data_accum(ulong2 accum, char len, write_only image2d_t ui4_path, wri
 
 		// center direction relative to start, not to scale yet
 		int2 center_dir = mag2_mid * perp_end - mag2_end * perp_mid;
+		//scale correctly, now it's a relative offset to start
+		float2 center = convert_float2(center_dir) / scale_div;
+
+		center = convert_float2(base_coords) + center;
+		arc->center = center;
+	}
+
+	write_imageui(ui4_arc_data, base_coords, arcRW.ui4);
+}
+
+void write_data_accum_alt(char len, write_only image2d_t ui4_arc_data, const int2 base_coords, const int2 end_coords, const int2 offset_mid)
+{
+	// set arc data in struct for writing
+	union arc_rw arcRW;
+	struct arc_data* arc = &(arcRW.data);
+	arc->is_short = len < SHORT_ARC_THRESH;
+	arc->len = len;
+	// get end and mid offset vectors
+	int2 offset_end = end_coords - base_coords;
+	arc->offset_end = convert_char2(offset_end);
+	arc->offset_mid = convert_char2(offset_mid);
+
+	// determine state of flag for flatness which we define as the midpoint of the chord having a small displacement
+	// from the approximate halfway point of the arc, in the case of a nearly flat arc the halfway point should be 
+	// nearly exactly the arc midpoint and very near to the chord midpoint
+	int2 mid_displacement = 2*offset_mid - offset_end;
+	int disp_dist2 = mag2_2d_i(mid_displacement);
+	arc->is_flat = disp_dist2 <= 2;
+	
+	// how much to divide the center direction vector by to get center location
+	int scale_div = 2 * cross_2d_i(offset_end, offset_mid);
+	// cw arcs have cross product of midpoint to endpoint positive and ccw negative
+	// since scale_div already includes a scaled version of the cross product, just use that
+	arc->ccw_mult = (scale_div > 0) ? 1 : -1;
+
+	int2 perp_end = perp_2d_i(offset_end);
+
+	// if mid and end points are prefectly in line, the scale div will be zero
+	if(scale_div == 0)	//prevent divide by zero
+	{
+		arc->center = convert_float2(perp_end) * 1099511627776.f;	// 2^40 to make it lose all fine detail at 2^16 scale
+		// cw/ccw is meaningless here since it's flat and the start, mid and end points are co-linear
+	}
+	else
+	{
+		//solve for center of circle
+		int mag2_end, mag2_mid;
+		mag2_end = mag2_2d_i(offset_end);
+		mag2_mid = mag2_2d_i(offset_mid);
+
+		// center direction relative to start, not to scale yet
+		int2 center_dir = mag2_mid * perp_end - mag2_end * perp_2d_i(offset_mid);
 		//scale correctly, now it's a relative offset to start
 		float2 center = convert_float2(center_dir) / scale_div;
 

@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		"find_segment_starts",
 		"starts_debug",
 		"serial_reduce",
-		"arc_segments",
+		"arc_segments_alt",
 		"segment_debug",
 		"gradient_debug",
 		"colored_retrace",
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_start_coords
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
-		{2,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
+	//	{2,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
 		{3,{REL,{0}},CL_TRUE, CL_FALSE}		//ui4_arc_data
 //		{4,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_trace
 	};
@@ -175,6 +175,7 @@ int main(int argc, char *argv[])
 		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
 //		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test
 */		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Arcs
+	//	&(QStaging){17, 2, {REL, {0}}, arc_debug},		//Arc Adjacency Matrix
 		&(QStaging){19, 3, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
 /**/		NULL										////-END-////
 	};
