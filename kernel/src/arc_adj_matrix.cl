@@ -1,5 +1,5 @@
 //#include "cast_helpers.cl"
-#include "path_struct_defs.cl"
+#include "arc_data.cl"
 //#include "math_helpers.cl"
 #define MAX_CANDIDATES 2	// depending on how well this works this might get increased
 
@@ -16,11 +16,7 @@ kernel void arc_adj_matrix(
 	if(indices.x >= ((uint*)&lengths)[indices.y])
 		return;
 
-	int2 coords = read_imagei(iS2_start_coords, indices).lo;
-	union arc_rw arc_raw;
-	arc_raw.ui4 = read_imageui(ui4_arc_data, coords);
-	struct arc_data* arc = &arc_raw.data;
-
+	int2 coords = read_imagei(iS2_start_coords, indices).lo;// finish replacing
 
 	const ushort max_index = read_imageui(us4_lengths, 0).z;	//find how many to iterate over
 	const ushort index = get_global_id(0);
@@ -30,15 +26,13 @@ kernel void arc_adj_matrix(
 	
 	int2 A_start = read_imagei(iS2_start_coords, index).lo;
 
-	union arc_rw arc_A_packed;
-	arc_A_packed.ui4 = read_imageui(ui4_arc_data, A_start);
-	struct arc_data* arc_A = &(arc_A_packed.data);
-	float2 A_end = convert_float2(arc_A->offset_end);	// end offset as float2
+	struct arc_data arc_A = read_arc_data(ui4_arc_data, A_start);
+	float2 A_end = convert_float2(arc_A.offset_end);	// end offset as float2
 	float chord_len = fast_length(A_end);				// chord length of arc
 	float2 A_start_f = convert_float2(A_start);			// start coords as float2
 	A_end += A_start_f;									// end coords as float2
-	float2 A_radial_s = A_start_f - arc_A->center;		// radial vector from center to start
-	float2 A_radial_e = A_end - arc_A->center;			// radial vector from center to end
+	float2 A_radial_s = A_start_f - arc_A.center;		// radial vector from center to start
+	float2 A_radial_e = A_end - arc_A.center;			// radial vector from center to end
 
 	float radius = fast_length(A_radial_e);				// arc radius
 	radius = min(radius, chord_len);	// search radius is lesser of arc radius or chord_len
@@ -71,20 +65,18 @@ kernel void arc_adj_matrix(
 
 		// if start of arc B doesn't progress in same direction as arc A's handedness,
 		// it can't be the next in the chain of arcs, so skip
-		if(cross_2d(A_radial_e, A_to_B) * arc_A->ccw_mult > 0)
+		if(cross_2d(A_radial_e, A_to_B) * arc_A.ccw_mult > 0)
 			continue;
 
-		union arc_rw arc_B_packed;
-		arc_B_packed.ui4 = read_imageui(ui4_arc_data, B_start);
-		struct arc_data* arc_B = &(arc_B_packed.data);
+		struct arc_data arc_B = read_arc_data(ui4_arc_data, B_start);
 
 		// check handedness match, if you want mixed handedness for a single ellipse registration,
 		// you have your work cut out for you since they register endpoints in the opposite direction
 		// or just let them register separately and combine them at the clustering stage
-		if(arc_B->ccw_mult != arc_A->ccw_mult)
+		if(arc_B.ccw_mult != arc_A.ccw_mult)
 			continue;
 
-		float2 B_radial_s = B_start_f - arc_B->center;	// radial vector from center to start
+		float2 B_radial_s = B_start_f - arc_B.center;	// radial vector from center to start
 
 		// anti-joggle check
 		if(dot(B_radial_s, A_to_B) < 0)
@@ -95,15 +87,15 @@ kernel void arc_adj_matrix(
 		//FIXME: it's likely that due to slight over-estimates of arc radius that some that should get matched
 		// together here won't quite make the cut and it's not as simple as making a small negative threshold.
 		// perhaps a fall back solution that traverses a few pixels in the case of shared start and end points?
-		if(cross_2d(A_radial_e, B_radial_s) * arc_A->ccw_mult > 0)
+		if(cross_2d(A_radial_e, B_radial_s) * arc_A.ccw_mult > 0)
 			continue;
 
 		// could add a B chord len search region check here for better symmetry but it would be mostly redundant
 
-		float2 B_end = convert_float2(arc_B->offset_end);	// end offset as float2
+		float2 B_end = convert_float2(arc_B.offset_end);	// end offset as float2
 		B_end += B_start_f;									// end coords as float2
 		float2 B_to_A = A_start_f - B_end;					// vector from end of arc B to start of arc A
-		float2 B_radial_e = B_end - arc_B->center;			// radial vector from center to end
+		float2 B_radial_e = B_end - arc_B.center;			// radial vector from center to end
 
 		// if start of arc A is outside the tangent line at the end of arc B,
 		// B_to_A will have a component in the direction of B_radial_e so dot product will be positive,

@@ -18,6 +18,11 @@ inline int cross_2d_i(int2 a, int2 b)
 	return a.x * b.y - a.y * b.x;
 }
 
+inline int cross_2d_c(char2 a, char2 b)
+{
+	return a.x * b.y - a.y * b.x;
+}
+
 inline int dot_2d_i(int2 a, int2 b)
 {
 	return a.x * b.x + a.y * b.y;
