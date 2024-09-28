@@ -1,39 +1,58 @@
 // draws lines from midpoint of selected arc to candidate matches
 
 #include "colorizer.cl"
-#include "path_struct_defs.cl"
+#include "arc_data.cl"
 #include "bresenham_line.cl"
 
 kernel void arc_adj_debug(
-	read_only image2d_t ui4_arc_segments,
-	read_only image2d_t iS2_start_coords,
-	read_only image1d_t us4_lengths,
+	read_only image2d_t ui4_arc_data,
+	read_only image2d_t iS2_arc_coords,
+	read_only image1d_t us2_lengths,
+	read_only image2d_t us2_sparse_adj_matrix,
 	write_only image2d_t uc4_out_image)
 {
-	int2 indices = (int2)(get_global_id(0), get_global_id(1));
-	uint4 lengths = read_imageui(us4_lengths, 0);
+	int index = get_global_id(0);
+	char dir = get_global_id(1);
+	if(!(index | dir))
+		printf("arc_adj_matrix entry\n");
+
+	uint2 lengths = read_imageui(us2_lengths, 0).lo;
 	// only process valid entries
-	if(indices.x >= ((uint*)&lengths)[indices.y])
+	int max_index = ((uint*)&lengths)[dir];
+	if(index >= max_index)
 		return;
 
-	int2 coords = read_imagei(iS2_start_coords, indices).lo;
-	union arc_rw arc_raw;
-	arc_raw.ui4 = read_imageui(ui4_arc_segments, coords);
-	struct arc_data* arc = &arc_raw.data;
+	int2 coords_A, coords_B, mid_A, mid_B;
+	struct arc_data arc_A, arc_B;
 
-	uint4 color;
-	color.w = -1;
-	switch(indices.y)
-	{
-	default:	//default to full red for straight
-		color.xyz = (uint3)(-1, 0, 0);
-		draw_line(coords, coords + convert_int2(arc->offset_end), color, uc4_out_image);
+	coords_A = read_imagei(iS2_arc_coords, (int2)(index, dir)).lo;
+	arc_A = read_arc_data(ui4_arc_data, coords_A);
+	mid_A = convert_int2(arc_A.offset_mid) + coords_A;
+
+	draw_line(coords_A, coords_A + convert_int2(arc_A.offset_end), (uint4)(-1, 0, 0, -1), uc4_out_image);
+
+	uint2 match_indices = read_imageui(us2_sparse_adj_matrix, (int2)(index, dir)).lo;
+	// if no valid candidates, return early
+	if(match_indices.x >= max_index)
 		return;
-	case 0:		//ccw, colorize as negative index
-		color.xyz = scatter_colorize(-indices.x);
-		break;
-	case 2:		//cw, colorize as positive index
-		color.xyz = scatter_colorize(indices.x);
-	}
-	//draw_line(coo)
+	
+	int dir_mult = dir ? 1 : -1;
+	uint4 color = (uint4)(scatter_colorize(dir_mult * index), -1);
+
+	coords_B = read_imagei(iS2_arc_coords, match_indices.x).lo;
+	arc_B = read_arc_data(ui4_arc_data, coords_B);
+	mid_B = convert_int2(arc_B.offset_mid) + coords_B;
+
+	draw_line(mid_A, mid_B, color, uc4_out_image);
+
+	// if not valid candidate, return early
+	if(match_indices.y >= max_index)
+		return;
+	
+	coords_B = read_imagei(iS2_arc_coords, match_indices.y).lo;
+	arc_B = read_arc_data(ui4_arc_data, coords_B);
+	mid_B = convert_int2(arc_B.offset_mid) + coords_B;
+
+	draw_line(mid_A, mid_B, color, uc4_out_image);
+
 }

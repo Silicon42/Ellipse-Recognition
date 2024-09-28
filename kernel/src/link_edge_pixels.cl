@@ -1,7 +1,9 @@
 #include "vec_sum_reduce.cl"
 #include "neighbor_utils.cl"
 
-__kernel void link_edge_pixels(read_only image2d_t iC1_grad_ang, write_only image2d_t uc1_cont)
+__kernel void link_edge_pixels(
+	read_only image2d_t iC1_grad_ang,
+	write_only image2d_t uc1_cont)
 {
 	//const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;	//needed so that edge
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
@@ -20,6 +22,7 @@ __kernel void link_edge_pixels(read_only image2d_t iC1_grad_ang, write_only imag
 	// reject orphan edge pixels here, technically intersection rejection also creates some more but I don't have a good way
 	// to do that in find_segment_starts.cl without adding an additional output argument and it's not super important, just
 	// a small optimization/cleanup step for nicer debug output
+	//NOTE: technically the small difference mask check would also catch these so it might be better for performance to just remove this check
 	if(!neighbors.l)
 		return;
 

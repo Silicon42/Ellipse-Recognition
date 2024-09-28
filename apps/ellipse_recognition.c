@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		"find_segment_starts",
 		"starts_debug",
 		"serial_reduce",
-		"arc_segments_alt",
+		"arc_segments",
 		"segment_debug",
 		"gradient_debug",
 		"colored_retrace",
@@ -78,11 +78,12 @@ int main(int argc, char *argv[])
 	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// staged queue settings of which kernels to use and how
-	ArgStaging simple_shrink1[] = {
+	////// main settings //////
+/*	ArgStaging simple_shrink1[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{-1,-1,0}},CL_TRUE,CL_FALSE}
 	};
-	ArgStaging simple[] = {
+*/	ArgStaging simple[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
@@ -92,27 +93,35 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_starts_cont
 	};
 	ArgStaging serial[] = {
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//uc1_src_image
-		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}	//is2_start_coords
-	};
-	ArgStaging serial2[] = {	//serial_reduce_arcs
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_arc_segments
-		{1,{EXACT,{16384,3,1}},CL_TRUE,CL_FALSE},	//is2_start_coords
-		{1,{EXACT,{1,1,1}},CL_TRUE,CL_FALSE}		//us4_lengths
-	};
-	ArgStaging mul3[] = {
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},
-		{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//uc1_starts_cont
+		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}	//iS2_start_coords
 	};
 	ArgStaging arc_segments[] = {
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_start_coords
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_coords
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
 	//	{2,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
 		{3,{REL,{0}},CL_TRUE, CL_FALSE}		//ui4_arc_data
-//		{4,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_trace
+	//	{4,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_trace
+	};
+	ArgStaging serial2[] = {	//serial_reduce_arcs
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},			//iS2_start_coords
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_arc_data
+		{1,{EXACT,{16384,2,1}},CL_TRUE,CL_FALSE},	//is2_arc_coords
+		{1,{EXACT,{1,1,1}},CL_TRUE,CL_FALSE}		//us2_lengths
+	};
+	ArgStaging arc_adj[] = {
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_arc_coords
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_lengths
+		{2,{REL,{0}},CL_TRUE, CL_FALSE}		//us2_sparse_adj_matrix
 	};
 
+	////// debug settings //////
+	ArgStaging mul3[] = {
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},
+		{1,{MULT,{3,3,1}},CL_TRUE,CL_FALSE}
+	};
 	ArgStaging starts_debug[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_thin
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_seg_start
@@ -127,9 +136,9 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 */	ArgStaging retrace[] = {
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_path_image
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_starts_image
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_trace_image
 	};
 	ArgStaging retrace_starts[] = {
@@ -149,10 +158,11 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_debug
 	};
 	ArgStaging arc_debug[] = {
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_segments
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//is2_start_coords
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us4_lengths
-		{3,{REL,{0}},CL_TRUE,CL_FALSE}		//uc4_out_image
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_arc_coords
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_lengths
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_sparse_adj_matrix
+		{4,{REL,{0}},CL_TRUE,CL_FALSE}		//uc4_out_image
 	};
 
 	const QStaging* staging[] = {
@@ -168,15 +178,15 @@ int main(int argc, char *argv[])
 //		&(QStaging){14, 2, {REL, {0}}, mul3},			//Starts Link Debug
 //		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
-		&(QStaging){8, 3, {REL, {0}}, arc_segments},	//Arc Segments
+		&(QStaging){8, 2, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
-/*		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
-		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
-		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
+		&(QStaging){11, 3, {REL, {0}}, retrace},		//Colored Retrace
+//		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
+//		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
 //		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test
-*/		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Arcs
-	//	&(QStaging){17, 2, {REL, {0}}, arc_debug},		//Arc Adjacency Matrix
-		&(QStaging){19, 3, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
+//		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Arcs
+//		&(QStaging){17, 3, {REL, {0}}, arc_adj},		//Arc Adjacency Matrix
+//		&(QStaging){19, 4, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
 /**/		NULL										////-END-////
 	};
 

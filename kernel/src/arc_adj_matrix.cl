@@ -5,28 +5,26 @@
 
 //TODO: fix this to work with the split arc list, currently hardcoded to work with the cw list only
 kernel void arc_adj_matrix(
-	read_only image2d_t iS2_start_coords,
-	read_only image1d_t us4_lengths,
 	read_only image2d_t ui4_arc_data,
-	write_only image1d_t us2_sparse_adj_matrix)
+	read_only image2d_t iS2_arc_coords,
+	read_only image1d_t us2_lengths,
+	write_only image2d_t us2_sparse_adj_matrix)
 {
-	int2 indices = (int2)(get_global_id(0), get_global_id(1));
-	uint4 lengths = read_imageui(us4_lengths, 0);
+	int index = get_global_id(0);
+	char dir = get_global_id(1);
+	if(!(index | dir))
+		printf("arc_adj_matrix entry\n");
+
+	uint2 lengths = read_imageui(us2_lengths, 0).lo;
 	// only process valid entries
-	if(indices.x >= ((uint*)&lengths)[indices.y])
+	int max_index = ((uint*)&lengths)[dir];
+	if(index >= max_index)
 		return;
 
-	int2 coords = read_imagei(iS2_start_coords, indices).lo;// finish replacing
-
-	const ushort max_index = read_imageui(us4_lengths, 0).z;	//find how many to iterate over
-	const ushort index = get_global_id(0);
-	//const uchar arc_dir = get_global_id(1);
-	if(index > max_index)
-		return;
-	
-	int2 A_start = read_imagei(iS2_start_coords, index).lo;
-
+	int2 A_start = read_imagei(iS2_arc_coords, (int2)(index, dir)).lo;
 	struct arc_data arc_A = read_arc_data(ui4_arc_data, A_start);
+	//TODO: come back and fix this for flat arcs, it's definitely not handled correctly right now for at least some cases
+	char A_dir_mult = (arc_A.flags & IS_CW) - 1;		// +/- 1 multiplier for making the math work for cw and ccw arcs
 	float2 A_end = convert_float2(arc_A.offset_end);	// end offset as float2
 	float chord_len = fast_length(A_end);				// chord length of arc
 	float2 A_start_f = convert_float2(A_start);			// start coords as float2
@@ -38,15 +36,15 @@ kernel void arc_adj_matrix(
 	radius = min(radius, chord_len);	// search radius is lesser of arc radius or chord_len
 	
 	uchar num_candidates = 0;
-	ushort candidates[MAX_CANDIDATES] = {0};
+	ushort candidates[MAX_CANDIDATES] = {-1, -1};
 	float candidate_dist[MAX_CANDIDATES] = {INFINITY, INFINITY};
 	uchar is_worst = 0;
 
 	//TODO: revisit these checks once you understand the Candy's Theorem constraint, should be more efficient
-	for(uint i = 0; i < max_index; ++i)
+	for(int i = 0; i < max_index; ++i)
 	{
 		// check which location to evaluate for adjacency
-		int2 B_start = read_imagei(iS2_start_coords, i).lo;
+		int2 B_start = read_imagei(iS2_arc_coords, (int2)(i, dir)).lo;
 		float2 B_start_f = convert_float2(B_start);		// start of arc B as float2
 
 		float2 A_to_B = B_start_f - A_end;				// vector from end of arc A to start of arc B
@@ -65,7 +63,7 @@ kernel void arc_adj_matrix(
 
 		// if start of arc B doesn't progress in same direction as arc A's handedness,
 		// it can't be the next in the chain of arcs, so skip
-		if(cross_2d(A_radial_e, A_to_B) * arc_A.ccw_mult > 0)
+		if(cross_2d(A_radial_e, A_to_B) * A_dir_mult > 0)
 			continue;
 
 		struct arc_data arc_B = read_arc_data(ui4_arc_data, B_start);
@@ -73,8 +71,8 @@ kernel void arc_adj_matrix(
 		// check handedness match, if you want mixed handedness for a single ellipse registration,
 		// you have your work cut out for you since they register endpoints in the opposite direction
 		// or just let them register separately and combine them at the clustering stage
-		if(arc_B.ccw_mult != arc_A.ccw_mult)
-			continue;
+		//if(arc_B.ccw_mult != A_dir_mult)
+		//	continue;
 
 		float2 B_radial_s = B_start_f - arc_B.center;	// radial vector from center to start
 
@@ -87,7 +85,7 @@ kernel void arc_adj_matrix(
 		//FIXME: it's likely that due to slight over-estimates of arc radius that some that should get matched
 		// together here won't quite make the cut and it's not as simple as making a small negative threshold.
 		// perhaps a fall back solution that traverses a few pixels in the case of shared start and end points?
-		if(cross_2d(A_radial_e, B_radial_s) * arc_A.ccw_mult > 0)
+		if(cross_2d(A_radial_e, B_radial_s) * A_dir_mult > 0)
 			continue;
 
 		// could add a B chord len search region check here for better symmetry but it would be mostly redundant
@@ -116,5 +114,5 @@ kernel void arc_adj_matrix(
 			radius = candidate_dist[is_worst];	// update search range
 	}
 
-	write_imageui(us2_sparse_adj_matrix, index, (uint4)(candidates[!is_worst], candidates[is_worst], 0, -1));
+	write_imageui(us2_sparse_adj_matrix, (int2)(index, dir), (uint4)(candidates[!is_worst], candidates[is_worst], 0, -1));
 }

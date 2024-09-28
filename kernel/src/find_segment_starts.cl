@@ -14,12 +14,19 @@
 #include "cast_helpers.cl"
 #include "neighbor_utils.cl"
 #include "offsets_LUT.cl"
-//NOTE: return value is in the form 0bSE0lriii where "S" is the start indicator flag, "E" is a forced end indicator flag,
-// "l" is the left support indicator flag, "r" is occupancy/right continuation indicator flag, and "i" is the 3-bit direction index
+//NOTE: return value is in the form 0bSE0lriii where 
+// "S" is the start indicator flag,
+// "E" is a forced end indicator flag,
+// "l" is the left support indicator flag,
+// "r" is occupancy/right continuation indicator flag, and
+// "i" is the 3-bit direction index
 
 //TODO: need to add an is_supported flag so that small segments that support other separately detected small segments don't get deleted
 // This might be decently involved to actually implement
-kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_t iC1_grad_ang, write_only image2d_t uc1_starts_cont)
+kernel void find_segment_starts(
+	read_only image2d_t uc1_cont,
+	read_only image2d_t iC1_grad_ang,
+	write_only image2d_t uc1_starts_cont)
 {
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
@@ -29,6 +36,8 @@ kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_
 	uchar adjacent_data, adjacent_idx;
 	int2 adjacent_coords;
 	uchar is_forced_end = 0;
+	char is_end_adjacent = 0;	// used for early rejection of unconnected 2-pixel segments
+
 
 	// y-junction prevention, stops multiple edges that would join to process a shared region
 	if(cont_data & 8)	// if valid right continuation
@@ -41,14 +50,19 @@ kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_
 		// then set is_forced_end flag to force an edge processing stop
 		//NOTE: right continuation's left continuation is implicitly populated by fact that this cell exists
 		is_forced_end = ((adjacent_data >> 5) ^ adjacent_idx) != 4;
+		is_end_adjacent = !(adjacent_data & 0x08);
 	}
 
 	switch(cont_data & 0x18)
 	{
-	default:	// if cont_data is null, it was not an edge and therefore has no continuation flags set,
-				// or if it had only the left continuation flag set it has nowhere to continue to
+	default:	// if cont_data has no left or right continuation flag, it was 
+				// not an edge and therefore has no continuation flags set,
 		return;	// therefore this work item can exit early, vast majority exits here
-
+		//TODO: might have better perf if this is moved earlier as a separate if
+		/*	// or if it would be a standard right end, there is no need to keep the pixel so it can also be handled by the default case
+	case 0x10:
+		cont_data &= 0x10;
+		break;*/
 	case 0x18:	// both sides have a continuation
 		adjacent_idx = cont_data >> 5;
 		cont_data &= 0x1F;	// only right continuation and left support flag will ever be written to output regardless of path taken from this point
@@ -69,8 +83,11 @@ kernel void find_segment_starts(read_only image2d_t uc1_cont, read_only image2d_
 		}
 		// fall-through to add start flag
 	case 0x08:
-		if(is_forced_end)	// if it starts and ends on the same pixel, it's just noise/quantization artifacts and should be discarded
-			return;
+		// if it starts and ends on the same pixel or an adjacent pixel,
+		// it's not usable data and shouldn't be marked as a start
+		if(is_forced_end || is_end_adjacent)
+			break;
+		
 		cont_data |= 0x80;
 	}
 
