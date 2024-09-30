@@ -34,6 +34,14 @@ inline uint mag2_2d_i(int2 a)
 	return a2.x + a2.y;
 }
 
+//unsafe for relatively large values,
+// however I only use it for mid-point to end-point deflection of line checks which are all small
+inline uchar mag2_2d_c(char2 a)
+{
+	char2 a2 = a * a;
+	return a2.x + a2.y;
+}
+
 inline int2 perp_2d_i(int2 a)
 {
 	return (int2)(-a.y, a.x);
