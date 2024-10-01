@@ -1,6 +1,5 @@
 #include "cast_helpers.cl"
 #include "offsets_LUT.cl"
-//#include "line_data.cl"
 #include "math_helpers.cl"
 #include "link_macros.cl"
 // we define line segments as having midpoints that when doubled, don't differ from the endpoint by more than 1 pixel

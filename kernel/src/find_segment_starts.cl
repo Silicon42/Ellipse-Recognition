@@ -50,8 +50,8 @@ kernel void find_segment_starts(
 		// i.e. a joining y-junction where the current pixel is not part of the through connection,
 		// then set is_end_adjacent flag to force an edge processing stop
 		//NOTE: right continuation's left continuation is implicitly populated by fact that this cell exists
-		is_end_adjacent = !(adjacent_data & HAS_R_CONT) || ((adjacent_data >> L_CONT_IDX_SHIFT) ^ adjacent_idx) != 4;
-}
+		is_end_adjacent = (adjacent_data & (HAS_BOTH_CONT)) != HAS_BOTH_CONT || (((adjacent_data >> L_CONT_IDX_SHIFT) ^ adjacent_idx) != 4);
+	}
 
 	switch(cont_data & HAS_BOTH_CONT)
 	{
@@ -59,9 +59,9 @@ kernel void find_segment_starts(
 				// not an edge and therefore has no continuation flags set,
 		return;	// therefore this work item can exit early, vast majority exits here
 		//TODO: might have better perf if this is moved earlier as a separate if
-		/*	// or if it would be a standard right end, there is no need to keep the pixel so it can also be handled by the default case
-	case HAS_LEFT_CONT:
-		cont_data &= HAS_LEFT_CONT;
+		// or if it would be a standard right end, there is no need to keep the pixel so it can also be handled by the default case
+	/*case HAS_L_CONT:
+		cont_data &= HAS_L_CONT;
 		break;*/
 	case HAS_BOTH_CONT:	// both sides have a continuation
 		adjacent_idx = cont_data >> L_CONT_IDX_SHIFT;
