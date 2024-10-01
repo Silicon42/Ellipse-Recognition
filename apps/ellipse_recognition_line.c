@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
 		&(QStaging){8, 2, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
-//		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
+		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
 //		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
 //		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
 //		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test

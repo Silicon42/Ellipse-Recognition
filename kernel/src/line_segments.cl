@@ -47,7 +47,12 @@ kernel void line_segments(
 		offset_x2_mid = offset_end = offsets_c[cont_idx];
 		path_hist[0] = cont_idx;
 		++seg_count;
-
+		//TODO: once the duplicate processing bugs are fixed, remove this
+		/*if(seg_count > 255)
+		{
+			printf("seg_count over\n");
+			break;
+		}*/
 		for(int len = 1; ; ++len) //real base case exit condition is mid-block at len >= 127
 		{
 			cont_data = read_imageui(uc1_cont_info, coords).x;
@@ -56,18 +61,18 @@ kernel void line_segments(
 			offset_end += offsets_c[cont_idx];
 
 			//check that data wasn't a start OR an end was signalled last pixel
-			to_end = cont_data & IS_START;
+			to_end |= cont_data & IS_START;//(cont_data & (IS_START | HAS_R_CONT)) != HAS_R_CONT;
 			if(to_end)
 				break;
 			to_end = cont_data & IS_END_ADJ;
 
 			coords += offsets[cont_idx];
+			offset_x2_mid += offsets_c[path_hist[(len >> 1) & 0x1F]];
 			// if 2* the midpoint is further than 1 pixel from the endpoint OR length exceed maximum allowed
-			if(mag2_2d_c(offset_end - offset_x2_mid) > 2 || len >= 127)
+			if(mag2_2d_c(offset_end - offset_x2_mid) > 4 || len >= 127)
 				break;
 
 			//addition to offset_mid delayed to keep narrower distance threshold range, may or may not be ideal solution
-			offset_x2_mid += offsets_c[path_hist[(len >> 1) & 0x1F]];
 			if(len < 64)
 				path_hist[len & 0x1F] = cont_idx;
 		}
