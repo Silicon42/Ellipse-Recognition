@@ -35,12 +35,10 @@ int main(int argc, char *argv[])
 		"find_segment_starts",
 		"starts_debug",
 		"serial_reduce",
-		"line_segments",
-		//"arc_segments_nd",
+		"arc_segments",
 		"segment_debug",
 		"gradient_debug",
-		"colored_retrace_line",
-		//"colored_retrace",
+		"colored_retrace",
 		"lost_seg_debug",
 		"link_debug",
 		"starts_link_debug",
@@ -101,9 +99,9 @@ int main(int argc, char *argv[])
 	ArgStaging arc_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_coords
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
-	//	{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
-		{1,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
-		{4,{REL,{0}},CL_TRUE, CL_FALSE}		//ui4_arc_data
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
+	//	{2,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
+		{3,{REL,{0}},CL_TRUE, CL_FALSE}		//ui4_arc_data
 	//	{4,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_trace
 	};
 	ArgStaging serial2[] = {	//serial_reduce_arcs
@@ -138,9 +136,8 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 */	ArgStaging retrace[] = {
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_line_counts	//line only
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_trace_image
 	};
@@ -183,7 +180,7 @@ int main(int argc, char *argv[])
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
 		&(QStaging){8, 2, {REL, {0}}, arc_segments},	//Arc Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
-		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
+		&(QStaging){11, 3, {REL, {0}}, retrace},		//Colored Retrace
 //		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
 //		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
 //		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test

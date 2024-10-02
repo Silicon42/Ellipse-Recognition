@@ -1,4 +1,3 @@
-#include "vec_sum_reduce.cl"
 #include "neighbor_utils.cl"
 #include "link_macros.cl"
 

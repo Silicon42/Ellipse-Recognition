@@ -6,7 +6,6 @@
 
 kernel void colored_retrace_starts(
 	read_only image1d_t iS2_start_info,
-	read_only image2d_t ui4_path_image,
 	write_only image2d_t uc4_trace_image)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
@@ -19,10 +18,5 @@ kernel void colored_retrace_starts(
 	if(!coords.l)
 		return;
 
-	// if location wasn't written to, which should include at least 1 bit set in the lowest 6 bits,
-	// then the read should return 0 and there is no further processing on this work item
-	if(!read_imageui(ui4_path_image, coords.i).x)
-		return;
-
-	write_imageui(uc4_trace_image, coords.i, (uint4)(base_color+32,-1) );
+	write_imageui(uc4_trace_image, coords.i, (uint4)(256-base_color,-1) );
 }

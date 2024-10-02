@@ -32,6 +32,8 @@ union i_conv{
 
 union s_conv{
 	short s;
+	ushort us;
+	uint ui;
 	char2 c;
 	uchar2 uc;
 	char ca[2];

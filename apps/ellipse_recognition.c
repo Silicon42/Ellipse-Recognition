@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		"find_segment_starts",
 		"starts_debug",
 		"serial_reduce",
-		"arc_segments",
+		"line_segments",
 		"segment_debug",
 		"gradient_debug",
 		"colored_retrace",
@@ -43,11 +43,11 @@ int main(int argc, char *argv[])
 		"link_debug",
 		"starts_link_debug",
 		"colored_retrace_starts",
-		"serial_reduce_arcs",
-		"arc_adj_matrix",
+		"serial_reduce_lines",
+/*		"arc_adj_matrix",
 		"search_region_test",
 		"arc_adj_debug",
-		NULL
+*/		NULL
 	};
 
 	// get a device to execute on
@@ -96,19 +96,17 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//uc1_starts_cont
 		{1,{EXACT,{16384,1,1}},CL_TRUE,CL_FALSE}	//iS2_start_coords
 	};
-	ArgStaging arc_segments[] = {
+	ArgStaging line_segments[] = {
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_coords
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC1_grad_ang
-	//	{2,{REL,{0}},CL_TRUE, CL_FALSE},	//ui4_path
-		{3,{REL,{0}},CL_TRUE, CL_FALSE}		//ui4_arc_data
-	//	{4,{REL,{0}},CL_TRUE, CL_FALSE}		//uc1_trace
+		{1,{REL,{0}},CL_TRUE, CL_FALSE},	//us1_line_counts
+		{4,{REL,{0}},CL_TRUE, CL_FALSE}		//iC2_line_data
 	};
-	ArgStaging serial2[] = {	//serial_reduce_arcs
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},			//iS2_start_coords
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_arc_data
-		{1,{EXACT,{16384,2,1}},CL_TRUE,CL_FALSE},	//is2_arc_coords
-		{1,{EXACT,{1,1,1}},CL_TRUE,CL_FALSE}		//us2_lengths
+	ArgStaging serial2[] = {	//serial_reduce_lines
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},			//iS2_start_coords
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_line_data
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},			//us1_line_counts
+		{1,{EXACT,{256,256,1}},CL_TRUE,CL_FALSE}	//iS2_line_coords
 	};
 	ArgStaging arc_adj[] = {
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
@@ -136,14 +134,15 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}
 	};
 */	ArgStaging retrace[] = {
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//uc1_cont_info
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_line_counts
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_line_data
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_trace_image
 	};
 	ArgStaging retrace_starts[] = {
 		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_info
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_path_image
+		//{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_path_image
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_trace_image
 	};
 	ArgStaging lost_seg[] = {
@@ -178,13 +177,13 @@ int main(int argc, char *argv[])
 //		&(QStaging){14, 2, {REL, {0}}, mul3},			//Starts Link Debug
 //		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
-		&(QStaging){8, 2, {REL, {0}}, arc_segments},	//Arc Segments
-//		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug	DEPRECATED
-		&(QStaging){11, 3, {REL, {0}}, retrace},		//Colored Retrace
-//		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts
-//		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug
-//		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test
-//		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Arcs
+		&(QStaging){8, 2, {REL, {0}}, line_segments},	//Arc Segments
+//		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug				//DEPRECATED
+//		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
+//		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts	//currently non-functioning
+//		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug		//currently non-functioning
+//		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test		//currently non-functioning
+		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Lines
 //		&(QStaging){17, 3, {REL, {0}}, arc_adj},		//Arc Adjacency Matrix
 //		&(QStaging){19, 4, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
 /**/		NULL										////-END-////
