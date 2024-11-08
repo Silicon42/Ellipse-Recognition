@@ -1,6 +1,7 @@
 #ifndef CAST_HELPERS_CL
 #define CAST_HELPERS_CL
-
+//macro for splitting the lower half of a uint into an int2 with the low byte in the x and the high byte in the y
+#define SPLIT_INDEX(uindex)	(convert_int2(((union s_conv)(uindex)).uc))
 //TODO: check if unions are faster or pointer conversion macros
 #define AS_LONG(x)	(*(long*)&(x))
 

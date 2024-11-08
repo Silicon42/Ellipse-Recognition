@@ -44,10 +44,10 @@ int main(int argc, char *argv[])
 		"starts_link_debug",
 		"colored_retrace_starts",
 		"serial_reduce_lines",
-/*		"arc_adj_matrix",
-		"search_region_test",
+		"arc_adj_matrix",
 		"arc_adj_debug",
-*/		NULL
+		"search_region_test",
+		NULL
 	};
 
 	// get a device to execute on
@@ -106,13 +106,14 @@ int main(int argc, char *argv[])
 		{3,{REL,{0}},CL_FALSE,CL_FALSE},			//iS2_start_coords
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_line_data
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},			//us1_line_counts
+		{1,{EXACT,{1,1,1}},CL_TRUE,CL_FALSE},		//us1_length
 		{1,{EXACT,{256,256,1}},CL_TRUE,CL_FALSE}	//iS2_line_coords
 	};
 	ArgStaging arc_adj[] = {
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_arc_coords
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_lengths
-		{2,{REL,{0}},CL_TRUE, CL_FALSE}		//us2_sparse_adj_matrix
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iC2_line_data
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_line_coords
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_length
+		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//us4_sparse_adj_matrix
 	};
 
 	////// debug settings //////
@@ -152,15 +153,15 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_out
 	};
 	ArgStaging search_debug[] = {
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc4_lost_seg
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iC2_line_data
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//uc4_trace_image
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//uc4_debug
 	};
 	ArgStaging arc_debug[] = {
-		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//ui4_arc_data
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_arc_coords
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_lengths
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us2_sparse_adj_matrix
+		{4,{REL,{0}},CL_FALSE,CL_FALSE},	//iC2_line_data
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_line_coords
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_length
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us4_sparse_adj_matrix
 		{4,{REL,{0}},CL_TRUE,CL_FALSE}		//uc4_out_image
 	};
 
@@ -177,15 +178,15 @@ int main(int argc, char *argv[])
 //		&(QStaging){14, 2, {REL, {0}}, mul3},			//Starts Link Debug
 //		&(QStaging){6, 1, {REL, {0}}, starts_debug},	//Starts Debug
 		&(QStaging){7, 1, {EXACT, {1,1,1}}, serial},	//Serial Reduce Starts
-		&(QStaging){8, 2, {REL, {0}}, line_segments},	//Arc Segments
+		&(QStaging){8, 2, {REL, {0}}, line_segments},	//Line Segments
 //		&(QStaging){9, 1, {REL, {0}}, segment_debug},	//Segment Debug				//DEPRECATED
 //		&(QStaging){11, 4, {REL, {0}}, retrace},		//Colored Retrace
 //		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts	//currently non-functioning
 //		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug		//currently non-functioning
-//		&(QStaging){18, 12, {REL, {0}}, search_debug},	//Search Region Test		//currently non-functioning
+//		&(QStaging){19, 10, {REL, {0}}, search_debug},	//Search Region Test		//currently non-functioning
 		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Lines
-//		&(QStaging){17, 3, {REL, {0}}, arc_adj},		//Arc Adjacency Matrix
-//		&(QStaging){19, 4, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
+		&(QStaging){17, 1, {REL, {0}}, arc_adj},		//Arc Adjacency Matrix
+		&(QStaging){18, 1, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
 /**/		NULL										////-END-////
 	};
 

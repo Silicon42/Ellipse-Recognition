@@ -46,3 +46,5 @@ the type/width code which can also have that info but is a lot easier to get wro
 * arc_segments needs to be partially rewritten to avoid thread divergence
 * everything needs to be gone over with a fine tooth comb because I'm a dummy and
 forgot the importance of using group shared memory when possible
+* add support for re-using arguments for write_only parameters (colored_retrace_starts.cl)
+* add support for non-image type kernel arguments (serial_reduce/_lines.cl)
