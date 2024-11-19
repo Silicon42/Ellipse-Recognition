@@ -28,7 +28,7 @@ inline int dot_2d_i(int2 a, int2 b)
 	return a.x * b.x + a.y * b.y;
 }
 
-inline int dot_2d_f(float2 a, float2 b)
+inline float dot_2d_f(float2 a, float2 b)
 {
 	return a.x * b.x + a.y * b.y;
 }

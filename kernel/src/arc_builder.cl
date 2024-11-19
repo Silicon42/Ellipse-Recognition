@@ -91,7 +91,7 @@ inline float get_ellipse_dist(const float4 foci)
 
 inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point)
 {
-	return fabs(dist - fast_distance(point, foci.lo) + fast_distance(point, foci.hi)) < 4;
+	return fabs(dist - fast_distance(point, foci.lo) + fast_distance(point, foci.hi)) > 2;
 }
 
 kernel void arc_builder(
@@ -159,13 +159,21 @@ kernel void arc_builder(
 		curr_seg = read_imagei(iC2_line_data, base_coords + total_offset).lo;
 
 		// angle difference between segments A and B must be acute (no sharp corners), ie positive dot product
-		if(dot_2d_i(prev_seg, curr_seg) <= 0)
+		int dir_dot = dot_2d_i(prev_seg, curr_seg);
+		if(dir_dot <= 0)
 		{
 			reset = 1;	//set reset flag
 			continue;
 		}
 		
+		// angle between segments was more than 45 degrees
 		dir_cross = cross_2d_i(prev_seg, curr_seg);
+		if(abs(dir_cross) > dir_dot)
+		{
+			reset = 1;
+			continue;
+		}
+		
 		dir = (dir_cross < 0) ? -1 : dir_cross > 0;	//extract sign of dir_cross to get just the curving direction
 		// if curving direction changes between +/- trigger a reset
 		if((dir ^ dir_trend) == -2)
