@@ -10,6 +10,11 @@ union f_i_conv{
 	int i;
 };
 
+union f2_i2_conv{
+	float2 f;
+	int2 i;
+};
+
 union ui4_array{
 	uint4 ui4;
 	uint arr[4];

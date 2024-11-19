@@ -44,9 +44,12 @@ int main(int argc, char *argv[])
 		"starts_link_debug",
 		"colored_retrace_starts",
 		"serial_reduce_lines",
-		"arc_adj_matrix",
+		//"arc_adj_matrix",
+		"arc_adj_debug",	//temporary dummy to prevent index #s from changing
 		"arc_adj_debug",
 		"search_region_test",
+		"arc_builder",
+		"foci_debug",
 		NULL
 	};
 
@@ -115,6 +118,13 @@ int main(int argc, char *argv[])
 		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_length
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//us4_sparse_adj_matrix
 	};
+	ArgStaging arc_builder[] = {	//arc_builder
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},			//iS2_start_coords
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},			//us1_line_counts
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_line_data
+		{1,{REL,{0}},CL_TRUE,CL_FALSE},				//us1_line_counts
+		{1,{REL,{0}},CL_TRUE,CL_FALSE}				//iS2_line_coords
+	};
 
 	////// debug settings //////
 	ArgStaging mul3[] = {
@@ -164,6 +174,12 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//us4_sparse_adj_matrix
 		{4,{REL,{0}},CL_TRUE,CL_FALSE}		//uc4_out_image
 	};
+	ArgStaging foci_debug[] = {
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iC2_line_data
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_seg_in_arc
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//fF4_ellipse_foci
+		{1,{REL,{0}},CL_TRUE,CL_FALSE}		//uc4_out_image
+	};
 
 	const QStaging* staging[] = {
 //		&(QStaging){0, 1, {REL, {0}}, simple_shrink1},	//RobertsX
@@ -184,9 +200,11 @@ int main(int argc, char *argv[])
 //		&(QStaging){15, 5, {REL, {0}}, retrace_starts},	//Colored Retrace Starts	//currently non-functioning
 //		&(QStaging){12, 1, {REL, {0}}, lost_seg},		//Lost Segment Debug		//currently non-functioning
 //		&(QStaging){19, 10, {REL, {0}}, search_debug},	//Search Region Test		//currently non-functioning
-		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Lines
+/*		&(QStaging){16, 1, {EXACT, {1,1,1}}, serial2},	//Serial Reduce Lines
 		&(QStaging){17, 1, {REL, {0}}, arc_adj},		//Arc Adjacency Matrix
 		&(QStaging){18, 1, {REL, {0}}, arc_debug},		//Arc Adjacency Debug
+*/		&(QStaging){20, 4, {REL, {0}}, arc_builder},	//Arc Builder
+		&(QStaging){21, 1, {REL, {0}}, foci_debug},		//Foci Debug
 /**/		NULL										////-END-////
 	};
 
