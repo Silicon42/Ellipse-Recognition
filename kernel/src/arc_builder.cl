@@ -12,31 +12,31 @@ constant const char order[8] = {0,1,2,3,0,2,1,3};
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
 // if the conic through 5 points would not be an ellipse, returns NaN
-float4 ellipse_from_hist(const int2 diffs[4], const int cross_prods[4])
+float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
 {	//TODO: see how to mitigate rounding errors better
-	float4 foci;
-	float2 ca, ed, rs, temp_f2;
-	float b, temp_f, inv_2t, ac_diff;
-	float u, v;
+	double4 foci;
+	double2 ca, ed, rs, temp_f2;
+	double b, temp_f, inv_2t, ac_diff;
+	int u, v;
 	int2 temp_i2;
-if(diffs[0].x == -145)
+/*if(diffs[0].x == -145)
 {
 	printf("diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\n",diffs[0], diffs[1], diffs[2], diffs[3]);
-}
+}//*/
 
 	// Fix to prevent exponent overflow from too many multiplication steps by pre-scaling the u and v values
 	// technically it might be safer to divide by the avg exponent between the max and non-zero-min of the coefficients,
 	// but dividing by a constant power of 2 is faster and should work in most cases, especially if resolution is kept
 	// to reasonable values (ie roughly <= 4069)
 
-	u = (cross_prods[1] * cross_prods[3]) / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
-	v = (cross_prods[0] * cross_prods[2]) /-137438953472.0f;
+	u = (cross_prods[1] * cross_prods[3]);// / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
+	v = -(cross_prods[0] * cross_prods[2]);// /-137438953472.0f;
 
-	ca = u * convert_float2(diffs[0] * diffs[2]) + v * convert_float2(diffs[1] * diffs[3]);
+	ca = u * convert_double2(diffs[0] * diffs[2]) + v * convert_double2(diffs[1] * diffs[3]);
 	temp_i2 = diffs[0] * diffs[2].yx;
-	b = u * (float)(temp_i2.x + temp_i2.y);
+	b = u * (double)(temp_i2.x + temp_i2.y);
 	temp_i2 = diffs[1] * diffs[3].yx;
-	b += v * (float)(temp_i2.x + temp_i2.y);
+	b += v * (double)(temp_i2.x + temp_i2.y);
 
 	inv_2t = (4 * ca.x * ca.y - b * b);
 //	printf("%f ", inv_2t);
@@ -47,41 +47,41 @@ if(diffs[0].x == -145)
 	b = -b;
 	inv_2t = 1 / inv_2t;
 
-	ed = u * (cross_prods[0] * convert_float2(diffs[2]) + cross_prods[2] * convert_float2(diffs[0]))\
-		+v * (cross_prods[1] * convert_float2(diffs[3]) + cross_prods[3] * convert_float2(diffs[1]));
+	ed = u * (cross_prods[0] * convert_double2(diffs[2]) + cross_prods[2] * convert_double2(diffs[0]))\
+		+v * (cross_prods[1] * convert_double2(diffs[3]) + cross_prods[3] * convert_double2(diffs[1]));
 	ed.x = -ed.x;
 
 	rs = b * ed;			//b[e, d]
 	temp_f = rs.x * ed.y;	//bed
-	temp_f2 = ed.yx * ca;	//[cd, ae]
+	temp_f2 = ca * ed.yx;	//[cd, ae]
 	rs -= 2 * temp_f2;		//b[e, d] - 2[cd, ae]
 	ac_diff = ca.y - ca.x;	//a-c
 
-	temp_f = 2 * (temp_f - dot_2d_f(temp_f2, ed.yx));
-	temp_f2 = (temp_f < 0) ? (float2)(-ac_diff, ac_diff) : (float2)(ac_diff, -ac_diff);
-	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + temp_f2));
-/*
+	temp_f = 2 * (temp_f - dot_2d_d(temp_f2, ed.yx));	//2(bed - ae^2 - cd^2)
+	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (double2)(ac_diff, -ac_diff)));
+
 if(diffs[0].x == -145)
 {
 printf(\
 "diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
 cross_prods:	%i	%i	%i	%i\n\
 u: %i,	v: %i\n\
-c: %.0f	a: %.0f	b: %.0f	e: %.0f	d: %.0f\n\
-t1: %.0f	ac_diff: %.0f\n\n",\
+a: %.0f	b: %.0f	c: %.0f	d: %.0f	e: %.0f\n\
+r: %.0f	s: %.0f	2t: %.0f	tmp: %.0f	ac_diff: %.0f\n\n",\
 diffs[0], diffs[1], diffs[2], diffs[3],\
 cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
-u, v, ca, b, ed, temp_f, ac_diff);
-}*/
+u, v, ca.y, b, ca.x, ed.y, ed.x,\
+ rs.x, rs.y, 1/inv_2t, temp_f, ac_diff);
+}//*/
 	// due to sqrt of complex value, x and y components are either same sign if b > 0 or opposite sign if b < 0
-	if((b < 0) ^ (temp_f < 0))
-		temp_f2.x *= -1;
+	if(b < 0)
+		temp_f2.y *= -1;
 
 	foci.lo = rs - temp_f2;
 	foci.hi = rs + temp_f2;
 	foci *= inv_2t;
 	
-	return foci;
+	return convert_float4(foci);
 }
 
 inline float get_ellipse_dist(const float4 foci)
@@ -91,7 +91,7 @@ inline float get_ellipse_dist(const float4 foci)
 
 inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point)
 {
-	return fabs(dist - fast_distance(point, foci.lo) + fast_distance(point, foci.hi)) > 2;
+	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 4;
 }
 
 kernel void arc_builder(
@@ -115,12 +115,12 @@ kernel void arc_builder(
 	}*/
 
 	int2 total_offset, curr_seg, prev_seg;
-	int2 points[4];
+	private int2 points[4];
 	curr_seg = read_imagei(iC2_line_data, base_coords).lo;
 	total_offset = 0;
-	int cross_prods[4];
-	int8 diffs8;
-	int2* diffs = (void*)&diffs8;
+	private int cross_prods[4];
+	private int8 diffs8;
+	private int2* diffs = (private void*)&diffs8;
 	char reset = 0;
 	ushort seg_cnt = 1;
 	float4 foci;
@@ -207,7 +207,7 @@ kernel void arc_builder(
 				foci = ellipse_from_hist(diffs, cross_prods);
 if(diffs[0].x == -145)
 printf(
-"base:	(%v2i)\n\
+"base:	(%i,  %i)\n\
 points:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
 diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
 cross_prods:	%i	%i	%i	%i\n\
@@ -215,7 +215,8 @@ foci:	(%f, %f) (%f, %f)\n\n",\
 base_coords,\
 points[0], points[1], points[2], points[3],\
 diffs[0], diffs[1], diffs[2], diffs[3],\
-cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3], foci);
+cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
+foci.x, foci.y, foci.z, foci.w);//*/
 //	printf("calced @ %i %i	", index, remaining_segs);
 				// if points didn't form an ellipse
 				if(isnan(foci.x))
