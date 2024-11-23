@@ -1,10 +1,10 @@
 #include "cast_helpers.cl"
 #include "math_helpers.cl"
-//FIXME: move this to a separate file for repeated use then come back and convert floats to doubles where possible
+//FIXME: move this to a separate file for repeated use then come back and convert floats to floats where possible
 /*
-#ifndef double
-#define double float
-#define double2 float2
+#ifndef float
+#define float float
+#define float2 float2
 #endif
 */
 constant const char order[8] = {0,1,2,3,0,2,1,3};
@@ -14,32 +14,27 @@ constant const char order[8] = {0,1,2,3,0,2,1,3};
 // if the conic through 5 points would not be an ellipse, returns NaN
 float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
 {	//TODO: see how to mitigate rounding errors better
-	double4 foci;
-	double2 ca, ed, rs, temp_f2;
-	double b, temp_f, inv_2t, ac_diff;
-	int u, v;
+	float4 foci;
+	float2 ca, ed, rs, temp_f2;
+	float b, temp_f, inv_2t, ac_diff;
+	float u, v;
 	int2 temp_i2;
-/*if(diffs[0].x == -145)
-{
-	printf("diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\n",diffs[0], diffs[1], diffs[2], diffs[3]);
-}//*/
 
 	// Fix to prevent exponent overflow from too many multiplication steps by pre-scaling the u and v values
 	// technically it might be safer to divide by the avg exponent between the max and non-zero-min of the coefficients,
 	// but dividing by a constant power of 2 is faster and should work in most cases, especially if resolution is kept
 	// to reasonable values (ie roughly <= 4069)
 
-	u = (cross_prods[1] * cross_prods[3]);// / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
-	v = -(cross_prods[0] * cross_prods[2]);// /-137438953472.0f;
+	u = (cross_prods[1] * cross_prods[3]) / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
+	v = -(cross_prods[0] * cross_prods[2]) /137438953472.0f;
 
-	ca = u * convert_double2(diffs[0] * diffs[2]) + v * convert_double2(diffs[1] * diffs[3]);
+	ca = u * convert_float2(diffs[0] * diffs[2]) + v * convert_float2(diffs[1] * diffs[3]);
 	temp_i2 = diffs[0] * diffs[2].yx;
-	b = u * (double)(temp_i2.x + temp_i2.y);
+	b = u * (float)(temp_i2.x + temp_i2.y);
 	temp_i2 = diffs[1] * diffs[3].yx;
-	b += v * (double)(temp_i2.x + temp_i2.y);
+	b += v * (float)(temp_i2.x + temp_i2.y);
 
 	inv_2t = (4 * ca.x * ca.y - b * b);
-//	printf("%f ", inv_2t);
 	//only bother computing foci for ellipse candidates, not parabolas or hyperbolas
 	if(inv_2t <= 0)
 		return NAN;
@@ -47,8 +42,8 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 	b = -b;
 	inv_2t = 1 / inv_2t;
 
-	ed = u * (cross_prods[0] * convert_double2(diffs[2]) + cross_prods[2] * convert_double2(diffs[0]))\
-		+v * (cross_prods[1] * convert_double2(diffs[3]) + cross_prods[3] * convert_double2(diffs[1]));
+	ed = u * (cross_prods[0] * convert_float2(diffs[2]) + cross_prods[2] * convert_float2(diffs[0]))\
+		+v * (cross_prods[1] * convert_float2(diffs[3]) + cross_prods[3] * convert_float2(diffs[1]));
 	ed.x = -ed.x;
 
 	rs = b * ed;			//b[e, d]
@@ -57,8 +52,8 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 	rs -= 2 * temp_f2;		//b[e, d] - 2[cd, ae]
 	ac_diff = ca.y - ca.x;	//a-c
 
-	temp_f = 2 * (temp_f - dot_2d_d(temp_f2, ed.yx));	//2(bed - ae^2 - cd^2)
-	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (double2)(ac_diff, -ac_diff)));
+	temp_f = 2 * (temp_f - dot_2d_f(temp_f2, ed.yx));	//2(bed - ae^2 - cd^2)
+	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (float2)(ac_diff, -ac_diff)));
 
 if(diffs[0].x == -145)
 {
@@ -91,7 +86,7 @@ inline float get_ellipse_dist(const float4 foci)
 
 inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point)
 {
-	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 4;
+	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 16;
 }
 
 kernel void arc_builder(
@@ -107,12 +102,7 @@ kernel void arc_builder(
 	if(!((union l_conv)base_coords).l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 
-	int remaining_segs = read_imageui(us1_line_counts, index).x;
-	/*if(remaining_segs < 4)
-	{
-		write_imageui(us1_seg_in_arc, base_coords, remaining_segs);
-		return;
-	}*/
+	int remaining_segs = read_imageui(us1_line_counts, index).x - 1;
 
 	int2 total_offset, curr_seg, prev_seg;
 	private int2 points[4];
@@ -144,7 +134,6 @@ kernel void arc_builder(
 			{
 				float2 base_f = convert_float2(base_coords);
 				foci += (float4)(base_f, base_f);
-//				printf("(%f, %f) (%f, %f)\n", foci);
 				write_imagef(fF4_ellipse_foci, base_coords, foci);
 			}
 			base_coords += total_offset;
@@ -217,11 +206,9 @@ points[0], points[1], points[2], points[3],\
 diffs[0], diffs[1], diffs[2], diffs[3],\
 cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
 foci.x, foci.y, foci.z, foci.w);//*/
-//	printf("calced @ %i %i	", index, remaining_segs);
 				// if points didn't form an ellipse
 				if(isnan(foci.x))
 				{
-//	printf("kicked @ %i %i	", index, remaining_segs);
 					// kick first segment and copy things down to try again
 					write_imageui(us1_seg_in_arc, base_coords, 1);
 					int2 first_point = points[0];
@@ -244,7 +231,6 @@ foci.x, foci.y, foci.z, foci.w);//*/
 					base_coords += points[0];
 					continue;	//continue without advancing segment count
 				}
-//break;
 			}
 		}
 		else
@@ -283,7 +269,6 @@ foci.x, foci.y, foci.z, foci.w);//*/
 		// this must stay at the end b/c some situations need to be able to skip it
 		++seg_cnt;
 	}
-//++seg_cnt;
 	//flush last arc
 	write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
 	//if it was long enough to calculate an ellipse, write out the foci
@@ -291,7 +276,6 @@ foci.x, foci.y, foci.z, foci.w);//*/
 	{
 		float2 base_f = convert_float2(base_coords);
 		foci += (float4)(base_f, base_f);
-//		printf("(%f, %f) (%f, %f)\n", foci);
 		write_imagef(fF4_ellipse_foci, base_coords, foci);
 	}
 }

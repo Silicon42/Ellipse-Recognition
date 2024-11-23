@@ -50,6 +50,8 @@ int main(int argc, char *argv[])
 		"search_region_test",
 		"arc_builder",
 		"foci_debug",
+		//"arc_builder_stripped",
+		//"arc_segments_debug",
 		NULL
 	};
 
@@ -119,11 +121,11 @@ int main(int argc, char *argv[])
 		{1,{REL,{0}},CL_TRUE, CL_FALSE}		//us4_sparse_adj_matrix
 	};
 	ArgStaging arc_builder[] = {	//arc_builder
-		{3,{REL,{0}},CL_FALSE,CL_FALSE},			//iS2_start_coords
-		{2,{REL,{0}},CL_FALSE,CL_FALSE},			//us1_line_counts
-		{1,{REL,{0}},CL_FALSE,CL_FALSE},			//ui4_line_data
-		{1,{REL,{0}},CL_TRUE,CL_FALSE},				//us1_line_counts
-		{1,{REL,{0}},CL_TRUE,CL_FALSE}				//iS2_line_coords
+		{3,{REL,{0}},CL_FALSE,CL_FALSE},	//iS2_start_coords
+		{2,{REL,{0}},CL_FALSE,CL_FALSE},	//us1_line_counts
+		{1,{REL,{0}},CL_FALSE,CL_FALSE},	//iC2_line_data
+		{1,{REL,{0}},CL_TRUE,CL_FALSE},		//us1_seg_in_arc
+		{1,{REL,{0}},CL_TRUE,CL_FALSE}		//fF4_ellipse_foci
 	};
 
 	////// debug settings //////
