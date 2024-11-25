@@ -24,9 +24,8 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 	// technically it might be safer to divide by the avg exponent between the max and non-zero-min of the coefficients,
 	// but dividing by a constant power of 2 is faster and should work in most cases, especially if resolution is kept
 	// to reasonable values (ie roughly <= 4069)
-
-	u = (cross_prods[1] * cross_prods[3]) / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
-	v = -(cross_prods[0] * cross_prods[2]) /137438953472.0f;
+	u =  (cross_prods[1] * cross_prods[3]) / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
+	v = -(cross_prods[0] * cross_prods[2]) / 137438953472.0f;	// compiler should hopefully optimize this to simple exponent setting since it's a power of 2
 
 	ca = u * convert_float2(diffs[0] * diffs[2]) + v * convert_float2(diffs[1] * diffs[3]);
 	temp_i2 = diffs[0] * diffs[2].yx;
@@ -55,19 +54,6 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 	temp_f = 2 * (temp_f - dot_2d_f(temp_f2, ed.yx));	//2(bed - ae^2 - cd^2)
 	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (float2)(ac_diff, -ac_diff)));
 
-if(diffs[0].x == -145)
-{
-printf(\
-"diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
-cross_prods:	%i	%i	%i	%i\n\
-u: %i,	v: %i\n\
-a: %.0f	b: %.0f	c: %.0f	d: %.0f	e: %.0f\n\
-r: %.0f	s: %.0f	2t: %.0f	tmp: %.0f	ac_diff: %.0f\n\n",\
-diffs[0], diffs[1], diffs[2], diffs[3],\
-cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
-u, v, ca.y, b, ca.x, ed.y, ed.x,\
- rs.x, rs.y, 1/inv_2t, temp_f, ac_diff);
-}//*/
 	// due to sqrt of complex value, x and y components are either same sign if b > 0 or opposite sign if b < 0
 	if(b < 0)
 		temp_f2.y *= -1;
@@ -86,7 +72,7 @@ inline float get_ellipse_dist(const float4 foci)
 
 inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point)
 {
-	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 16;
+	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 2;
 }
 
 kernel void arc_builder(
@@ -102,7 +88,7 @@ kernel void arc_builder(
 	if(!((union l_conv)base_coords).l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 
-	int remaining_segs = read_imageui(us1_line_counts, index).x - 1;
+	int remaining_segs = read_imageui(us1_line_counts, index).x;
 
 	int2 total_offset, curr_seg, prev_seg;
 	private int2 points[4];
@@ -123,10 +109,11 @@ kernel void arc_builder(
 	// don't have to worry about returning to start b/c with the forward acute angle restriction
 	// that would require at least 5 segments and therefore wouldn't end up with one of the points
 	// as (0,0) on the initial calculation
-	while(remaining_segs--)
+	while(--remaining_segs)
 	{
-		if(reset)
+		switch(reset)
 		{
+		case 1:	// logical reset, last read segment can't be part of the same elliptical arc
 			reset = 0;
 			write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
 			//if it was long enough to calculate an ellipse, write out the foci
@@ -142,6 +129,20 @@ kernel void arc_builder(
 			total_offset = 0;	//keep last segment that caused the reset
 			seg_cnt = 1;
 			dir_trend = 0;	//trend unknown since only 1 segment
+			break;
+		case 2:	// first solve reset, at time of adding 4th segment, failed to get a valid ellipse fit
+			reset = 0;
+			// kick first segment and copy things down 1 slot to try again
+			write_imageui(us1_seg_in_arc, base_coords, 1);
+			int2 first_point = points[0];
+			base_coords += first_point;	// advance base coords by first segment
+			total_offset -= first_point;
+			points[0] = points[1] - first_point;	// remove first segment's offset to account for new base coord
+			points[1] = points[2] - first_point;
+			points[2] = points[3] - first_point;
+			diffs[0] = diffs[1];
+			diffs[1] = diffs[2];
+			diffs[2] = diffs[3];
 		}
 		prev_seg = curr_seg;
 		total_offset += curr_seg;
@@ -194,31 +195,11 @@ kernel void arc_builder(
 				cross_prods[3] = cross_2d_i(points[3], points[2]);
 
 				foci = ellipse_from_hist(diffs, cross_prods);
-if(diffs[0].x == -145)
-printf(
-"base:	(%i,  %i)\n\
-points:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
-diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
-cross_prods:	%i	%i	%i	%i\n\
-foci:	(%f, %f) (%f, %f)\n\n",\
-base_coords,\
-points[0], points[1], points[2], points[3],\
-diffs[0], diffs[1], diffs[2], diffs[3],\
-cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
-foci.x, foci.y, foci.z, foci.w);//*/
+
 				// if points didn't form an ellipse
-				if(isnan(foci.x))
+				if(!isfinite(foci.x))
 				{
-					// kick first segment and copy things down to try again
-					write_imageui(us1_seg_in_arc, base_coords, 1);
-					int2 first_point = points[0];
-					base_coords += first_point;	// advance base coords by first segment
-					points[0] = points[1] - first_point;	// remove first segment's offset to account for new base coord
-					points[1] = points[2] - first_point;
-					points[2] = points[3] - first_point;
-					diffs[0] = diffs[1];
-					diffs[1] = diffs[2];
-					diffs[2] = diffs[3];
+					reset = 2;
 					continue;	//continue without advancing segment count
 				}
 				
@@ -227,8 +208,7 @@ foci.x, foci.y, foci.z, foci.w);//*/
 				// if the ellipse was a bad fit, try again next time
 				if(!is_near_ellipse_edge(foci, edge_dist, mid0))
 				{
-					write_imageui(us1_seg_in_arc, base_coords, 1);
-					base_coords += points[0];
+					reset = 2;
 					continue;	//continue without advancing segment count
 				}
 			}
@@ -254,6 +234,11 @@ foci.x, foci.y, foci.z, foci.w);//*/
 
 				// calculate the ellipse with the new point
 				float4 new_foci = ellipse_from_hist(diffs, cross_prods);
+				if(!isfinite(new_foci.x))
+				{
+					reset = 1;
+					continue;
+				}
 				float new_dist = get_ellipse_dist(new_foci);
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
 				if(!is_near_ellipse_edge(new_foci, new_dist, old_point))
@@ -269,6 +254,7 @@ foci.x, foci.y, foci.z, foci.w);//*/
 		// this must stay at the end b/c some situations need to be able to skip it
 		++seg_cnt;
 	}
+
 	//flush last arc
 	write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
 	//if it was long enough to calculate an ellipse, write out the foci
@@ -279,3 +265,32 @@ foci.x, foci.y, foci.z, foci.w);//*/
 		write_imagef(fF4_ellipse_foci, base_coords, foci);
 	}
 }
+
+//debugging print stubs
+
+/*/if(diffs[0].x == -145)
+printf(
+"base:	(%i,  %i)\n\
+points:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
+diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
+cross_prods:	%i	%i	%i	%i\n\
+foci:	(%f, %f) (%f, %f)\n\n",\
+base_coords,\
+points[0], points[1], points[2], points[3],\
+diffs[0], diffs[1], diffs[2], diffs[3],\
+cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
+foci.x, foci.y, foci.z, foci.w);//*/
+
+/*/if(diffs[0].x == -145)
+{
+printf(\
+"diffs:	(%i,  %i)	(%i,  %i)	(%i,  %i)	(%i,  %i)\n\
+cross_prods:	%i	%i	%i	%i\n\
+u: %g,	v: %g\n\
+a: %g	b: %g	c: %g	d: %g	e: %g\n\
+r: %g	s: %g	2t: %g	tmp: %g	ac_diff: %g\n\n",\
+diffs[0], diffs[1], diffs[2], diffs[3],\
+cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3],\
+u, v, ca.y, b, ca.x, ed.y, ed.x,\
+ rs.x, rs.y, 1/inv_2t, temp_f, ac_diff);
+}//*/

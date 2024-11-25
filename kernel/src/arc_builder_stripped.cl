@@ -16,8 +16,9 @@ kernel void arc_builder_stripped(
 		return;
 
 	int remaining_segs = read_imageui(us1_line_counts, index).x;
-
-	remaining_segs--;
+	if(!remaining_segs)
+		return;
+		
 	int2 total_offset, curr_seg, prev_seg;
 	curr_seg = read_imagei(iC2_line_data, base_coords).lo;
 	total_offset = 0;
@@ -31,7 +32,7 @@ kernel void arc_builder_stripped(
 	// don't have to worry about returning to start b/c with the forward acute angle restriction
 	// that would require at least 5 segments and therefore wouldn't end up with one of the points
 	// as (0,0) on the initial calculation
-	while(remaining_segs--)
+	while(--remaining_segs)
 	{
 		if(reset)
 		{
