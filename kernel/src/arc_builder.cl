@@ -24,6 +24,7 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 	// technically it might be safer to divide by the avg exponent between the max and non-zero-min of the coefficients,
 	// but dividing by a constant power of 2 is faster and should work in most cases, especially if resolution is kept
 	// to reasonable values (ie roughly <= 4069)
+	//FIXME: max guaranteed safe divisor with -cl-denorms-are-zero set is 2147483648 (2^31), need to add defines that take that into account
 	u =  (cross_prods[1] * cross_prods[3]) / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
 	v = -(cross_prods[0] * cross_prods[2]) / 137438953472.0f;	// compiler should hopefully optimize this to simple exponent setting since it's a power of 2
 
