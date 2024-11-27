@@ -137,7 +137,7 @@ struct toml_timestamp_t {
 
 
 #define ALIGN8(sz) (((sz) + 7) & ~7)
-#define calloc(x, y) error - forbidden - use CALLOC instead
+//#define calloc(x, y) error - forbidden - use CALLOC instead
 static void *CALLOC(size_t nmemb, size_t sz) {
 	int nb = ALIGN8(sz) * nmemb;
 	void *p = malloc(nb);
@@ -148,8 +148,8 @@ static void *CALLOC(size_t nmemb, size_t sz) {
 }
 
 // some old platforms define strdup macro -- drop it.
-#undef strdup
-#define strdup(x) error - forbidden - use STRDUP instead
+//#undef strdup
+//#define strdup(x) error - forbidden - use STRDUP instead
 static char *STRDUP(const char *s) {
 	int len = strlen(s);
 	char *p = malloc(len + 1);
@@ -161,8 +161,8 @@ static char *STRDUP(const char *s) {
 }
 
 // some old platforms define strndup macro -- drop it.
-#undef strndup
-#define strndup(x) error - forbiden - use STRNDUP instead
+//#undef strndup
+//#define strndup(x) error - forbiden - use STRNDUP instead
 static char *STRNDUP(const char *s, size_t n) {
 	size_t len = strnlen(s, n);
 	char *p = malloc(len + 1);

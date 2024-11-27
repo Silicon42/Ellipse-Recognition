@@ -22,6 +22,28 @@ cl_device_id getPreferredDevice()
 	return device;
 }
 
+// adds the char* to the char* array if the contents are unique, the char* array
+// MUST have unused entries filled with null pointers with an additional null
+// pointer at list[max_entries], assumes that all strings involved are allocated
+// strings and are therefore aligned to native widths
+// returns -1 if entry already exists, 0 if out of space, and 1 if entry was unique
+char addUniqueString(const char** list, int max_entries, const char* str)
+{
+	int i;
+	for(i = 0; (i < max_entries) && list[i]; ++i)
+	{
+		// if there's an exact match, it's already in the list and we can return early.
+		if(!memcmp(list[i], str, strlen(str)))
+			return -1;
+	}
+	
+	if(i >= max_entries)
+		return 0;
+	
+	list[i] = str;
+	return 1;
+}
+
 //FIXME: Building multiple kernels from separate files at once has side effects, all the contents are effectively appended together
 // so line numbers don't make sense, defines and globally scoped items stick around when you don't expect them to, syntax errors
 // introduced by the appending, etc.
@@ -43,45 +65,12 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 	if(k_src_cnt > max_kernels)
 		fprintf(stderr, "\nWARNING: more kernel sources provided than specified max_kernels: %i", max_kernels);
 
-/*
-	// allocate pointer array for kernel sources
-	char** k_srcs = (char**)malloc(sizeof(char*) * k_src_cnt);
-	if(k_srcs == NULL)
-	{
-		perror("\nCouldn't allocate kernel source array");
-		exit(1);
-	}
-*/
 	// Read kernel source file and place content into buffer
 	cl_uint kernel_cnt = 0;
 	for(cl_uint i=0; i<k_src_cnt; ++i)
 	{
 		snprintf(str_buff, sizeof(str_buff)-1, "%s%s.cl", src_dir, names[i]);
-		printf("Reading \"%s\"\n", str_buff);
-
-		FILE* k_src_handle = fopen(str_buff, "r");
-		if(k_src_handle == NULL)
-		{
-			fputs(str_buff, stderr);
-			perror("\nCouldn't find the kernel program file");
-			exit(1);
-		}
-		// get rough program size and allocate string
-		fseek(k_src_handle, 0, SEEK_END);
-		long k_src_size = ftell(k_src_handle);
-		rewind(k_src_handle);
-
-		char* k_src = malloc(k_src_size + 1);
-		if(k_src == NULL)
-		{
-			perror("\nCouldn't allocate kernel source string");
-			exit(1);
-		}
-		// program may become smaller due to line endings being partially stripped on read
-		k_src_size = fread(k_src, sizeof(char), k_src_size, k_src_handle);
-		fclose(k_src_handle);
-		// terminate the string so we don't have to track sizes
-		k_src[k_src_size] = '\0';
+		char* k_src = readFileToCstring(str_buff);
 
 		// Create program from file
 		cl_program program = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &clErr);
@@ -116,19 +105,6 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 		handleClError(clErr, "clReleaseProgram");
 
 	}
-
-	// done with the sources
-//	for(int i=0; i<k_src_cnt; ++i)
-//		free(k_srcs[i]);
-//	free(k_srcs);
-
-/*	// warn user if they specified a program with more kernels than they provided space for
-	size_t kernel_cnt;
-	clErr = clGetProgramInfo(program, CL_PROGRAM_NUM_KERNELS, sizeof(size_t), &kernel_cnt, NULL);
-	handleClError(clErr, "clGetProgramInfo");
-	if(kernel_cnt > max_kernels)
-		fputs("\nWARNING: more kernels exist in program than specified max_kernels", stderr);
-*/
 
 	return kernel_cnt;
 }
@@ -349,4 +325,36 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
 		break;
 	}
 	return channel_cnt;
+}
+
+// Returned value must be freed when done using
+char* readFileToCstring(const char* fname)
+{
+	printf("Reading \"%s\"\n", fname);
+
+	FILE* k_src_handle = fopen(fname, "r");
+	if(k_src_handle == NULL)
+	{
+		fputs(fname, stderr);
+		perror("\nCouldn't find file.\n");
+		exit(1);
+	}
+	// get rough file size and allocate string
+	fseek(k_src_handle, 0, SEEK_END);
+	long k_src_size = ftell(k_src_handle);
+	rewind(k_src_handle);
+
+	char* k_src = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
+	if(k_src == NULL)
+	{
+		perror("\nCouldn't allocate output c-string.\n");
+		exit(1);
+	}
+	// contents may be smaller due to line endings being partially stripped on read
+	k_src_size = fread(k_src, sizeof(char), k_src_size, k_src_handle);
+	fclose(k_src_handle);
+	// terminate the string properly
+	k_src[k_src_size] = '\0';
+
+	return k_src;
 }

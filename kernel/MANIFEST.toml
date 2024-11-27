@@ -1,33 +1,4 @@
-# Table of OpenCL source code files to compile where key names are subfolders
-# and arrays are individual filenames in those folders
-[cl_sources]
-src = [
-	"scharr3_char",
-	"non_max_sup",
-	"edge_thinning",
-	"edge_thinning2",
-	"link_edge_pixels",
-	"find_segment_starts",
-	"serial_reduce",
-	"line_segments",
-	"serial_reduce_lines",
-	"arc_builder",
-]
-dbg = [
-	"starts_debug",
-	"segment_debug",
-	"gradient_debug",
-	"colored_retrace",
-	"lost_seg_debug",
-	"link_debug",
-	"starts_link_debug",
-	"colored_retrace_starts",
-	"arc_adj_debug",
-	"search_region_test",
-	"foci_debug",
-]
 
-[kernel]
 # Master list of all kernel args by name used for OpenCL kernels in [kernel_stages]
 # Used for handling creation and checking of argument validity
 args = [
