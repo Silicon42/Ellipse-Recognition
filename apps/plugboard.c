@@ -65,19 +65,18 @@ int main(int argc, char *argv[])
 
 	// Read in the manifest for what kernels should be used
 	char* manifest = readFileToCstring(KERNEL_DIR"MANIFEST.toml");
-	char errbuf[200];
+	char errbuf[256];
 	toml_table_t* root_tbl = toml_parse(manifest, errbuf, sizeof(errbuf));
 	free(manifest);	// parsing works for whole document, so c-string is no longer needed
 	if (!root_tbl)
 	{
-		fprintf(stderr, "\nERROR: %s\n", errbuf);
+		fprintf(stderr, "\nTOML ERROR: %s\n", errbuf);
 		exit(1);
 	}
 
 	// get stages array and check valid size and type
 	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
-	int stage_cnt = stage_list->nitem;
-	if(!stage_cnt)
+	if(!stage_list || !stage_list->nitem)
 	{
 		perror(MANIFEST_ERROR"no stages specified.\n");
 		exit(1);
@@ -87,25 +86,27 @@ int main(int argc, char *argv[])
 		perror(MANIFEST_ERROR"stages array must be a table array.\n");
 		exit(1);
 	}
+	int stage_cnt = stage_list->nitem;
 
 	// get arg table
 	toml_table_t* args_table = toml_table_table(root_tbl, "args");
-	int max_defined_args = args_table->nkval;
-	if(!max_defined_args)
+	if(!args_table || !args_table->nkval)
 	{
 		perror(MANIFEST_ERROR"args table was empty.\n");
 		exit(1);
 	}
+	int max_defined_args = args_table->nkval;
 
 	int kprog_cnt = 0;
 	const char** kernel_progs = critical_calloc(stage_cnt + 1, sizeof(char*), "kernel program name array");	//calloc ensures unset values are null
 	QStaging* staging = critical_malloc(stage_cnt * sizeof(QStaging), "kernel program staging array");
 	const char** arg_names = critical_calloc(max_defined_args + 1, sizeof(char*), "arg name array");
 	ArgStaging* arg_stg = critical_malloc(max_defined_args * sizeof(ArgStaging), "arg staging array");
+	int last_arg_idx = 0;
 
 	for(int i = 0; i < stage_cnt; ++i)
 	{
-		toml_table_t* stage = toml_array_table(stage_list, i);
+		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
 		toml_value_t tval = toml_table_string(stage, "name");
 		if(!tval.ok || !tval.u.s[0])	//not sure if this is safe or if the compiler might do them in an unsafe order
 		{
@@ -116,10 +117,8 @@ int main(int argc, char *argv[])
 		// check if a kernel by that name already exists, if not, add it to the list of ones to build
 		staging[i].kernel_idx = addUniqueString(kernel_progs, stage_cnt, tval.u.s);
 
-		//TODO: add support for separate config files, currently only supports inline and default
 		toml_array_t* args = toml_table_array(stage, "args");
-		int args_cnt = args->nitem;
-		if(!args_cnt)
+		if(!args || !args->nitem)
 		{
 			fprintf(stderr, MANIFEST_ERROR"missing args list at entry %i of stages array.\n", i);
 			exit(1);
@@ -129,12 +128,34 @@ int main(int argc, char *argv[])
 			fprintf(stderr, MANIFEST_ERROR"args array at entry %i of stages array must contain only strings.\n", i);
 			exit(1);
 		}
+		int args_cnt = args->nitem;
 
+		staging[i].arg_idxs = critical_malloc(args_cnt * sizeof(int), "stage's arg index list");
+
+		// iterate over args to find any new ones
 		for(int j = 0; j < args_cnt; ++j)
 		{
-			char* arg_name = toml_array_string(args, j).u.s;
+			char* arg_name = toml_array_string(args, j).u.s;	//guaranteed exists due kind, type, and count checks above
 			if(arg_name[0])	// if not empty string
-			
+			{
+				int arg_idx = addUniqueString(arg_names, max_defined_args, arg_name);
+				staging[i].arg_idxs[j] = arg_idx;
+				if(arg_idx > last_arg_idx)	//check if this was a newly referenced argument
+				{
+					++last_arg_idx;	//is only ever bigger by one so this is safe
+					//instantiate a corresponding arg on the arg staging array
+					toml_table_t* arg_conf = toml_table_table(args, arg_name);
+					if(!arg_conf)
+					{
+						fprintf(stderr, MANIFEST_ERROR"stage %i requested \"%s\" but no such key was found under [args].\n", i, arg_name);
+						exit(1);
+					}
+					
+
+				}
+			}
+			else	// empty string is a special case that always selects whatever was last added
+				staging[i].arg_idxs[j] = last_arg_idx;
 		}
 	}
 
@@ -158,7 +179,7 @@ int main(int argc, char *argv[])
 	QStage stages[MAX_STAGES];
 	int stage_cnt = prepQStages(context, staging, kernels, stages, MAX_STAGES, &tracker);
 
-	free(staging);
+	freeStagingArray(staging);
 	free(kernel_progs);
 	toml_free(root_tbl);
 

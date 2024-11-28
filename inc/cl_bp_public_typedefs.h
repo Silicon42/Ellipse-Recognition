@@ -36,7 +36,7 @@ typedef struct {
 	int kernel_idx;		// index of the reference kernel provided for cloning
 	uint16_t rel_ref;	// how many elements back relative to the current end of the ArgTracker list the operation is referencing
 	RangeData range;	// data on how to calculate the NDRange
-	ArgStaging* args;	// array containing data on how to construct each arg
+	int* arg_idxs;		// array containing indices for each arg to use, freed when using freeStagingArray()	//TODO: write freeStagingArray()
 } QStaging;				//TODO:^this should probably be separated out so that range isn't tied to buffer size
 
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects
