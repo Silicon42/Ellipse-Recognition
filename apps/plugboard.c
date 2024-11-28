@@ -11,16 +11,39 @@
 #define KERNEL_INC_DIR	KERNEL_DIR"inc/"
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
+#define ALLOCATION_ERROR "\nERROR: Failed to allocate %s.\n"
+#define MANIFEST_ERROR "\nMANIFEST ERROR: "
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 // Intel CPUs seem to not calculate atan2pi() correctly if -cl-fast-relaxed-math is set and collapse to only either +/- 0.5
 #define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_INC_DIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"
-#define MAX_KERNELS 32
-#define MAX_STAGES 32
-#define MAX_ARGS 64
+//#define MAX_KERNELS 32
+//#define MAX_STAGES 32
+//#define MAX_ARGS 200
 // macro to stringify defined literal values
 #define STR_EXPAND(tok) #tok
 #define STR(tok) STR_EXPAND(tok)
 
+// calloc() wrapper that also handles error reporting and calls exit(1) in case of failure
+void* critical_calloc(size_t numOfElements, size_t sizeOfElements, const char* name)
+{
+	void* ptr = calloc(numOfElements, sizeOfElements);
+	if(ptr)
+		return ptr;
+	//else
+	fprintf(stderr, ALLOCATION_ERROR, name);
+	exit(1);
+}
+
+// malloc() wrapper that also handles error reporting and calls exit(1) in case of failure
+void* critical_malloc(size_t numBytes, const char* name)
+{
+	void* ptr = malloc(numBytes);
+	if(ptr)
+		return ptr;
+	//else
+	fprintf(stderr, ALLOCATION_ERROR, name);
+	exit(1);
+}
 
 int main(int argc, char *argv[])
 {
@@ -51,33 +74,68 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	// read contents of stages array
-	toml_array_t* arr = toml_table_array(root_tbl, "stages");
-	int arr_len = toml_array_len(arr);
-	int kprog_cnt = 0;
-	const char** kernel_progs = calloc((arr_len + 1), sizeof(char*));
-	if(!kernel_progs)
+	// get stages array and check valid size and type
+	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
+	int stage_cnt = stage_list->nitem;
+	if(!stage_cnt)
 	{
-		perror("\nERROR: Couldn't allocate kernel program list.\n");
+		perror(MANIFEST_ERROR"no stages specified.\n");
 		exit(1);
 	}
-	const char* arg_list[MAX_ARGS];
-
-	for(int i = 0; i < arr_len; ++i)
+	if(stage_list->kind != 't')
 	{
-		toml_table_t* stage = toml_array_table(arr, i);
+		perror(MANIFEST_ERROR"stages array must be a table array.\n");
+		exit(1);
+	}
+
+	// get arg table
+	toml_table_t* args_table = toml_table_table(root_tbl, "args");
+	int max_defined_args = args_table->nkval;
+	if(!max_defined_args)
+	{
+		perror(MANIFEST_ERROR"args table was empty.\n");
+		exit(1);
+	}
+
+	int kprog_cnt = 0;
+	const char** kernel_progs = critical_calloc(stage_cnt + 1, sizeof(char*), "kernel program name array");	//calloc ensures unset values are null
+	QStaging* staging = critical_malloc(stage_cnt * sizeof(QStaging), "kernel program staging array");
+	const char** arg_names = critical_calloc(max_defined_args + 1, sizeof(char*), "arg name array");
+	ArgStaging* arg_stg = critical_malloc(max_defined_args * sizeof(ArgStaging), "arg staging array");
+
+	for(int i = 0; i < stage_cnt; ++i)
+	{
+		toml_table_t* stage = toml_array_table(stage_list, i);
 		toml_value_t tval = toml_table_string(stage, "name");
-		if(!tval.ok)
+		if(!tval.ok || !tval.u.s[0])	//not sure if this is safe or if the compiler might do them in an unsafe order
 		{
-			fprintf(stderr, "\nMANIFEST ERROR: name required at entry %i of stages array\n", i);
+			fprintf(stderr, MANIFEST_ERROR"missing name field at entry %i of stages array.\n", i);
 			exit(1);
 		}
 
 		// check if a kernel by that name already exists, if not, add it to the list of ones to build
-		addUniqueString(kernel_progs, arr_len, tval.u.s);
+		staging[i].kernel_idx = addUniqueString(kernel_progs, stage_cnt, tval.u.s);
 
 		//TODO: add support for separate config files, currently only supports inline and default
-		
+		toml_array_t* args = toml_table_array(stage, "args");
+		int args_cnt = args->nitem;
+		if(!args_cnt)
+		{
+			fprintf(stderr, MANIFEST_ERROR"missing args list at entry %i of stages array.\n", i);
+			exit(1);
+		}
+		if(args->kind != 'v' || args->type != 's')	// might be sufficient to only check type
+		{
+			fprintf(stderr, MANIFEST_ERROR"args array at entry %i of stages array must contain only strings.\n", i);
+			exit(1);
+		}
+
+		for(int j = 0; j < args_cnt; ++j)
+		{
+			char* arg_name = toml_array_string(args, j).u.s;
+			if(arg_name[0])	// if not empty string
+			
+		}
 	}
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
@@ -100,6 +158,8 @@ int main(int argc, char *argv[])
 	QStage stages[MAX_STAGES];
 	int stage_cnt = prepQStages(context, staging, kernels, stages, MAX_STAGES, &tracker);
 
+	free(staging);
+	free(kernel_progs);
 	toml_free(root_tbl);
 
 	// safe to release the context here since it's never used after this point

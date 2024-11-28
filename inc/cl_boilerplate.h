@@ -17,10 +17,9 @@ cl_device_id getPreferredDevice();
 
 // adds the char* to the char* array if the contents are unique, the char* array
 // MUST have unused entries filled with null pointers with an additional null
-// pointer at list[max_entries], assumes that all strings involved are allocated
-// strings and are therefore aligned to native widths
+// pointer at list[max_entries]
 // returns -1 if entry already exists, 0 if out of space, and 1 if entry was unique
-char addUniqueString(const char** list, int max_entries, const char* str);
+int addUniqueString(const char** list, int max_entries, const char* str);
 
 // reads in a list of files by the names of the kernel functions, builds them and makes a kernel for each in an array up to 
 // max_kernels, returns the number of kernels actually created

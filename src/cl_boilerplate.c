@@ -24,24 +24,23 @@ cl_device_id getPreferredDevice()
 
 // adds the char* to the char* array if the contents are unique, the char* array
 // MUST have unused entries filled with null pointers with an additional null
-// pointer at list[max_entries], assumes that all strings involved are allocated
-// strings and are therefore aligned to native widths
-// returns -1 if entry already exists, 0 if out of space, and 1 if entry was unique
-char addUniqueString(const char** list, int max_entries, const char* str)
+// pointer at list[max_entries]
+// returns -1 if out of entries, or position if it either found it or added it
+int addUniqueString(const char** list, int max_entries, const char* str)
 {
 	int i;
 	for(i = 0; (i < max_entries) && list[i]; ++i)
 	{
 		// if there's an exact match, it's already in the list and we can return early.
-		if(!memcmp(list[i], str, strlen(str)))
-			return -1;
+		if(!strncmp(list[i], str, strlen(str)))
+			return i;
 	}
 	
 	if(i >= max_entries)
-		return 0;
+		return -1;
 	
 	list[i] = str;
-	return 1;
+	return i;
 }
 
 //FIXME: Building multiple kernels from separate files at once has side effects, all the contents are effectively appended together

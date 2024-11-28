@@ -1,13 +1,15 @@
 # Order to enqueue kernels in and what kernel config files to assign to each instance
 stages = [
-	{name = "scharr3_char", args=["input", "output"], range = {ref_arg = "input"}},
+{name = "scharr3_char", args=["input", "output"], range = {ref_arg = "input"}},
 ]
 
 # Master list of all kernel args by name used for OpenCL kernels listed in stages
 # Used for handling creation and checking of argument validity
 [args]
+# hard-coded entries corresponding to program input
+# DO NOT MODIFY IF YOU AREN'T MODIFYING THE MAIN PROGRAM
 input = {type = "image2d_t", storage = "uchar", size = {mode = "input"}}
 
-
-output = {type = "image2d_t", storage = "uchar4", size = {ref_arg = "input", mode = "", params = []}}
+# user configurable entries, instantiated as needed for specified stages
+output = {type = "image2d_t", storage = "uchar4", host_readable = true, size = {ref_arg = "input", mode = "", params = []}}
 
