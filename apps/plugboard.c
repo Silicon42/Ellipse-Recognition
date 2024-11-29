@@ -151,6 +151,25 @@ int main(int argc, char *argv[])
 						exit(1);
 					}
 					
+					toml_value_t type = toml_table_string(arg_conf, "type");
+					if(!type.ok)
+					{
+						fprintf(stderr, MANIFEST_ERROR"[args] %s has invalid type.\n", arg_name);
+						exit(1);
+					}
+					switch(type.u.s[0])
+					{
+					default:
+						fprintf(stderr, MANIFEST_ERROR"[args] %s has invalid type.\n", arg_name);
+						exit(1);
+					case 'b':	// buffer		//TODO: implement the rest of these types
+					case 'p':	// pipe
+					case 'a':	// array (image)
+					case 's':	// scalar
+					case 'i':	// image
+						arg_stg[last_arg_idx].is_array
+					}
+					//arg_stg[last_arg_idx];
 
 				}
 			}

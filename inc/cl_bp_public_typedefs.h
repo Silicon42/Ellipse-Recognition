@@ -20,21 +20,21 @@ enum rangeMode {
 };
 
 typedef struct {
-	enum rangeMode mode;	// what mode to calculate the NDRange/size_t[3] in
 	int param[3];			// effects execution range and size of the output buffers, see rangeMode above
+	int ref_idx;			// index of the arg whose size is the reference size that any relative size calculations will be based on
+	enum rangeMode mode;	// what mode to calculate the NDRange/size_t[3] in
 } RangeData;
 
 typedef struct {
-	uint16_t rel_ref;		// how many elements back relative to the current arg the operation is referencing
-	RangeData range;		// data on how to calculate the size_t[3] of the arg
-	bool is_host_readable;	// indicates if the host will read an output buffer, N/A for read args
-	bool is_array;			// indicates if arg should treat last dimension as array, N/A for read args
+	RangeData size;			// data on how to calculate the size_t[3] of the arg
+	bool is_host_readable;	// indicates whether to forcibly make an arg readable by the host, otherwise default is false unless it's the output of the last kernel
+	char type;				// indicates what broad type of argument this should be, 'i'mage, image 'a'rray, 'p'ipe, 'b'uffer, or 's'calar
+	char storage_type;		// the C type that the arg contents behave as	//TODO: pick char values for each type
 } ArgStaging;	//TODO: since stbi only supports 8 bit depth the host readable flag forces 8 bit output which may cause calculation issues if buffer isn't last
 
 // user provided info of how to set up kernels in a queue and their arguments
 typedef struct {
 	int kernel_idx;		// index of the reference kernel provided for cloning
-	uint16_t rel_ref;	// how many elements back relative to the current end of the ArgTracker list the operation is referencing
 	RangeData range;	// data on how to calculate the NDRange
 	int* arg_idxs;		// array containing indices for each arg to use, freed when using freeStagingArray()	//TODO: write freeStagingArray()
 } QStaging;				//TODO:^this should probably be separated out so that range isn't tied to buffer size
