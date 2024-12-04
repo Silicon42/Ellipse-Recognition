@@ -20,6 +20,13 @@ enum rangeMode {
 };
 
 typedef struct {
+	unsigned char widthExp:3;	// width in bytes represented as 2^widthExp, Ex: int32_t would be 2
+	bool isUnsigned:1;	// whether the type is signed or not, ignored if isFloat is true
+	bool isFloat:1;	// whether the type is a floating point type, if it is widthExp may not be 0
+	unsigned char vecExp:3;		// number of elements in the vector represented as 2^vecExp, Ex: 4 would be 2, 3 is special cased as 6
+} StorageType __attribute__((packed));
+
+typedef struct {
 	int param[3];			// effects execution range and size of the output buffers, see rangeMode above
 	int ref_idx;			// index of the arg whose size is the reference size that any relative size calculations will be based on
 	enum rangeMode mode;	// what mode to calculate the NDRange/size_t[3] in
@@ -29,7 +36,7 @@ typedef struct {
 	RangeData size;			// data on how to calculate the size_t[3] of the arg
 	bool is_host_readable;	// indicates whether to forcibly make an arg readable by the host, otherwise default is false unless it's the output of the last kernel
 	char type;				// indicates what broad type of argument this should be, 'i'mage, image 'a'rray, 'p'ipe, 'b'uffer, or 's'calar
-	char storage_type;		// the C type that the arg contents behave as	//TODO: pick char values for each type
+	StorageType storage_type;	// bitfield representing the C type that the arg contents behave as
 } ArgStaging;	//TODO: since stbi only supports 8 bit depth the host readable flag forces 8 bit output which may cause calculation issues if buffer isn't last
 
 // user provided info of how to set up kernels in a queue and their arguments

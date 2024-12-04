@@ -4,7 +4,7 @@
 #include "cl_error_handlers.h"
 #include "cl_boilerplate.h"
 #include "stb_image_write.h"
-#include "toml-c.h"
+#include "cl_bp_parse_manifest.h"
 
 #define KERNEL_DIR "kernel/"
 #define KERNEL_SRC_DIR	KERNEL_DIR"src/"
@@ -12,7 +12,6 @@
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
 #define ALLOCATION_ERROR "\nERROR: Failed to allocate %s.\n"
-#define MANIFEST_ERROR "\nMANIFEST ERROR: "
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 // Intel CPUs seem to not calculate atan2pi() correctly if -cl-fast-relaxed-math is set and collapse to only either +/- 0.5
 #define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_INC_DIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"
@@ -22,6 +21,9 @@
 // macro to stringify defined literal values
 #define STR_EXPAND(tok) #tok
 #define STR(tok) STR_EXPAND(tok)
+
+//FIXME: need to think of this as a library since we want people to use this to track things
+// in their own programs, therefore, it can't be calling exit() in case of an error
 
 // calloc() wrapper that also handles error reporting and calls exit(1) in case of failure
 void* critical_calloc(size_t numOfElements, size_t sizeOfElements, const char* name)
@@ -104,6 +106,7 @@ int main(int argc, char *argv[])
 	ArgStaging* arg_stg = critical_malloc(max_defined_args * sizeof(ArgStaging), "arg staging array");
 	int last_arg_idx = 0;
 
+	// validate MANIFEST.toml and populate program list, kernel queue staging array, and arg staging
 	for(int i = 0; i < stage_cnt; ++i)
 	{
 		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
@@ -144,33 +147,8 @@ int main(int argc, char *argv[])
 				{
 					++last_arg_idx;	//is only ever bigger by one so this is safe
 					//instantiate a corresponding arg on the arg staging array
-					toml_table_t* arg_conf = toml_table_table(args, arg_name);
-					if(!arg_conf)
-					{
-						fprintf(stderr, MANIFEST_ERROR"stage %i requested \"%s\" but no such key was found under [args].\n", i, arg_name);
-						exit(1);
-					}
-					
-					toml_value_t type = toml_table_string(arg_conf, "type");
-					if(!type.ok)
-					{
-						fprintf(stderr, MANIFEST_ERROR"[args] %s has invalid type.\n", arg_name);
-						exit(1);
-					}
-					switch(type.u.s[0])
-					{
-					default:
-						fprintf(stderr, MANIFEST_ERROR"[args] %s has invalid type.\n", arg_name);
-						exit(1);
-					case 'b':	// buffer		//TODO: implement the rest of these types
-					case 'p':	// pipe
-					case 'a':	// array (image)
-					case 's':	// scalar
-					case 'i':	// image
-						arg_stg[last_arg_idx].is_array
-					}
-					//arg_stg[last_arg_idx];
 
+					validateNstoreArgConfig(arg_stg, last_arg_idx, args, arg_name);
 				}
 			}
 			else	// empty string is a special case that always selects whatever was last added

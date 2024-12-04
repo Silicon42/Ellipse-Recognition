@@ -1,3 +1,23 @@
+/*
+Fixes/Changes
++ toml_value_t string length moved out of union
++ toml_timestamp_t z value shrunk to minimum neccessary and changed to fixed
+ size directly on struct, fixes leak from not freeing and shrinks size of struct
++ errbufsz should be size_t, which is unsigned since it is only ever used for
+ limiting snprintf length
++ added a fallback empty string for if reading a string value fails to prevent
+ possible null dereferences
+
+Concerns
+- toml_timestamp_t contents aren't unsigned and some fields may be elligble for
+ smaller types
+- possibility of adding a fallback empty timestamp for failed reads (!ok)
+- better type checking for the toml_value_t setting functions + new types that
+ don't force the user to unwrap the union correctly
+- why are some core c functions redefined? calloc, strdup, strndup
+- prevent accidental freeing of subtables with toml_free by aliasing the
+ toml_table_t to a new type specifically for the root table
+*/
 #ifndef TOML_H
 #define TOML_H
 #ifndef _POSIX_C_SOURCE
@@ -68,10 +88,10 @@ struct toml_keyval_t {
 // value is guaranteed to be correct UTF-8.
 struct toml_value_t {
 	bool ok; // Was this value present?
+	int  sl; // string length, excluding NULL.
 	union {
 		toml_timestamp_t *ts; // datetime; must be freed after use.
 		char             *s;  // string value; must be freed after use
-		int              sl;  // string length, excluding NULL.
 		bool             b;   // bool value
 		int64_t          i;   // int value
 		double           d;   // double value
@@ -84,10 +104,10 @@ struct toml_timestamp_t {
 	// 'l'local-datetime
 	// 'D'ate-local
 	// 't'ime-local
-	char kind;
 	int year, month, day;
 	int hour, minute, second, millisec;
-	char *z;
+	char z[7];
+	char kind;
 };
 
 // toml_parse() parses a TOML document from a string. Returns 0 on error, with
@@ -97,8 +117,8 @@ struct toml_timestamp_t {
 //
 // Use toml_free() to free the return value; this will invalidate all handles
 // for this table.
-	TOML_EXTERN toml_table_t *toml_parse      (char *toml, char *errbuf, int errbufsz);
-	TOML_EXTERN toml_table_t *toml_parse_file (FILE *fp, char *errbuf, int errbufsz);
+	TOML_EXTERN toml_table_t *toml_parse      (char *toml, char *errbuf, size_t errbufsz);
+	TOML_EXTERN toml_table_t *toml_parse_file (FILE *fp, char *errbuf, size_t errbufsz);
 	TOML_EXTERN void          toml_free       (toml_table_t *table);
 
 // Table functions.
@@ -236,8 +256,8 @@ int read_unicode_escape(int64_t code, char buf[6]) {
 }
 
 static inline void xfree(const void *x) {
-	if (x)
-		free((void *)(intptr_t)x);
+	//BOOKMARK
+	free(x);
 }
 
 enum tokentype_t {
@@ -268,7 +288,7 @@ struct context_t {
 	char *start;
 	char *stop;
 	char *errbuf;
-	int errbufsz;
+	size_t errbufsz;
 
 	token_t tok;
 	toml_table_t *root;
@@ -356,7 +376,7 @@ static toml_arritem_t *expand_arritem(toml_arritem_t *p, int n) {
 static uint8_t const u8_length[] = {1,1,1,1,1,1,1,1,0,0,0,0,2,2,3,4};
 #define u8length(s) u8_length[(((uint8_t *)(s))[0] & 0xFF) >> 4];
 
-static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline, bool is_key, char *errbuf, int errbufsz) {
+static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline, bool is_key, char *errbuf, size_t errbufsz) {
 	const char *sp  = src;
 	const char *sq  = src + srclen;
 	char       *dst = 0; /// will write to dst[] and return it
@@ -423,7 +443,7 @@ static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline,
 
 /* Convert src to raw unescaped utf-8 string.
  * Returns NULL if error with errmsg in errbuf. */
-static char *norm_basic_str(const char *src, int srclen, int *len, bool multiline, bool is_key, char *errbuf, int errbufsz) {
+static char *norm_basic_str(const char *src, int srclen, int *len, bool multiline, bool is_key, char *errbuf, size_t errbufsz) {
 	const char *sp  = src;
 	const char *sq  = src + srclen;
 	char       *dst = 0; /// will write to dst[] and return it
@@ -1254,12 +1274,10 @@ static int parse_select(context_t *ctx) {
 	return 0;
 }
 
-toml_table_t *toml_parse(char *toml, char *errbuf, int errbufsz) {
+toml_table_t *toml_parse(char *toml, char *errbuf, size_t errbufsz) {
 	context_t ctx;
 
 	/// clear errbuf
-	if (errbufsz <= 0)
-		errbufsz = 0;
 	if (errbufsz > 0)
 		errbuf[0] = 0;
 
@@ -1330,7 +1348,7 @@ fail:
 	return 0;
 }
 
-toml_table_t *toml_parse_file(FILE *fp, char *errbuf, int errbufsz) {
+toml_table_t *toml_parse_file(FILE *fp, char *errbuf, size_t errbufsz) {
 	int bufsz = 0;
 	char *buf = 0;
 	int off = 0;
@@ -1806,8 +1824,7 @@ int toml_value_timestamp(toml_unparsed_t src_, toml_timestamp_t *ret) {
 
 		if (*p) { /// parse and copy Z
 			ret->kind = 'd';
-			char *z = malloc(10);
-			ret->z = z;
+			char *z = ret->z;
 			if (*p == 'Z' || *p == 'z') {
 				*z++ = 'Z';
 				p++;
@@ -2037,7 +2054,7 @@ int toml_value_string(toml_unparsed_t src, char **ret, int *len) {
 toml_value_t toml_array_string(const toml_array_t *arr, int idx) {
 	toml_value_t ret;
 	memset(&ret, 0, sizeof(ret));
-	ret.ok = (toml_value_string(toml_array_unparsed(arr, idx), &ret.u.s, &ret.u.sl) == 0);
+	ret.ok = (toml_value_string(toml_array_unparsed(arr, idx), &ret.u.s, &ret.sl) == 0);
 	return ret;
 }
 
@@ -2080,7 +2097,9 @@ toml_value_t toml_table_string(const toml_table_t *tbl, const char *key) {
 	memset(&ret, 0, sizeof(ret));
 	toml_unparsed_t raw = toml_table_unparsed(tbl, key);
 	if (raw)
-		ret.ok = (toml_value_string(raw, &ret.u.s, &ret.u.sl) == 0);
+		ret.ok = (toml_value_string(raw, &ret.u.s, &ret.sl) == 0);
+	if(!ret.ok)
+		ret.u.s = &"";	//prevent potential null dereferences by having a pointer to a valid empty string
 	return ret;
 }
 
