@@ -19,7 +19,12 @@ cl_device_id getPreferredDevice();
 // MUST have unused entries filled with null pointers with an additional null
 // pointer at list[max_entries]
 // returns -1 if entry already exists, 0 if out of space, and 1 if entry was unique
+//NOTE: does not check str for a null pointer
 int addUniqueString(const char** list, int max_entries, const char* str);
+// Searches through a string array (char** list) for a match to the contents of char* str
+// Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
+//NOTE: does not check str for a null pointer
+int getStringIndex(const char** list, const char* str);
 
 // reads in a list of files by the names of the kernel functions, builds them and makes a kernel for each in an array up to 
 // max_kernels, returns the number of kernels actually created

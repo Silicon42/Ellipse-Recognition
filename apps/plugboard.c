@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 	cl_command_queue queue = clCreateCommandQueue(context, device, 0, &clErr);
 	handleClError(clErr, "clCreateCommandQueue");
 
+//TODO: convert most of this to functions and move to cl_bp_parse_manifest
 	// Read in the manifest for what kernels should be used
 	char* manifest = readFileToCstring(KERNEL_DIR"MANIFEST.toml");
 	char errbuf[256];
@@ -101,9 +102,9 @@ int main(int argc, char *argv[])
 
 	int kprog_cnt = 0;
 	const char** kernel_progs = critical_calloc(stage_cnt + 1, sizeof(char*), "kernel program name array");	//calloc ensures unset values are null
-	QStaging* staging = critical_malloc(stage_cnt * sizeof(QStaging), "kernel program staging array");
+	QStaging* staging = critical_calloc(stage_cnt, sizeof(QStaging), "kernel program staging array");
 	const char** arg_names = critical_calloc(max_defined_args + 1, sizeof(char*), "arg name array");
-	ArgStaging* arg_stg = critical_malloc(max_defined_args * sizeof(ArgStaging), "arg staging array");
+	ArgStaging* arg_stg = critical_calloc(max_defined_args, sizeof(ArgStaging), "arg staging array");
 	int last_arg_idx = 0;
 
 	// validate MANIFEST.toml and populate program list, kernel queue staging array, and arg staging

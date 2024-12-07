@@ -26,6 +26,7 @@ cl_device_id getPreferredDevice()
 // MUST have unused entries filled with null pointers with an additional null
 // pointer at list[max_entries]
 // returns -1 if out of entries, or position if it either found it or added it
+//NOTE: does not check str for a null pointer
 int addUniqueString(const char** list, int max_entries, const char* str)
 {
 	int i;
@@ -43,6 +44,24 @@ int addUniqueString(const char** list, int max_entries, const char* str)
 	return i;
 }
 
+
+// Searches through a string array (char** list) for a match to the contents of char* str
+// Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
+//NOTE: does not check str for a null pointer
+int getStringIndex(const char** list, const char* str)
+{
+	int i = 0;
+	while(list[i])
+	{
+		// if there's an exact match, it's in the list and we can return its index
+		if(!strncmp(list[i], str, strlen(str)))
+			return i;
+
+		++i;
+	}
+	
+	return -1;
+}
 //FIXME: Building multiple kernels from separate files at once has side effects, all the contents are effectively appended together
 // so line numbers don't make sense, defines and globally scoped items stick around when you don't expect them to, syntax errors
 // introduced by the appending, etc.
