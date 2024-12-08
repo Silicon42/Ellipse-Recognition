@@ -1,28 +1,8 @@
 
 #include "cl_bp_parse_manifest.h"
+#include "cl_boilerplate.h"
 
-#define MANIFEST_ERROR "\nMANIFEST ERROR: "
-
-//TODO: unify the error handling with a constant string array and meaningful return values
-inline bool printMissingArgEntry(const char* arg_name)
-{
-	fprintf(stderr, MANIFEST_ERROR"Requested arg \"%s\" but no such key was found under [args].\n", arg_name);
-	return true;
-}
-
-bool printInvalidStorageType(const char* arg_name)
-{
-	fprintf(stderr, MANIFEST_ERROR"[args] %s has invalid type.\n", arg_name);
-	return true;
-}
-
-inline bool printInvalidArgType(const char* arg_name)
-{
-	fprintf(stderr, MANIFEST_ERROR"[args] %s has invalid argument type.\n", arg_name);
-	return true;
-}
-
-bool parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
+cl_bp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
 {
 	if(!size_tbl)	// size wasn't specified, fallback to default
 	{
@@ -31,7 +11,7 @@ bool parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, tom
 			.ref_idx = arg_cnt - 1,
 			.mode = REL
 		};
-		return false;
+		return (cl_bp_Error){0};
 	}
 
 	//read the name of the reference arg
@@ -44,10 +24,7 @@ bool parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, tom
 		// if the string wasn't in the list, it might have been referenced out of order
 		// or mis-typed or completely missing, in any case we can't determine size from the given name
 		if(ret->ref_idx < 0)
-		{
-			fprintf(stderr, MANIFEST_ERROR"referenced arg \"%s\" for size but it's not staged at this point.", val.u.s);
-			return true;
-		}
+			return (cl_bp_Error){.err_code = CL_BP_MF_REF_ARG_NOT_YET_STAGED, .detail = val.u.s};
 	}
 
 	toml_array_t* params = toml_table_array(size_tbl, params);
@@ -62,12 +39,11 @@ bool parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, tom
 	val = toml_table_string(size_tbl, "mode");
 }
 
-// returns true on validation failure
-bool validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, int arg_stg_cnt, toml_table_t* args, char* arg_name)
+cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, int arg_stg_cnt, toml_table_t* args, char* arg_name)
 {
 	toml_table_t* arg_conf = toml_table_table(args, arg_name);
 	if(!arg_conf)
-		return printMissingArgEntry(arg_name);
+		return (cl_bp_Error){.err_code = CL_BP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
 
 	ArgStaging* new_arg = &arg_stg[arg_stg_cnt];
 	toml_value_t storage = toml_table_string(arg_conf, "storage");
@@ -91,7 +67,7 @@ bool validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, in
 	switch(storage.u.s[pos])
 	{
 	default:	// invalid
-		return printInvalidStorageType(arg_name);
+		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
 	case 'c':	// char
 		st.widthExp = 0;
 		pos += 4;
@@ -127,13 +103,13 @@ bool validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, in
 
 	// check that we won't potentially access past the end of the string
 	if(storage.sl < pos)
-		return printInvalidStorageType(arg_name);
+		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
 
 	// check type's vector size if any
 	switch(storage.u.s[pos])
 	{
-	default:
-		return printInvalidStorageType(arg_name);
+	default:	//invalid
+		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
 	case '2':	// 2
 		st.vecExp = 1;
 		break;
@@ -155,8 +131,8 @@ bool validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, in
 	toml_value_t type = toml_table_string(arg_conf, "type");
 	switch(type.u.s[0])
 	{
-	default:
-		return printInvalidArgType(arg_name);
+	default:	// invalid
+		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARG_TYPE, .detail = arg_name};
 	case 'b':	// buffer		//TODO: implement the rest of these types
 	case 'p':	// pipe
 	case 's':	// scalar
@@ -166,4 +142,36 @@ bool validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, in
 	}
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
+
+	return (cl_bp_Error){0};
+}
+
+cl_bp_Error parseManifestFile(const char* fname)
+{
+	// Read in the manifest for what kernels should be used
+	char* manifest;
+	cl_bp_Error ret = readFileToCstring(fname, manifest);
+	if(ret.err_code)
+		return ret;
+	
+	char errbuf[256];
+	toml_table_t* root_tbl = toml_parse(manifest, errbuf, sizeof(errbuf));
+	free(manifest);	// parsing works for whole document, so c-string is no longer needed
+	if(!root_tbl)
+		return ret = (cl_bp_Error){.err_code = CL_BP_MF_PARSING_FAILED, errbuf};	//FIXME: returning errbuf pointer unsafe as is, READ AFTER SCOPE EXIT
+
+	// get stages array and check valid size and type
+	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
+	if(!stage_list || stage_list->kind != 't')
+		return ret = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGES_ARRAY};
+
+	int stage_cnt = stage_list->nitem;
+
+	// get arg table
+	toml_table_t* args_table = toml_table_table(root_tbl, "args");
+	if(!args_table || !args_table->nkval)
+		return ret = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARGS_TABLE};
+	int max_defined_args = args_table->nkval;
+
+
 }

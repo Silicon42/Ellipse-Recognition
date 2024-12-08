@@ -11,7 +11,6 @@
 #define KERNEL_INC_DIR	KERNEL_DIR"inc/"
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
-#define ALLOCATION_ERROR "\nERROR: Failed to allocate %s.\n"
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 // Intel CPUs seem to not calculate atan2pi() correctly if -cl-fast-relaxed-math is set and collapse to only either +/- 0.5
 #define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_INC_DIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"
@@ -24,7 +23,7 @@
 
 //FIXME: need to think of this as a library since we want people to use this to track things
 // in their own programs, therefore, it can't be calling exit() in case of an error
-
+/*
 // calloc() wrapper that also handles error reporting and calls exit(1) in case of failure
 void* critical_calloc(size_t numOfElements, size_t sizeOfElements, const char* name)
 {
@@ -46,7 +45,7 @@ void* critical_malloc(size_t numBytes, const char* name)
 	fprintf(stderr, ALLOCATION_ERROR, name);
 	exit(1);
 }
-
+*/
 int main(int argc, char *argv[])
 {
 	(void)argc;
@@ -66,40 +65,6 @@ int main(int argc, char *argv[])
 	handleClError(clErr, "clCreateCommandQueue");
 
 //TODO: convert most of this to functions and move to cl_bp_parse_manifest
-	// Read in the manifest for what kernels should be used
-	char* manifest = readFileToCstring(KERNEL_DIR"MANIFEST.toml");
-	char errbuf[256];
-	toml_table_t* root_tbl = toml_parse(manifest, errbuf, sizeof(errbuf));
-	free(manifest);	// parsing works for whole document, so c-string is no longer needed
-	if (!root_tbl)
-	{
-		fprintf(stderr, "\nTOML ERROR: %s\n", errbuf);
-		exit(1);
-	}
-
-	// get stages array and check valid size and type
-	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
-	if(!stage_list || !stage_list->nitem)
-	{
-		perror(MANIFEST_ERROR"no stages specified.\n");
-		exit(1);
-	}
-	if(stage_list->kind != 't')
-	{
-		perror(MANIFEST_ERROR"stages array must be a table array.\n");
-		exit(1);
-	}
-	int stage_cnt = stage_list->nitem;
-
-	// get arg table
-	toml_table_t* args_table = toml_table_table(root_tbl, "args");
-	if(!args_table || !args_table->nkval)
-	{
-		perror(MANIFEST_ERROR"args table was empty.\n");
-		exit(1);
-	}
-	int max_defined_args = args_table->nkval;
-
 	int kprog_cnt = 0;
 	const char** kernel_progs = critical_calloc(stage_cnt + 1, sizeof(char*), "kernel program name array");	//calloc ensures unset values are null
 	QStaging* staging = critical_calloc(stage_cnt, sizeof(QStaging), "kernel program staging array");

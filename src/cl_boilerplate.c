@@ -345,34 +345,28 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
 	return channel_cnt;
 }
 
-// Returned value must be freed when done using
-char* readFileToCstring(const char* fname)
+// Returned pointer must be freed when done using
+cl_bp_Error readFileToCstring(const char* fname, char** ret)
 {
-	printf("Reading \"%s\"\n", fname);
+//	printf("Reading \"%s\"\n", fname);
 
 	FILE* k_src_handle = fopen(fname, "r");
 	if(k_src_handle == NULL)
-	{
-		fputs(fname, stderr);
-		perror("\nCouldn't find file.\n");
-		exit(1);
-	}
+		return (cl_bp_Error){.err_code = CL_BP_FILE_NOT_FOUND, .detail = fname};
 	// get rough file size and allocate string
 	fseek(k_src_handle, 0, SEEK_END);
 	long k_src_size = ftell(k_src_handle);
 	rewind(k_src_handle);
 
-	char* k_src = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
-	if(k_src == NULL)
-	{
-		perror("\nCouldn't allocate output c-string.\n");
-		exit(1);
-	}
+	*ret = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
+	if(*ret == NULL)
+		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = fname};
+
 	// contents may be smaller due to line endings being partially stripped on read
-	k_src_size = fread(k_src, sizeof(char), k_src_size, k_src_handle);
+	k_src_size = fread(*ret, sizeof(char), k_src_size, k_src_handle);
 	fclose(k_src_handle);
 	// terminate the string properly
-	k_src[k_src_size] = '\0';
+	(*ret)[k_src_size] = '\0';
 
-	return k_src;
+	return (cl_bp_Error){0};
 }

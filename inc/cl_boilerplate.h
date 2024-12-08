@@ -39,7 +39,8 @@ void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked);
 // converts format of data read from device to char array suitable for writing to typical image file
 unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
 
-// Returned value must be freed when done using
-char* readFileToCstring(const char* fname);
+//TODO: verify that this is the correct header to place this function in
+// Returned pointer must be freed when done using
+cl_bp_Error readFileToCstring(const char* fname, char** ret);
 
 #endif//CL_BOILERPLATE_H

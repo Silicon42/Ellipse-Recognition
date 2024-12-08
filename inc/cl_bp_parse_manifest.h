@@ -3,5 +3,5 @@
 
 // Validates a newly referenced entry in the args table and sets up a
 // corresponding ArgStaging array entry
-// returns true on validation failure
-bool validateNstoreArgConfig(ArgStaging* arg_stg, int last_arg_idx, toml_table_t* args, char* arg_name);
+// returns (cl_bp_Error){0} on success
+cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, int arg_stg_cnt, toml_table_t* args, char* arg_name);

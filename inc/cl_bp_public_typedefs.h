@@ -6,6 +6,7 @@
 #include <CL/cl.h>
 //#include <stdint.h>
 #include <stdbool.h>
+#include "cl_bp_error_handling.h"
 
 enum rangeMode {
 //	PAD,	// pad to multiple of work group dimensions
