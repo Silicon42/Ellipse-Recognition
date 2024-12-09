@@ -65,62 +65,6 @@ int main(int argc, char *argv[])
 	handleClError(clErr, "clCreateCommandQueue");
 
 //TODO: convert most of this to functions and move to cl_bp_parse_manifest
-	int kprog_cnt = 0;
-	const char** kernel_progs = critical_calloc(stage_cnt + 1, sizeof(char*), "kernel program name array");	//calloc ensures unset values are null
-	QStaging* staging = critical_calloc(stage_cnt, sizeof(QStaging), "kernel program staging array");
-	const char** arg_names = critical_calloc(max_defined_args + 1, sizeof(char*), "arg name array");
-	ArgStaging* arg_stg = critical_calloc(max_defined_args, sizeof(ArgStaging), "arg staging array");
-	int last_arg_idx = 0;
-
-	// validate MANIFEST.toml and populate program list, kernel queue staging array, and arg staging
-	for(int i = 0; i < stage_cnt; ++i)
-	{
-		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
-		toml_value_t tval = toml_table_string(stage, "name");
-		if(!tval.ok || !tval.u.s[0])	//not sure if this is safe or if the compiler might do them in an unsafe order
-		{
-			fprintf(stderr, MANIFEST_ERROR"missing name field at entry %i of stages array.\n", i);
-			exit(1);
-		}
-
-		// check if a kernel by that name already exists, if not, add it to the list of ones to build
-		staging[i].kernel_idx = addUniqueString(kernel_progs, stage_cnt, tval.u.s);
-
-		toml_array_t* args = toml_table_array(stage, "args");
-		if(!args || !args->nitem)
-		{
-			fprintf(stderr, MANIFEST_ERROR"missing args list at entry %i of stages array.\n", i);
-			exit(1);
-		}
-		if(args->kind != 'v' || args->type != 's')	// might be sufficient to only check type
-		{
-			fprintf(stderr, MANIFEST_ERROR"args array at entry %i of stages array must contain only strings.\n", i);
-			exit(1);
-		}
-		int args_cnt = args->nitem;
-
-		staging[i].arg_idxs = critical_malloc(args_cnt * sizeof(int), "stage's arg index list");
-
-		// iterate over args to find any new ones
-		for(int j = 0; j < args_cnt; ++j)
-		{
-			char* arg_name = toml_array_string(args, j).u.s;	//guaranteed exists due kind, type, and count checks above
-			if(arg_name[0])	// if not empty string
-			{
-				int arg_idx = addUniqueString(arg_names, max_defined_args, arg_name);
-				staging[i].arg_idxs[j] = arg_idx;
-				if(arg_idx > last_arg_idx)	//check if this was a newly referenced argument
-				{
-					++last_arg_idx;	//is only ever bigger by one so this is safe
-					//instantiate a corresponding arg on the arg staging array
-
-					validateNstoreArgConfig(arg_stg, last_arg_idx, args, arg_name);
-				}
-			}
-			else	// empty string is a special case that always selects whatever was last added
-				staging[i].arg_idxs[j] = last_arg_idx;
-		}
-	}
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
 	// create input buffer, done early to get image size prior to kernel build phase
@@ -135,7 +79,7 @@ int main(int argc, char *argv[])
 
 	// build reference kernels from source
 	cl_kernel kernels[MAX_KERNELS];
-	//FIXME: temp fix for OpenCL 1.2 support
+	//FIXME: temp fix for OpenCL 1.2 support, add a macro that automatically fixes this
 	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier
@@ -147,7 +91,7 @@ int main(int argc, char *argv[])
 	toml_free(root_tbl);
 
 	// safe to release the context here since it's never used after this point
-	clReleaseContext(context);
+	clErr = clReleaseContext(context);
 	handleClError(clErr, "clReleaseContext");
 
 	// allocate output buffer

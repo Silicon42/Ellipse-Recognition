@@ -42,8 +42,8 @@ typedef struct {
 
 // user provided info of how to set up kernels in a queue and their arguments
 typedef struct {
-	int kernel_idx;		// index of the reference kernel provided for cloning
 	RangeData range;	// data on how to calculate the NDRange
+	int kernel_idx;		// index of the reference kernel provided for cloning
 	int* arg_idxs;		// array containing indices for each arg to use, freed when using freeStagingArray()	//TODO: write freeStagingArray()
 } QStaging;				//TODO:^this should probably be separated out so that range isn't tied to buffer size
 

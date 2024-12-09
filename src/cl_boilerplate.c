@@ -346,27 +346,34 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
 }
 
 // Returned pointer must be freed when done using
-cl_bp_Error readFileToCstring(const char* fname, char** ret)
+char* readFileToCstring(const char* fname, cl_bp_Error* e)
 {
+	assert(fname && e);
 //	printf("Reading \"%s\"\n", fname);
 
 	FILE* k_src_handle = fopen(fname, "r");
 	if(k_src_handle == NULL)
-		return (cl_bp_Error){.err_code = CL_BP_FILE_NOT_FOUND, .detail = fname};
+	{
+		*e = (cl_bp_Error){.err_code = CL_BP_FILE_NOT_FOUND, .detail = fname};
+		return NULL;
+	}
 	// get rough file size and allocate string
 	fseek(k_src_handle, 0, SEEK_END);
 	long k_src_size = ftell(k_src_handle);
 	rewind(k_src_handle);
 
-	*ret = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
-	if(*ret == NULL)
-		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = fname};
+	char* manifest = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
+	if(!manifest)
+	{
+		*e = (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = fname};
+		return NULL;
+	}
 
 	// contents may be smaller due to line endings being partially stripped on read
-	k_src_size = fread(*ret, sizeof(char), k_src_size, k_src_handle);
+	k_src_size = fread(manifest, sizeof(char), k_src_size, k_src_handle);
 	fclose(k_src_handle);
 	// terminate the string properly
-	(*ret)[k_src_size] = '\0';
+	manifest[k_src_size] = '\0';
 
-	return (cl_bp_Error){0};
+	return manifest;
 }

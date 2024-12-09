@@ -17,6 +17,7 @@ Concerns
 - why are some core c functions redefined? calloc, strdup, strndup
 - prevent accidental freeing of subtables with toml_free by aliasing the
  toml_table_t to a new type specifically for the root table
+- single character type codes should be enums for readability
 */
 #ifndef TOML_H
 #define TOML_H

@@ -146,32 +146,108 @@ cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_
 	return (cl_bp_Error){0};
 }
 
-cl_bp_Error parseManifestFile(const char* fname)
+toml_table_t* parseManifestFile(const char* fname, cl_bp_Error* e)
 {
+	assert(fname && e);
 	// Read in the manifest for what kernels should be used
 	char* manifest;
-	cl_bp_Error ret = readFileToCstring(fname, manifest);
+	cl_bp_Error ret;
+	manifest = readFileToCstring(fname, &ret);
 	if(ret.err_code)
-		return ret;
+		return NULL;
 	
-	char errbuf[256];
+	static char errbuf[256];	//TODO: ugly but probably fine, might be an issue with multiple instances but if they all error at the same time you have bigger issues
 	toml_table_t* root_tbl = toml_parse(manifest, errbuf, sizeof(errbuf));
 	free(manifest);	// parsing works for whole document, so c-string is no longer needed
 	if(!root_tbl)
-		return ret = (cl_bp_Error){.err_code = CL_BP_MF_PARSING_FAILED, errbuf};	//FIXME: returning errbuf pointer unsafe as is, READ AFTER SCOPE EXIT
+		*e = (cl_bp_Error){.err_code = CL_BP_MF_PARSING_FAILED, errbuf};
 
+	return root_tbl;
+}
+
+/*
+things I likely need out of this:
+- # of unique args
+- # of unique kernel programs
+- # of stages
+- QStaging array with names copied to it, not pointing to toml strings as that gets freed
+- ArgStaging array with names copied to it
+*/
+QStaging* allocQStagingArray(const toml_table_t* root_tbl, cl_bp_Error* e)
+{
+	assert(root_tbl && e);
 	// get stages array and check valid size and type
 	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
 	if(!stage_list || stage_list->kind != 't')
-		return ret = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGES_ARRAY};
+	{
+		*e = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGES_ARRAY};
+		return NULL;
+	}
 
 	int stage_cnt = stage_list->nitem;
+	const char** kernel_progs = calloc(stage_cnt + 1, sizeof(char*));
+	QStaging* staging = calloc(stage_cnt, sizeof(QStaging));
+
 
 	// get arg table
 	toml_table_t* args_table = toml_table_table(root_tbl, "args");
 	if(!args_table || !args_table->nkval)
-		return ret = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARGS_TABLE};
+	{
+		*e = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARGS_TABLE};
+		return NULL;
+	}
 	int max_defined_args = args_table->nkval;
 
+	const char** arg_names = calloc(max_defined_args + 1, sizeof(char*));
+	ArgStaging* arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
+
+
+
+
+
+	int last_arg_idx = 0;
+
+	// validate MANIFEST.toml and populate program list, kernel queue staging array, and arg staging
+	for(int i = 0; i < stage_cnt; ++i)
+	{
+		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
+		toml_value_t tval = toml_table_string(stage, "name");
+		if(!tval.ok || !tval.u.s[0])	//not sure if this is safe or if the compiler might do them in an unsafe order
+		{
+
+		}
+
+		// check if a kernel by that name already exists, if not, add it to the list of ones to build
+		staging[i].kernel_idx = addUniqueString(kernel_progs, stage_cnt, tval.u.s);
+
+		toml_array_t* args = toml_table_array(stage, "args");
+		if(!args || args->kind != 'v' || args->type != 's')
+		{
+
+		}
+		int args_cnt = args->nitem;
+
+		staging[i].arg_idxs = critical_malloc(args_cnt * sizeof(int), "stage's arg index list");
+
+		// iterate over args to find any new ones
+		for(int j = 0; j < args_cnt; ++j)
+		{
+			char* arg_name = toml_array_string(args, j).u.s;	//guaranteed exists due kind, type, and count checks above
+			if(arg_name[0])	// if not empty string
+			{
+				int arg_idx = addUniqueString(arg_names, max_defined_args, arg_name);
+				staging[i].arg_idxs[j] = arg_idx;
+				if(arg_idx > last_arg_idx)	//check if this was a newly referenced argument
+				{
+					++last_arg_idx;	//is only ever bigger by one so this is safe
+					//instantiate a corresponding arg on the arg staging array
+
+					validateNstoreArgConfig(arg_stg, last_arg_idx, args, arg_name);
+				}
+			}
+			else	// empty string is a special case that always selects whatever was last added
+				staging[i].arg_idxs[j] = last_arg_idx;
+		}
+	}
 
 }
