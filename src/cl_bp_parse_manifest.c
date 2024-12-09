@@ -170,8 +170,11 @@ things I likely need out of this:
 - # of unique args
 - # of unique kernel programs
 - # of stages
-- QStaging array with names copied to it, not pointing to toml strings as that gets freed
-- ArgStaging array with names copied to it
+- QStaging array
+- list of kernel program names that need to be compiled, must be copied, not set,
+ since toml strings get freed before they would be used
+- ArgStaging array
+- arg names array copied to it, used for debugging
 */
 QStaging* allocQStagingArray(const toml_table_t* root_tbl, cl_bp_Error* e)
 {

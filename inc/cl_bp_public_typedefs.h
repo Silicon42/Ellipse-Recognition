@@ -4,8 +4,8 @@
  * Typedefs exposed for data-driven staged queue creation
 */
 #include <CL/cl.h>
-//#include <stdint.h>
-#include <stdbool.h>
+#include <stdint.h>
+//#include <stdbool.h>
 #include "cl_bp_error_handling.h"
 
 enum rangeMode {
@@ -21,15 +21,15 @@ enum rangeMode {
 };
 
 typedef struct {
-	unsigned char widthExp:3;	// width in bytes represented as 2^widthExp, Ex: int32_t would be 2
-	bool isUnsigned:1;	// whether the type is signed or not, ignored if isFloat is true
-	bool isFloat:1;	// whether the type is a floating point type, if it is widthExp may not be 0
-	unsigned char vecExp:3;		// number of elements in the vector represented as 2^vecExp, Ex: 4 would be 2, 3 is special cased as 6
+	uint8_t widthExp:3;	// width in bytes represented as 2^widthExp, Ex: int32_t would be 2
+	uint8_t isUnsigned:1;	// whether the type is signed or not, ignored if isFloat is true
+	uint8_t isFloat:1;	// whether the type is a floating point type, if it is widthExp may not be 0
+	uint8_t vecExp:3;		// number of elements in the vector represented as 2^vecExp, Ex: 4 would be 2, 3 is special cased as 6
 } StorageType __attribute__((packed));
 
 typedef struct {
 	int param[3];			// effects execution range and size of the output buffers, see rangeMode above
-	int ref_idx;			// index of the arg whose size is the reference size that any relative size calculations will be based on
+	uint16_t ref_idx;		// index of the arg whose size is the reference size that any relative size calculations will be based on
 	enum rangeMode mode;	// what mode to calculate the NDRange/size_t[3] in
 } RangeData;
 
@@ -42,10 +42,20 @@ typedef struct {
 
 // user provided info of how to set up kernels in a queue and their arguments
 typedef struct {
-	RangeData range;	// data on how to calculate the NDRange
-	int kernel_idx;		// index of the reference kernel provided for cloning
-	int* arg_idxs;		// array containing indices for each arg to use, freed when using freeStagingArray()	//TODO: write freeStagingArray()
-} QStaging;				//TODO:^this should probably be separated out so that range isn't tied to buffer size
+	RangeData range;		// data on how to calculate the NDRange
+	uint16_t kernel_idx;	// index of the reference kernel provided for cloning
+	uint16_t* arg_idxs;		// array containing indices for each arg to use, freed when using freeStagingArray()	//TODO: write freeStagingArray()
+} QStaging;
+
+typedef struct {
+	char** kprog_names;	// array of kernel program names that are used and must be compiled
+	QStaging* staging;	// staging array listing all stages, their scheduling details, and their program indices
+	char** arg_names;	// array of kernel program argument names that get used for the stages
+	ArgStaging* arg_stg;// arg staging array listing details about type of arg, and size
+	uint16_t kernel_cnt;
+	uint16_t stage_cnt;
+	uint16_t arg_cnt;
+} FullStaging;	//TODO: think of a better name
 
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects
 typedef struct {
