@@ -170,13 +170,13 @@ things I likely need out of this:
 - # of unique args
 - # of unique kernel programs
 - # of stages
-- QStaging array
+- KernStaging array
 - list of kernel program names that need to be compiled, must be copied, not set,
  since toml strings get freed before they would be used
 - ArgStaging array
 - arg names array copied to it, used for debugging
 */
-QStaging* allocQStagingArray(const toml_table_t* root_tbl, cl_bp_Error* e)
+KernStaging* allocKernStagingArray(const toml_table_t* root_tbl, cl_bp_Error* e)
 {
 	assert(root_tbl && e);
 	// get stages array and check valid size and type
@@ -189,7 +189,7 @@ QStaging* allocQStagingArray(const toml_table_t* root_tbl, cl_bp_Error* e)
 
 	int stage_cnt = stage_list->nitem;
 	const char** kernel_progs = calloc(stage_cnt + 1, sizeof(char*));
-	QStaging* staging = calloc(stage_cnt, sizeof(QStaging));
+	KernStaging* staging = calloc(stage_cnt, sizeof(KernStaging));
 
 
 	// get arg table

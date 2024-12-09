@@ -129,7 +129,7 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 
 // returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, ArgTracker* at)
+void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at)
 {
 	cl_int clErr;
 	// get the count of how many args the kernel has to iterate over
@@ -217,8 +217,8 @@ void setKernelArgs(cl_context context, const QStaging* stage, cl_kernel kernel, 
 	}
 }
 
-// staging is a NULL terminated QStaging* array that is no longer than the kernels array
-int prepQStages(cl_context context, const QStaging** staging, const cl_kernel* ref_kernels, QStage* stages, int max_stages, ArgTracker* at)
+// staging is a NULL terminated KernStaging* array that is no longer than the kernels array
+int prepQStages(cl_context context, const KernStaging** staging, const cl_kernel* ref_kernels, QStage* stages, int max_stages, ArgTracker* at)
 {
 	cl_int clErr;
 	
