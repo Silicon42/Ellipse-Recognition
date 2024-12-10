@@ -88,7 +88,9 @@ cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const ch
 	for(cl_uint i=0; i<k_src_cnt; ++i)
 	{
 		snprintf(str_buff, sizeof(str_buff)-1, "%s%s.cl", src_dir, names[i]);
-		char* k_src = readFileToCstring(str_buff);
+//FIXME: this error actually needs to be from a pointer, also unify the cl errors as well while at it
+		clbp_Error e;
+		char* k_src = readFileToCstring(str_buff, &e);
 
 		// Create program from file
 		cl_program program = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &clErr);
@@ -155,9 +157,9 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 		handleClError(clErr, "clGetKernelArgInfo");
 
 		// current arg staging data being processed
-		ArgStaging* this_s_arg = &(stage->args[j]);
+		ArgStaging* this_s_arg = &(stage->arg_idxs[j]);
 
-		TrackedArg* ref_arg = getRefArg(at, this_s_arg->rel_ref);
+		TrackedArg* ref_arg = &(at->args[this_s_arg->size.ref_idx]);
 
 		char isValid = isArgMetadataValid(arg_metadata);
 
@@ -182,7 +184,7 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 
 			this_t_arg->format.image_channel_data_type = getTypeFromMetadata(arg_metadata);
 			this_t_arg->format.image_channel_order = getOrderFromMetadata(arg_metadata);
-			calcSizeByMode(ref_arg->size, &this_s_arg->range, this_t_arg->size);
+			calcSizeByMode(ref_arg->size, &this_s_arg->size, this_t_arg->size);
 
 			// if this is a host readable output, we need to see if the size in bytes is bigger than any previous args so the
 			// final read buffer can be allocated large enough
@@ -194,7 +196,8 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 				at->max_out_size = (at->max_out_size >= size_in_bytes) ? at->max_out_size : size_in_bytes;
 			}
 
-			this_t_arg->arg = createImageBuffer(context, this_s_arg->is_host_readable, this_s_arg->is_array, &(this_t_arg->format), this_t_arg->size);
+//FIXME: no magic values vvv here vvv come back later and properly fix handling of the arg type when you understand the other types better
+			this_t_arg->arg = createImageBuffer(context, this_s_arg->is_host_readable, this_s_arg->type == 'a', &(this_t_arg->format), this_t_arg->size);
 
 			clErr = clSetKernelArg(kernel, j, sizeof(cl_mem), &(this_t_arg->arg));
 			handleClError(clErr, "clSetKernelArg");
@@ -249,7 +252,7 @@ int prepQStages(cl_context context, const KernStaging** staging, const cl_kernel
 		stages[i].kernel = curr_kern;
 		setKernelArgs(context, staging[i], curr_kern, at);
 
-		TrackedArg* ref_arg = getRefArg(at, staging[i]->rel_ref);
+		TrackedArg* ref_arg = &(at->args[staging[i]->range.ref_idx]);
 
 		calcSizeByMode(ref_arg->size, &staging[i]->range, stages[i].range);
 	}

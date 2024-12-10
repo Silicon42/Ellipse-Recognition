@@ -3,6 +3,7 @@
 #include <CL/cl.h>
 #include "cl_error_handlers.h"
 #include "cl_boilerplate.h"
+#include "clbp_error_handling.h"
 #include "stb_image_write.h"
 #include "clbp_parse_manifest.h"
 
@@ -23,29 +24,7 @@
 
 //FIXME: need to think of this as a library since we want people to use this to track things
 // in their own programs, therefore, it can't be calling exit() in case of an error
-/*
-// calloc() wrapper that also handles error reporting and calls exit(1) in case of failure
-void* critical_calloc(size_t numOfElements, size_t sizeOfElements, const char* name)
-{
-	void* ptr = calloc(numOfElements, sizeOfElements);
-	if(ptr)
-		return ptr;
-	//else
-	fprintf(stderr, ALLOCATION_ERROR, name);
-	exit(1);
-}
 
-// malloc() wrapper that also handles error reporting and calls exit(1) in case of failure
-void* critical_malloc(size_t numBytes, const char* name)
-{
-	void* ptr = malloc(numBytes);
-	if(ptr)
-		return ptr;
-	//else
-	fprintf(stderr, ALLOCATION_ERROR, name);
-	exit(1);
-}
-*/
 int main(int argc, char *argv[])
 {
 	(void)argc;
@@ -64,7 +43,15 @@ int main(int argc, char *argv[])
 	cl_command_queue queue = clCreateCommandQueue(context, device, 0, &clErr);
 	handleClError(clErr, "clCreateCommandQueue");
 
-//TODO: convert most of this to functions and move to clbp_parse_manifest
+	//
+	clbp_Error e = {.err_code = CLBP_OK};
+	toml_table_t* root_tbl = parseManifestFile("MANIFEST.toml", &e);
+	handleClBoilerplateError(e);
+	QStaging staging;
+	allocQStagingArrays(root_tbl, &staging, &e);
+	handleClBoilerplateError(e);
+	populateQStagingArrays(root_tbl, &staging, &e);
+	handleClBoilerplateError(e);
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
 	// create input buffer, done early to get image size prior to kernel build phase

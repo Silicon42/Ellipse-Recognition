@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "clbp_error_handling.h"
-
+#include "cl_error_handlers.h"
 #define MANIFEST_ERROR "\nMANIFEST ERROR: "
 
 static const char* clbp_error_strings[] = {
@@ -24,7 +24,9 @@ void handleClBoilerplateError(clbp_Error e)
 {
 	if(e.err_code == CLBP_OK)
 		return;
-	
-	fprintf(stderr, clbp_error_strings[e.err_code], e.detail);
+	else if(e.err_code > CLBP_OK)
+		fprintf(stderr, clbp_error_strings[e.err_code], e.detail);
+	else
+		handleClError(e.err_code, e.detail);
 	exit(e.err_code);
 }

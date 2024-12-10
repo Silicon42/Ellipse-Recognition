@@ -21,3 +21,6 @@ typedef struct {
 	enum clbp_ErrCode err_code;
 	char* detail;
 } clbp_Error;
+
+// if there is an error code, prints an error message and then exits with that error code;
+void handleClBoilerplateError(clbp_Error e);

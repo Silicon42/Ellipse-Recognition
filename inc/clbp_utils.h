@@ -34,7 +34,7 @@ unsigned char getChannelWidth(char metadata_type);
 void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata);
 
 // converts an end relative arg index to a pointer to the referenced TrackedArg with error checking
-TrackedArg* getRefArg(const ArgTracker* at, uint16_t rel_ref);
+//TrackedArg* getRefArg(const ArgTracker* at, uint16_t rel_ref);
 
 void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at);
 
