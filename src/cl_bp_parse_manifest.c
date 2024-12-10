@@ -176,80 +176,102 @@ things I likely need out of this:
 - ArgStaging array
 - arg names array copied to it, used for debugging
 */
-KernStaging* allocKernStagingArray(const toml_table_t* root_tbl, cl_bp_Error* e)
+cl_bp_Error allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging)
 {
-	assert(root_tbl && e);
+	assert(root_tbl && staging);
 	// get stages array and check valid size and type
 	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
 	if(!stage_list || stage_list->kind != 't')
-	{
-		*e = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGES_ARRAY};
-		return NULL;
-	}
+		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGES_ARRAY};
 
 	int stage_cnt = stage_list->nitem;
-	const char** kernel_progs = calloc(stage_cnt + 1, sizeof(char*));
-	KernStaging* staging = calloc(stage_cnt, sizeof(KernStaging));
+	staging->kprog_names = calloc(stage_cnt + 1, sizeof(char*));
+	if(!staging->kprog_names)
+		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "kernel program names array"};
+	staging->kern_stg = calloc(stage_cnt, sizeof(KernStaging));
+	if(!staging->kern_stg)
+		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "KernStaging array"};
 
+	staging->stage_cnt = stage_cnt;
 
 	// get arg table
 	toml_table_t* args_table = toml_table_table(root_tbl, "args");
 	if(!args_table || !args_table->nkval)
-	{
-		*e = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARGS_TABLE};
-		return NULL;
-	}
+		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARGS_TABLE};
+
 	int max_defined_args = args_table->nkval;
 
-	const char** arg_names = calloc(max_defined_args + 1, sizeof(char*));
-	ArgStaging* arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
+	staging->arg_names = calloc(max_defined_args + 1, sizeof(char*));
+	if(!staging->arg_names)
+		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "kernel arguments names array"};
+	staging->arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
+	if(!staging->arg_stg)
+		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "ArgStaging array"};
 
+	//technically this is an upper limit but it can be stored here temporarily until we get the real count
+	staging->arg_cnt = max_defined_args;
+	return (cl_bp_Error){0};
+}
 
-
-
-
-	int last_arg_idx = 0;
+void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_bp_Error* e)
+{
+	assert(root_tbl && staging && e);
+		int max_defined_args = staging->arg_cnt;
+		int arg_cnt = 0;
 
 	// validate MANIFEST.toml and populate program list, kernel queue staging array, and arg staging
-	for(int i = 0; i < stage_cnt; ++i)
+	for(int i = 0; i < staging->stage_cnt; ++i)
 	{
 		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
 		toml_value_t tval = toml_table_string(stage, "name");
 		if(!tval.ok || !tval.u.s[0])	//not sure if this is safe or if the compiler might do them in an unsafe order
 		{
-
+			*e = (cl_bp_Error){.err_code = CL_BP_MF_MISSING_STAGE_NAME, .detail = i};
+			return;
 		}
 
 		// check if a kernel by that name already exists, if not, add it to the list of ones to build
-		staging[i].kernel_idx = addUniqueString(kernel_progs, stage_cnt, tval.u.s);
+		// additionally set the kernel program reference index for the stage to the returned index of the match/new program name
+		staging->kern_stg[i].kernel_idx = addUniqueString(staging->kprog_names, staging->stage_cnt, tval.u.s);
+		//FIXME: ^ this must copy the string or you'll have a read after free for the toml strings
 
 		toml_array_t* args = toml_table_array(stage, "args");
 		if(!args || args->kind != 'v' || args->type != 's')
 		{
-
+			*e = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = i};
+			return;
 		}
 		int args_cnt = args->nitem;
 
-		staging[i].arg_idxs = critical_malloc(args_cnt * sizeof(int), "stage's arg index list");
+		staging->kern_stg[i].arg_idxs = malloc(args_cnt * sizeof(uint16_t));
+		if(!staging->kern_stg[i].arg_idxs)
+		{
+			*e = (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "stage's argument index array"};
+			return;
+		}
+
+		int stg_arg_cnt = toml_array_len(args);
 
 		// iterate over args to find any new ones
-		for(int j = 0; j < args_cnt; ++j)
+		for(int j = 0; j < stg_arg_cnt; ++j)
 		{
 			char* arg_name = toml_array_string(args, j).u.s;	//guaranteed exists due kind, type, and count checks above
 			if(arg_name[0])	// if not empty string
 			{
-				int arg_idx = addUniqueString(arg_names, max_defined_args, arg_name);
-				staging[i].arg_idxs[j] = arg_idx;
-				if(arg_idx > last_arg_idx)	//check if this was a newly referenced argument
+				int arg_idx = addUniqueString(staging->arg_names, max_defined_args, arg_name);
+				staging->kern_stg[i].arg_idxs[j] = arg_idx;
+				if(arg_idx == arg_cnt)	//check if this was a newly referenced argument
 				{
-					++last_arg_idx;	//is only ever bigger by one so this is safe
+					++arg_cnt;	//is only ever bigger by one so this is safe
 					//instantiate a corresponding arg on the arg staging array
 
-					validateNstoreArgConfig(arg_stg, last_arg_idx, args, arg_name);
+					*e = validateNstoreArgConfig(staging->arg_names, staging->arg_stg, arg_cnt, args, arg_name);
+					if(e->err_code != CL_BP_OK)
+						return;
 				}
 			}
 			else	// empty string is a special case that always selects whatever was last added
-				staging[i].arg_idxs[j] = last_arg_idx;
+				staging->kern_stg[i].arg_idxs[j] = arg_cnt - 1;
 		}
 	}
 

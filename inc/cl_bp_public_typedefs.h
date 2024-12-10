@@ -49,7 +49,7 @@ typedef struct {
 
 typedef struct {
 	char** kprog_names;		// array of kernel program names that are used and must be compiled
-	KernStaging* staging;		// staging array listing all stages, their scheduling details, and their program indices
+	KernStaging* kern_stg;	// kernel staging array listing all stages, their scheduling details, and their program indices
 	char** arg_names;		// array of kernel program argument names that get used for the stages
 	ArgStaging* arg_stg;	// arg staging array listing details about type of arg, and size
 	uint16_t kernel_cnt;
