@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "cl_bp_error_handling.h"
+#include "clbp_error_handling.h"
 
 #define MANIFEST_ERROR "\nMANIFEST ERROR: "
 
@@ -18,11 +18,11 @@ static const char* clbp_error_strings[] = {
 	MANIFEST_ERROR"Referenced arg \"%s\" for size but it is not staged prior to this point.\n"
 };
 
-// if err_code not CL_BP_OK, prints the error message with details injected and
+// if err_code not CLBP_OK, prints the error message with details injected and
 // exits with the error code number as program return value
-void handleClBoilerplateError(cl_bp_Error e)
+void handleClBoilerplateError(clbp_Error e)
 {
-	if(e.err_code == CL_BP_OK)
+	if(e.err_code == CLBP_OK)
 		return;
 	
 	fprintf(stderr, clbp_error_strings[e.err_code], e.detail);

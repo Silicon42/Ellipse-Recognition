@@ -1,5 +1,5 @@
-#ifndef CL_BP_UTILS_H
-#define CL_BP_UTILS_H
+#ifndef CLBP_UTILS_H
+#define CLBP_UTILS_H
 /**
  * This file contains helper functions to cl_boilerplate.c, and is not neccessarily
  * generally useful if you just want to use the boilerplate to create and run a 
@@ -10,7 +10,7 @@
 //#define CL_VERSION_2_0
 //#define CL_VERSION_2_1
 #include <CL/cl.h>
-#include "cl_bp_public_typedefs.h"
+#include "clbp_public_typedefs.h"
 
 cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3]);
 // validates metadata[0 thru 2] formating and returns true if valid
@@ -39,4 +39,4 @@ TrackedArg* getRefArg(const ArgTracker* at, uint16_t rel_ref);
 void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at);
 
 
-#endif//CL_BP_UTILS_H
+#endif//CLBP_UTILS_H

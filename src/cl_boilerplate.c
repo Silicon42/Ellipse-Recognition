@@ -1,5 +1,5 @@
 #include "cl_boilerplate.h"
-#include "cl_bp_utils.h"
+#include "clbp_utils.h"
 #include "cl_error_handlers.h"
 #include "stb_image.h"
 
@@ -346,7 +346,7 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
 }
 
 // Returned pointer must be freed when done using
-char* readFileToCstring(const char* fname, cl_bp_Error* e)
+char* readFileToCstring(const char* fname, clbp_Error* e)
 {
 	assert(fname && e);
 //	printf("Reading \"%s\"\n", fname);
@@ -354,7 +354,7 @@ char* readFileToCstring(const char* fname, cl_bp_Error* e)
 	FILE* k_src_handle = fopen(fname, "r");
 	if(k_src_handle == NULL)
 	{
-		*e = (cl_bp_Error){.err_code = CL_BP_FILE_NOT_FOUND, .detail = fname};
+		*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = fname};
 		return NULL;
 	}
 	// get rough file size and allocate string
@@ -365,7 +365,7 @@ char* readFileToCstring(const char* fname, cl_bp_Error* e)
 	char* manifest = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
 	if(!manifest)
 	{
-		*e = (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = fname};
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = fname};
 		return NULL;
 	}
 

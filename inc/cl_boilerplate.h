@@ -8,7 +8,7 @@
 //#define CL_VERSION_2_0
 //#define CL_VERSION_2_1
 #include <CL/cl.h>
-#include "cl_bp_public_typedefs.h"
+#include "clbp_public_typedefs.h"
 
 
 // attempts to get the first available GPU or if none available CPU
@@ -41,6 +41,6 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
 
 //TODO: verify that this is the correct header to place this function in
 // Returned pointer must be freed when done using
-char* readFileToCstring(const char* fname, cl_bp_Error* e);
+char* readFileToCstring(const char* fname, clbp_Error* e);
 
 #endif//CL_BOILERPLATE_H

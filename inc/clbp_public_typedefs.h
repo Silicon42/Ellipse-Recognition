@@ -1,12 +1,12 @@
-#ifndef CL_BP_PUBLIC_TYPEDEFS_H
-#define CL_BP_PUBLIC_TYPEDEFS_H
+#ifndef CLBP_PUBLIC_TYPEDEFS_H
+#define CLBP_PUBLIC_TYPEDEFS_H
 /**
  * Typedefs exposed for data-driven staged queue creation
 */
 #include <CL/cl.h>
 #include <stdint.h>
 //#include <stdbool.h>
-#include "cl_bp_error_handling.h"
+#include "clbp_error_handling.h"
 
 enum rangeMode {
 //	PAD,	// pad to multiple of work group dimensions
@@ -78,4 +78,4 @@ typedef struct {
 	char name[32];			// name of the kernel function, only used for user convenience/debugging
 } QStage;
 
-#endif//CL_BP_PUBLIC_TYPEDEFS_H
+#endif//CLBP_PUBLIC_TYPEDEFS_H

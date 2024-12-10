@@ -4,7 +4,7 @@
 #include "cl_error_handlers.h"
 #include "cl_boilerplate.h"
 #include "stb_image_write.h"
-#include "cl_bp_parse_manifest.h"
+#include "clbp_parse_manifest.h"
 
 #define KERNEL_DIR "kernel/"
 #define KERNEL_SRC_DIR	KERNEL_DIR"src/"
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 	cl_command_queue queue = clCreateCommandQueue(context, device, 0, &clErr);
 	handleClError(clErr, "clCreateCommandQueue");
 
-//TODO: convert most of this to functions and move to cl_bp_parse_manifest
+//TODO: convert most of this to functions and move to clbp_parse_manifest
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
 	// create input buffer, done early to get image size prior to kernel build phase

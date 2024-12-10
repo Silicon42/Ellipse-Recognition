@@ -1,4 +1,4 @@
-#include "cl_bp_utils.h"
+#include "clbp_utils.h"
 #include "cl_error_handlers.h"
 #include <stdio.h>
 #include <math.h>

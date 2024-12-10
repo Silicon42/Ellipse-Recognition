@@ -1,8 +1,8 @@
 
-#include "cl_bp_parse_manifest.h"
+#include "clbp_parse_manifest.h"
 #include "cl_boilerplate.h"
 
-cl_bp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
+clbp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
 {
 	if(!size_tbl)	// size wasn't specified, fallback to default
 	{
@@ -11,7 +11,7 @@ cl_bp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* r
 			.ref_idx = arg_cnt - 1,
 			.mode = REL
 		};
-		return (cl_bp_Error){0};
+		return (clbp_Error){0};
 	}
 
 	//read the name of the reference arg
@@ -24,7 +24,7 @@ cl_bp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* r
 		// if the string wasn't in the list, it might have been referenced out of order
 		// or mis-typed or completely missing, in any case we can't determine size from the given name
 		if(ret->ref_idx < 0)
-			return (cl_bp_Error){.err_code = CL_BP_MF_REF_ARG_NOT_YET_STAGED, .detail = val.u.s};
+			return (clbp_Error){.err_code = CLBP_MF_REF_ARG_NOT_YET_STAGED, .detail = val.u.s};
 	}
 
 	toml_array_t* params = toml_table_array(size_tbl, params);
@@ -39,11 +39,11 @@ cl_bp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* r
 	val = toml_table_string(size_tbl, "mode");
 }
 
-cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, int arg_stg_cnt, toml_table_t* args, char* arg_name)
+clbp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, int arg_stg_cnt, toml_table_t* args, char* arg_name)
 {
 	toml_table_t* arg_conf = toml_table_table(args, arg_name);
 	if(!arg_conf)
-		return (cl_bp_Error){.err_code = CL_BP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
+		return (clbp_Error){.err_code = CLBP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
 
 	ArgStaging* new_arg = &arg_stg[arg_stg_cnt];
 	toml_value_t storage = toml_table_string(arg_conf, "storage");
@@ -67,7 +67,7 @@ cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_
 	switch(storage.u.s[pos])
 	{
 	default:	// invalid
-		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
 	case 'c':	// char
 		st.widthExp = 0;
 		pos += 4;
@@ -103,13 +103,13 @@ cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_
 
 	// check that we won't potentially access past the end of the string
 	if(storage.sl < pos)
-		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
 
 	// check type's vector size if any
 	switch(storage.u.s[pos])
 	{
 	default:	//invalid
-		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
 	case '2':	// 2
 		st.vecExp = 1;
 		break;
@@ -132,7 +132,7 @@ cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_
 	switch(type.u.s[0])
 	{
 	default:	// invalid
-		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARG_TYPE, .detail = arg_name};
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_TYPE, .detail = arg_name};
 	case 'b':	// buffer		//TODO: implement the rest of these types
 	case 'p':	// pipe
 	case 's':	// scalar
@@ -143,15 +143,15 @@ cl_bp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
 
-	return (cl_bp_Error){0};
+	return (clbp_Error){0};
 }
 
-toml_table_t* parseManifestFile(const char* fname, cl_bp_Error* e)
+toml_table_t* parseManifestFile(const char* fname, clbp_Error* e)
 {
 	assert(fname && e);
 	// Read in the manifest for what kernels should be used
 	char* manifest;
-	cl_bp_Error ret;
+	clbp_Error ret;
 	manifest = readFileToCstring(fname, &ret);
 	if(ret.err_code)
 		return NULL;
@@ -160,7 +160,7 @@ toml_table_t* parseManifestFile(const char* fname, cl_bp_Error* e)
 	toml_table_t* root_tbl = toml_parse(manifest, errbuf, sizeof(errbuf));
 	free(manifest);	// parsing works for whole document, so c-string is no longer needed
 	if(!root_tbl)
-		*e = (cl_bp_Error){.err_code = CL_BP_MF_PARSING_FAILED, errbuf};
+		*e = (clbp_Error){.err_code = CLBP_MF_PARSING_FAILED, errbuf};
 
 	return root_tbl;
 }
@@ -176,44 +176,44 @@ things I likely need out of this:
 - ArgStaging array
 - arg names array copied to it, used for debugging
 */
-cl_bp_Error allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging)
+clbp_Error allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging)
 {
 	assert(root_tbl && staging);
 	// get stages array and check valid size and type
 	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
 	if(!stage_list || stage_list->kind != 't')
-		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGES_ARRAY};
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_STAGES_ARRAY};
 
 	int stage_cnt = stage_list->nitem;
 	staging->kprog_names = calloc(stage_cnt + 1, sizeof(char*));
 	if(!staging->kprog_names)
-		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "kernel program names array"};
+		return (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "kernel program names array"};
 	staging->kern_stg = calloc(stage_cnt, sizeof(KernStaging));
 	if(!staging->kern_stg)
-		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "KernStaging array"};
+		return (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "KernStaging array"};
 
 	staging->stage_cnt = stage_cnt;
 
 	// get arg table
 	toml_table_t* args_table = toml_table_table(root_tbl, "args");
 	if(!args_table || !args_table->nkval)
-		return (cl_bp_Error){.err_code = CL_BP_MF_INVALID_ARGS_TABLE};
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_ARGS_TABLE};
 
 	int max_defined_args = args_table->nkval;
 
 	staging->arg_names = calloc(max_defined_args + 1, sizeof(char*));
 	if(!staging->arg_names)
-		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "kernel arguments names array"};
+		return (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "kernel arguments names array"};
 	staging->arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
 	if(!staging->arg_stg)
-		return (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "ArgStaging array"};
+		return (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "ArgStaging array"};
 
 	//technically this is an upper limit but it can be stored here temporarily until we get the real count
 	staging->arg_cnt = max_defined_args;
-	return (cl_bp_Error){0};
+	return (clbp_Error){0};
 }
 
-void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_bp_Error* e)
+void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_Error* e)
 {
 	assert(root_tbl && staging && e);
 		int max_defined_args = staging->arg_cnt;
@@ -224,9 +224,9 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_
 	{
 		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
 		toml_value_t tval = toml_table_string(stage, "name");
-		if(!tval.ok || !tval.u.s[0])	//not sure if this is safe or if the compiler might do them in an unsafe order
+		if(!tval.ok || !tval.u.s[0])
 		{
-			*e = (cl_bp_Error){.err_code = CL_BP_MF_MISSING_STAGE_NAME, .detail = i};
+			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = i};
 			return;
 		}
 
@@ -238,7 +238,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_
 		toml_array_t* args = toml_table_array(stage, "args");
 		if(!args || args->kind != 'v' || args->type != 's')
 		{
-			*e = (cl_bp_Error){.err_code = CL_BP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = i};
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = i};
 			return;
 		}
 		int args_cnt = args->nitem;
@@ -246,7 +246,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_
 		staging->kern_stg[i].arg_idxs = malloc(args_cnt * sizeof(uint16_t));
 		if(!staging->kern_stg[i].arg_idxs)
 		{
-			*e = (cl_bp_Error){.err_code = CL_BP_OUT_OF_MEMORY, .detail = "stage's argument index array"};
+			*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "stage's argument index array"};
 			return;
 		}
 
@@ -255,7 +255,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_
 		// iterate over args to find any new ones
 		for(int j = 0; j < stg_arg_cnt; ++j)
 		{
-			char* arg_name = toml_array_string(args, j).u.s;	//guaranteed exists due kind, type, and count checks above
+			char* arg_name = toml_array_string(args, j).u.s;	//guaranteed exists due to kind, and type checks above
 			if(arg_name[0])	// if not empty string
 			{
 				int arg_idx = addUniqueString(staging->arg_names, max_defined_args, arg_name);
@@ -266,7 +266,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, cl_
 					//instantiate a corresponding arg on the arg staging array
 
 					*e = validateNstoreArgConfig(staging->arg_names, staging->arg_stg, arg_cnt, args, arg_name);
-					if(e->err_code != CL_BP_OK)
+					if(e->err_code != CLBP_OK)
 						return;
 				}
 			}
