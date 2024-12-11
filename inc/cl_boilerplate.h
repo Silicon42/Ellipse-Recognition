@@ -20,11 +20,11 @@ cl_device_id getPreferredDevice();
 // pointer at list[max_entries]
 // returns -1 if entry already exists, 0 if out of space, and 1 if entry was unique
 //NOTE: does not check str for a null pointer
-int addUniqueString(const char** list, int max_entries, const char* str);
+int addUniqueString(char** list, int max_entries, char* str);
 // Searches through a string array (char** list) for a match to the contents of char* str
 // Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
 //NOTE: does not check str for a null pointer
-int getStringIndex(const char** list, const char* str);
+int getStringIndex(char** list, const char* str);
 
 // reads in a list of files by the names of the kernel functions, builds them and makes a kernel for each in an array up to 
 // max_kernels, returns the number of kernels actually created
@@ -41,6 +41,6 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
 
 //TODO: verify that this is the correct header to place this function in
 // Returned pointer must be freed when done using
-char* readFileToCstring(const char* fname, clbp_Error* e);
+char* readFileToCstring(char* fname, clbp_Error* e);
 
 #endif//CL_BOILERPLATE_H

@@ -2,7 +2,7 @@
 #include "clbp_parse_manifest.h"
 #include "cl_boilerplate.h"
 
-clbp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
+clbp_Error parseRangeData(char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
 {
 	if(!size_tbl)	// size wasn't specified, fallback to default
 	{
@@ -20,14 +20,16 @@ clbp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* re
 		ret->ref_idx = arg_cnt - 1;	// if missing or empty, default to previous arg
 	else
 	{
-		ret->ref_idx = getStringIndex(arg_name_list, val.u.s);
+		int ref_idx = getStringIndex(arg_name_list, val.u.s);
 		// if the string wasn't in the list, it might have been referenced out of order
 		// or mis-typed or completely missing, in any case we can't determine size from the given name
-		if(ret->ref_idx < 0)
+		if(ref_idx < 0)
 			return (clbp_Error){.err_code = CLBP_MF_REF_ARG_NOT_YET_STAGED, .detail = val.u.s};
+		
+		ret->ref_idx = ref_idx;
 	}
 
-	toml_array_t* params = toml_table_array(size_tbl, params);
+	toml_array_t* params = toml_table_array(size_tbl, "params");
 	// assumes params start out as zero by default
 	if(params)
 	{
@@ -37,15 +39,16 @@ clbp_Error parseRangeData(const char** arg_name_list, int arg_cnt, RangeData* re
 	}
 
 	val = toml_table_string(size_tbl, "mode");
+	return (clbp_Error){0};
 }
 
-clbp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_stg, int arg_stg_cnt, toml_table_t* args, char* arg_name)
+clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* arg_stg, int arg_cnt, toml_table_t* args, char* arg_name)
 {
 	toml_table_t* arg_conf = toml_table_table(args, arg_name);
 	if(!arg_conf)
 		return (clbp_Error){.err_code = CLBP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
 
-	ArgStaging* new_arg = &arg_stg[arg_stg_cnt];
+	ArgStaging* new_arg = &arg_stg[arg_cnt];
 	toml_value_t storage = toml_table_string(arg_conf, "storage");
 	StorageType st = {0};
 	int pos = 0;
@@ -142,11 +145,11 @@ clbp_Error validateNstoreArgConfig(const char** arg_name_list, ArgStaging* arg_s
 	}
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
+	return parseRangeData(arg_name_list, arg_cnt, &new_arg->size, size_tbl);
 
-	return (clbp_Error){0};
 }
 
-toml_table_t* parseManifestFile(const char* fname, clbp_Error* e)
+toml_table_t* parseManifestFile(char* fname, clbp_Error* e)
 {
 	assert(fname && e);
 	// Read in the manifest for what kernels should be used
@@ -233,7 +236,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		toml_value_t tval = toml_table_string(stage, "name");
 		if(!tval.ok || !tval.u.s[0])	// with the change to toml-c.h, should be safe just to check for empty string
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = i};
+			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = NULL + i};
 			return;
 		}
 
@@ -245,7 +248,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		toml_array_t* stage_args = toml_table_array(stage, "args");
 		if(!stage_args || stage_args->kind != 'v' || stage_args->type != 's')
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = i};
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = NULL + i};
 			return;
 		}
 		int args_cnt = stage_args->nitem;

@@ -55,8 +55,16 @@ int main(int argc, char *argv[])
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
 	// create input buffer, done early to get image size prior to kernel build phase
-	TrackedArg ta[MAX_ARGS];
-	ArgTracker tracker = {.args = ta, .args_cnt = 1, .max_args = MAX_ARGS, .max_out_size = 0};
+	TrackedArg* ta = malloc(staging.arg_cnt * sizeof(TrackedArg));
+	if(!ta)
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "TrackedArg array"});
+	
+	ArgTracker tracker = {
+		.args = ta,
+		.args_cnt = 1,
+		.max_args = staging.arg_cnt,
+		.max_out_size = 0
+	};
 	cl_image_format img_format = {
 		.image_channel_order = CL_R,
 		.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
@@ -65,16 +73,20 @@ int main(int argc, char *argv[])
 	imageFromFile(context, in_file, &tracker.args[0]);
 
 	// build reference kernels from source
-	cl_kernel kernels[MAX_KERNELS];
+	cl_kernel* kernels = malloc(staging.kernel_cnt * sizeof(cl_kernel));
+	if(!kernels)
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_kernel array"});
 	//FIXME: temp fix for OpenCL 1.2 support, add a macro that automatically fixes this
-	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, kernel_progs, KERNEL_GLOBAL_BUILD_ARGS, kernels, MAX_KERNELS);
+	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, staging.kprog_names, KERNEL_GLOBAL_BUILD_ARGS, kernels, staging.kernel_cnt);
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier
-	QStage stages[MAX_STAGES];
-	int stage_cnt = prepQStages(context, staging, kernels, stages, MAX_STAGES, &tracker);
+	QStage* stages = malloc(staging.stage_cnt * sizeof(QStage));
+	if(!stages)
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "QStage array"});
+	int stage_cnt = prepQStages(context, staging.kern_stg, kernels, stages, staging.stage_cnt, &tracker);
 
 	freeStagingArray(staging);
-	free(kernel_progs);
+	//free(kernel_progs);
 	toml_free(root_tbl);
 
 	// safe to release the context here since it's never used after this point

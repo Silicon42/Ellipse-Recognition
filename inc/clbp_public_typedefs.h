@@ -25,7 +25,7 @@ typedef struct {
 	uint8_t isUnsigned:1;	// whether the type is signed or not, ignored if isFloat is true
 	uint8_t isFloat:1;		// whether the type is a floating point type, if it is widthExp may not be 0
 	uint8_t vecExp:3;		// number of elements in the vector represented as 2^vecExp, Ex: 4 would be 2, 3 is special cased as 6
-} StorageType __attribute__((packed));
+} StorageType ;//__attribute__((packed));
 
 typedef struct {
 	int param[3];			// effects execution range and size of the output buffers, see rangeMode above

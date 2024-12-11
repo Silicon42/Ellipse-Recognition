@@ -255,12 +255,12 @@ int read_unicode_escape(int64_t code, char buf[6]) {
 	}
 	return -1;
 }
-
-static inline void xfree(const void *x) {
+/*
+static inline void free((void*)const void *x) {
 	//BOOKMARK
 	free(x);
 }
-
+*/
 enum tokentype_t {
 	INVALID,
 	DOT,
@@ -389,7 +389,7 @@ static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline,
 			int newmax = max + 50;
 			char *x = expand(dst, max, newmax);
 			if (!x) {
-				xfree(dst);
+				free((void*)dst);
 				snprintf(errbuf, errbufsz, "out of memory");
 				return 0;
 			}
@@ -402,7 +402,7 @@ static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline,
 
 		uint8_t l = u8length(sp);
 		if (l == 0) {
-			xfree(dst);
+			free((void*)dst);
 			snprintf(errbuf, errbufsz, "invalid UTF-8 at byte pos %d", off);
 			return 0;
 		}
@@ -410,7 +410,7 @@ static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline,
 			for (int i = 0; i < l; i++) {
 				char ch = *sp++;
 				if ((ch & 0x80) != 0x80) {
-					xfree(dst);
+					free((void*)dst);
 					snprintf(errbuf, errbufsz, "invalid UTF-8 at byte pos %d", off);
 					return 0;
 				}
@@ -421,14 +421,14 @@ static char *norm_lit_str(const char *src, int srclen, int *len, bool multiline,
 
 		char ch = *sp++;
 		if (is_key && ch == '\n') {
-			xfree(dst);
+			free((void*)dst);
 			snprintf(errbuf, errbufsz, "literal newlines not allowed in key");
 			return 0;
 		}
 		/// control characters other than tab is not allowed
 		if ((0 <= ch && ch <= 0x08) || (0x0a <= ch && ch <= 0x1f) || ch == 0x7f) {
 			if (!(multiline && (ch == '\r' || ch == '\n'))) {
-				xfree(dst);
+				free((void*)dst);
 				snprintf(errbuf, errbufsz, "invalid char U+%04x", ch);
 				return 0;
 			}
@@ -457,7 +457,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 			int newmax = max + 50;
 			char *x = expand(dst, max, newmax);
 			if (!x) {
-				xfree(dst);
+				free((void*)dst);
 				snprintf(errbuf, errbufsz, "out of memory");
 				return 0;
 			}
@@ -470,7 +470,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 
 		uint8_t l = u8length(sp);
 		if (l == 0) {
-			xfree(dst);
+			free((void*)dst);
 			snprintf(errbuf, errbufsz, "invalid UTF-8 at byte pos %d", off);
 			return 0;
 		}
@@ -478,7 +478,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 			for (int i = 0; i < l; i++) {
 				char ch = *sp++;
 				if ((ch & 0x80) != 0x80) {
-					xfree(dst);
+					free((void*)dst);
 					snprintf(errbuf, errbufsz, "invalid UTF-8 at byte pos %d", off);
 					return 0;
 				}
@@ -489,7 +489,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 
 		char ch = *sp++;
 		if (is_key && ch == '\n') {
-			xfree(dst);
+			free((void*)dst);
 			snprintf(errbuf, errbufsz, "literal newlines not allowed in key");
 			return 0;
 		}
@@ -497,7 +497,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 			/// must be escaped: U+0000 to U+0008, U+000A to U+001F, U+007F
 			if ((ch >= 0 && ch <= 0x08) || (ch >= 0x0a && ch <= 0x1f) || ch == 0x7f) {
 				if (!(multiline && (ch == '\r' || ch == '\n'))) {
-					xfree(dst);
+					free((void*)dst);
 					snprintf(errbuf, errbufsz, "invalid char U+%04x", ch);
 					return 0;
 				}
@@ -509,7 +509,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 
 		if (sp >= sq) { /// ch was backslash. we expect the escape char.
 			snprintf(errbuf, errbufsz, "last backslash is invalid");
-			xfree(dst);
+			free((void*)dst);
 			return 0;
 		}
 
@@ -529,7 +529,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 				for (int i = 0; i < nhex; i++) {
 					if (sp >= sq) {
 						snprintf(errbuf, errbufsz, "\\%c expects %d hex chars", ch, nhex);
-						xfree(dst);
+						free((void*)dst);
 						return 0;
 					}
 					ch = *sp++;
@@ -542,7 +542,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 						v = (ch ^ 0x20) - 'A' + 10;
 					if (v == -1) {
 						snprintf(errbuf, errbufsz, "invalid hex chars for \\u or \\U");
-						xfree(dst);
+						free((void*)dst);
 						return 0;
 					}
 					ucs = ucs * 16 + v;
@@ -550,7 +550,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 				int n = read_unicode_escape(ucs, &dst[off]);
 				if (n == -1) {
 					snprintf(errbuf, errbufsz, "illegal ucs code in \\u or \\U");
-					xfree(dst);
+					free((void*)dst);
 					return 0;
 				}
 				off += n;
@@ -564,7 +564,7 @@ static char *norm_basic_str(const char *src, int srclen, int *len, bool multilin
 			case '\\': ch = '\\'; break;
 			default:
 				snprintf(errbuf, errbufsz, "illegal escape char \\%c", ch);
-				xfree(dst);
+				free((void*)dst);
 				return 0;
 		}
 
@@ -672,7 +672,7 @@ static toml_keyval_t *create_keyval_in_table(context_t *ctx, toml_table_t *tab, 
 
 	toml_keyval_t *dest = 0;
 	if (key_kind(tab, newkey)) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_keyexists(ctx, keytok.lineno);
 		return 0;
 	}
@@ -680,14 +680,14 @@ static toml_keyval_t *create_keyval_in_table(context_t *ctx, toml_table_t *tab, 
 	int n = tab->nkval;
 	toml_keyval_t **base;
 	if ((base = (toml_keyval_t **)expand_ptrarr((void **)tab->kval, n)) == 0) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_outofmemory(ctx, FLINE);
 		return 0;
 	}
 	tab->kval = base;
 
 	if ((base[n] = (toml_keyval_t *)CALLOC(1, sizeof(*base[n]))) == 0) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_outofmemory(ctx, FLINE);
 		return 0;
 	}
@@ -707,7 +707,7 @@ static toml_table_t *create_keytable_in_table(context_t *ctx, toml_table_t *tab,
 
 	toml_table_t *dest = 0;
 	if (check_key(tab, newkey, 0, 0, &dest)) {
-		xfree(newkey);
+		free((void*)newkey);
 
 		/// Special case: make explicit if table exists and was created
 		/// implicitly.
@@ -722,14 +722,14 @@ static toml_table_t *create_keytable_in_table(context_t *ctx, toml_table_t *tab,
 	int n = tab->ntab;
 	toml_table_t **base;
 	if ((base = (toml_table_t **)expand_ptrarr((void **)tab->tab, n)) == 0) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_outofmemory(ctx, FLINE);
 		return 0;
 	}
 	tab->tab = base;
 
 	if ((base[n] = (toml_table_t *)CALLOC(1, sizeof(*base[n]))) == 0) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_outofmemory(ctx, FLINE);
 		return 0;
 	}
@@ -748,7 +748,7 @@ static toml_array_t *create_keyarray_in_table(context_t *ctx, toml_table_t *tab,
 		return 0;
 
 	if (key_kind(tab, newkey)) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_keyexists(ctx, keytok.lineno);
 		return 0;
 	}
@@ -756,14 +756,14 @@ static toml_array_t *create_keyarray_in_table(context_t *ctx, toml_table_t *tab,
 	int n = tab->narr;
 	toml_array_t **base;
 	if ((base = (toml_array_t **)expand_ptrarr((void **)tab->arr, n)) == 0) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_outofmemory(ctx, FLINE);
 		return 0;
 	}
 	tab->arr = base;
 
 	if ((base[n] = (toml_array_t *)CALLOC(1, sizeof(*base[n]))) == 0) {
-		xfree(newkey);
+		free((void*)newkey);
 		e_outofmemory(ctx, FLINE);
 		return 0;
 	}
@@ -1023,7 +1023,7 @@ static int parse_keyval(context_t *ctx, toml_table_t *tab) {
 			subtab = toml_table_table(tab, subtabstr);
 			if (subtab)
 				subtab->keylen = keylen;
-			xfree(subtabstr);
+			free((void*)subtabstr);
 		}
 		if (!subtab) {
 			subtab = create_keytable_in_table(ctx, tab, key);
@@ -1094,7 +1094,7 @@ static int fill_tabpath(context_t *ctx) {
 	// clear tpath
 	for (int i = 0; i < ctx->tpath.top; i++) {
 		char **p = &ctx->tpath.key[i];
-		xfree(*p);
+		free((void*)*p);
 		*p = 0;
 	}
 	ctx->tpath.top = 0;
@@ -1207,7 +1207,7 @@ static int parse_select(context_t *ctx) {
 
 	/* For [x.y.z] or [[x.y.z]], remove z from tpath. */
 	token_t z = ctx->tpath.tok[ctx->tpath.top - 1];
-	xfree(ctx->tpath.key[ctx->tpath.top - 1]);
+	free((void*)ctx->tpath.key[ctx->tpath.top - 1]);
 	ctx->tpath.top--;
 
 	/* set up ctx->curtab */
@@ -1231,7 +1231,7 @@ static int parse_select(context_t *ctx) {
 			arr = toml_table_array(ctx->curtab, zstr);
 			if (arr)
 				arr->keylen = keylen;
-			xfree(zstr);
+			free((void*)zstr);
 		}
 		if (!arr) {
 			arr = create_keyarray_in_table(ctx, ctx->curtab, z, 't');
@@ -1338,13 +1338,13 @@ toml_table_t *toml_parse(char *toml, char *errbuf, size_t errbufsz) {
 
 	/// success
 	for (int i = 0; i < ctx.tpath.top; i++)
-		xfree(ctx.tpath.key[i]);
+		free((void*)ctx.tpath.key[i]);
 	return ctx.root;
 
 fail:
 	// Something bad has happened. Free resources and return error.
 	for (int i = 0; i < ctx.tpath.top; i++)
-		xfree(ctx.tpath.key[i]);
+		free((void*)ctx.tpath.key[i]);
 	toml_free(ctx.root);
 	return 0;
 }
@@ -1363,7 +1363,7 @@ toml_table_t *toml_parse_file(FILE *fp, char *errbuf, size_t errbufsz) {
 			char *x = expand(buf, bufsz, xsz);
 			if (!x) {
 				snprintf(errbuf, errbufsz, "out of memory");
-				xfree(buf);
+				free((void*)buf);
 				return 0;
 			}
 			buf = x;
@@ -1374,7 +1374,7 @@ toml_table_t *toml_parse_file(FILE *fp, char *errbuf, size_t errbufsz) {
 		int n = fread(buf + off, 1, bufsz - off, fp);
 		if (ferror(fp)) {
 			snprintf(errbuf, errbufsz, "%s", (errno ? strerror(errno) : "Error reading file"));
-			xfree(buf);
+			free((void*)buf);
 			return 0;
 		}
 		off += n;
@@ -1386,7 +1386,7 @@ toml_table_t *toml_parse_file(FILE *fp, char *errbuf, size_t errbufsz) {
 		char *x = expand(buf, bufsz, xsz);
 		if (!x) {
 			snprintf(errbuf, errbufsz, "out of memory");
-			xfree(buf);
+			free((void*)buf);
 			return 0;
 		}
 		buf = x;
@@ -1396,16 +1396,16 @@ toml_table_t *toml_parse_file(FILE *fp, char *errbuf, size_t errbufsz) {
 
 	/// parse it, cleanup and finish.
 	toml_table_t *ret = toml_parse(buf, errbuf, errbufsz);
-	xfree(buf);
+	free((void*)buf);
 	return ret;
 }
 
 static void xfree_kval(toml_keyval_t *p) {
 	if (!p)
 		return;
-	xfree(p->key);
-	xfree(p->val);
-	xfree(p);
+	free((void*)p->key);
+	free((void*)p->val);
+	free((void*)p);
 }
 
 static void xfree_tab(toml_table_t *p);
@@ -1414,40 +1414,40 @@ static void xfree_arr(toml_array_t *p) {
 	if (!p)
 		return;
 
-	xfree(p->key);
+	free((void*)p->key);
 	const int n = p->nitem;
 	for (int i = 0; i < n; i++) {
 		toml_arritem_t *a = &p->item[i];
 		if (a->val)
-			xfree(a->val);
+			free((void*)a->val);
 		else if (a->arr)
 			xfree_arr(a->arr);
 		else if (a->tab)
 			xfree_tab(a->tab);
 	}
-	xfree(p->item);
-	xfree(p);
+	free((void*)p->item);
+	free((void*)p);
 }
 
 static void xfree_tab(toml_table_t *p) {
 	if (!p)
 		return;
 
-	xfree(p->key);
+	free((void*)p->key);
 
 	for (int i = 0; i < p->nkval; i++)
 		xfree_kval(p->kval[i]);
-	xfree(p->kval);
+	free((void*)p->kval);
 
 	for (int i = 0; i < p->narr; i++)
 		xfree_arr(p->arr[i]);
-	xfree(p->arr);
+	free((void*)p->arr);
 
 	for (int i = 0; i < p->ntab; i++)
 		xfree_tab(p->tab[i]);
-	xfree(p->tab);
+	free((void*)p->tab);
 
-	xfree(p);
+	free((void*)p);
 }
 
 void toml_free(toml_table_t *tab) { xfree_tab(tab); }
@@ -2100,7 +2100,7 @@ toml_value_t toml_table_string(const toml_table_t *tbl, const char *key) {
 	if (raw)
 		ret.ok = (toml_value_string(raw, &ret.u.s, &ret.sl) == 0);
 	if(!ret.ok)
-		ret.u.s = &"";	//prevent potential null dereferences by having a pointer to a valid empty string
+		ret.u.s = (char*)&"";	//prevent potential null dereferences by having a pointer to a valid empty string
 	return ret;
 }
 

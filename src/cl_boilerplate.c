@@ -27,7 +27,7 @@ cl_device_id getPreferredDevice()
 // pointer at list[max_entries]
 // returns -1 if out of entries, or position if it either found it or added it
 //NOTE: does not check str for a null pointer
-int addUniqueString(const char** list, int max_entries, const char* str)
+int addUniqueString(char** list, int max_entries, char* str)
 {
 	int i;
 	for(i = 0; (i < max_entries) && list[i]; ++i)
@@ -48,7 +48,7 @@ int addUniqueString(const char** list, int max_entries, const char* str)
 // Searches through a string array (char** list) for a match to the contents of char* str
 // Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
 //NOTE: does not check str for a null pointer
-int getStringIndex(const char** list, const char* str)
+int getStringIndex(char** list, const char* str)
 {
 	int i = 0;
 	while(list[i])
@@ -349,7 +349,7 @@ unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
 }
 
 // Returned pointer must be freed when done using
-char* readFileToCstring(const char* fname, clbp_Error* e)
+char* readFileToCstring(char* fname, clbp_Error* e)
 {
 	assert(fname && e);
 //	printf("Reading \"%s\"\n", fname);
