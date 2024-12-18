@@ -29,13 +29,17 @@ int main(int argc, char *argv[])
 {
 	(void)argc;
 	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
-
 	cl_int clErr;
+
+	// Getting device, context, and command queue done first because if any of these fail, it's likely a higher priority issue
+	// than some part of the manifest being invalid since it's likely a hardware or driver issue
 
 	// get a device to execute on
 	cl_device_id device = getPreferredDevice();
 
 	// Create a context
+	//TODO: this might be better generalized if the device list included all devices for a given platform
+//FIXME: specify platform here, right now it just happens to work because it defaults to the first returned platform
 	cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, &clErr);
 	handleClError(clErr, "clCreateContext");
 
@@ -43,7 +47,9 @@ int main(int argc, char *argv[])
 	cl_command_queue queue = clCreateCommandQueue(context, device, 0, &clErr);
 	handleClError(clErr, "clCreateCommandQueue");
 
-	//
+	// Read + validate MANIFEST.toml to figure out which kernel programs we want compiled,
+	// how they should be scheduled, what arguments to feed them, and how those args should be formatted
+	// and setup a QStaging object that encapsulates that intent
 	clbp_Error e = {.err_code = CLBP_OK};
 	toml_table_t* root_tbl = parseManifestFile("MANIFEST.toml", &e);
 	handleClBoilerplateError(e);
@@ -52,6 +58,8 @@ int main(int argc, char *argv[])
 	handleClBoilerplateError(e);
 	populateQStagingArrays(root_tbl, &staging, &e);
 	handleClBoilerplateError(e);
+
+	//TODO: add QStaging caching so that if the manifest isn't changed, we don't have to re-parse everything
 
 	//TODO: move this block to a function for initiallizing an ArgTracker since some of these values should always be the same
 	// create input buffer, done early to get image size prior to kernel build phase
@@ -72,12 +80,17 @@ int main(int argc, char *argv[])
 	tracker.args[0].format = img_format;
 	imageFromFile(context, in_file, &tracker.args[0]);
 
-	// build reference kernels from source
-	cl_kernel* kernels = malloc(staging.kernel_cnt * sizeof(cl_kernel));
+	// compile and link kernel programs from source
+	cl_program* kprogs = malloc(staging.kernel_cnt * sizeof(cl_program));
+	if(!kprogs)
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_program array"});
+
+
+/*	cl_kernel* kernels = malloc(staging.kernel_cnt * sizeof(cl_kernel));
 	if(!kernels)
 		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_kernel array"});
 	//FIXME: temp fix for OpenCL 1.2 support, add a macro that automatically fixes this
-	/*	cl_uint kernel_cnt = */buildKernelsFromSource(context, device, KERNEL_SRC_DIR, staging.kprog_names, KERNEL_GLOBAL_BUILD_ARGS, kernels, staging.kernel_cnt);
+	/*	cl_uint kernel_cnt = */buildKernelProgsFromSource(context, device, KERNEL_SRC_DIR, staging.kprog_names, KERNEL_GLOBAL_BUILD_ARGS, kprogs, staging.kernel_cnt);
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier
 	QStage* stages = malloc(staging.stage_cnt * sizeof(QStage));
@@ -85,7 +98,7 @@ int main(int argc, char *argv[])
 		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "QStage array"});
 	int stage_cnt = prepQStages(context, staging.kern_stg, kernels, stages, staging.stage_cnt, &tracker);
 
-	freeStagingArray(staging);
+	//freeStagingArray(staging);
 	//free(kernel_progs);
 	toml_free(root_tbl);
 

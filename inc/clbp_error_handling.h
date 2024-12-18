@@ -1,4 +1,4 @@
-
+#include <CL/cl.h>
 // all error values are 'true'
 enum clbp_ErrCode{
 	CLBP_OK = 0,			// No error
@@ -18,7 +18,10 @@ enum clbp_ErrCode{
 };
 
 typedef struct {
-	enum clbp_ErrCode err_code;
+	// proper type for err_code is enum clbp_ErrCode, unfortunately prior to C23
+	// there's no easy to write way to fix the width of an enum, for compatibility
+	// with OpenCL return codes, use cl_int instead
+	cl_int err_code;
 	char* detail;
 } clbp_Error;
 

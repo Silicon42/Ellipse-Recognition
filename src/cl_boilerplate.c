@@ -62,47 +62,46 @@ int getStringIndex(char** list, const char* str)
 	
 	return -1;
 }
-//FIXME: Building multiple kernels from separate files at once has side effects, all the contents are effectively appended together
-// so line numbers don't make sense, defines and globally scoped items stick around when you don't expect them to, syntax errors
-// introduced by the appending, etc.
-// Need to switch to per-file builds with SEPARATE compile and link steps, also add support for headers while at it.
 
-//names is a NULL pointer terminated char* array of the kernel function names/filenames without file extensions
-cl_uint buildKernelsFromSource(cl_context context, cl_device_id device, const char* src_dir, const char** names, const char* args, cl_kernel* kernels, cl_uint max_kernels)
+cl_uint buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, cl_program* kprogs, clbp_Error* e)
 {
-	cl_int clErr;
-	char str_buff[1024];
+	char fpath[1024];
 
-	// count number of names in NULL terminated char* array
-	cl_uint k_src_cnt = 0;
-	while(names[k_src_cnt] != NULL)
-		++k_src_cnt;
-
-	printf("\nFound %i kernel source files\n", k_src_cnt);
-	// warn user if they specified a program with more kernels than they provided space for
-	if(k_src_cnt > max_kernels)
-		fprintf(stderr, "\nWARNING: more kernel sources provided than specified max_kernels: %i", max_kernels);
-
-	// Read kernel source file and place content into buffer
+	// Read kernel program source file and place content into buffer
 	cl_uint kernel_cnt = 0;
-	for(cl_uint i=0; i<k_src_cnt; ++i)
+	for(cl_uint i = 0; i < staging->kernel_cnt; ++i)
 	{
-		snprintf(str_buff, sizeof(str_buff)-1, "%s%s.cl", src_dir, names[i]);
-//FIXME: this error actually needs to be from a pointer, also unify the cl errors as well while at it
-		clbp_Error e;
-		char* k_src = readFileToCstring(str_buff, &e);
+		//append src dir to name and attempt read
+		snprintf(fpath, sizeof(fpath)-1, "%s%s.cl", src_dir, staging->kprog_names[i]);
+		char* k_src = readFileToCstring(fpath, e);
+		if(e->err_code)
+			return 0;
 
 		// Create program from file
-		cl_program program = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &clErr);
-		handleClError(clErr, "clCreateProgramWithSource");
-
-		// Build program
-		puts("Building program...");
-		clErr = clBuildProgram(program, 1, &device, args, NULL, NULL);
-		handleClBuildProgram(clErr, program, device);
-		puts("Done.\n");
-
+		kprogs[i] = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &e->err_code);
 		free(k_src);
+		if(e->err_code)
+		{
+			e->detail = "clCreateProgramWithSource";
+			return 0;
+		}
+
+		// Compile program
+		// device should be singular and specified or else you can end up with multiple to a context,
+		// error out, and then fail to print the log for the one that actually had the error
+		puts("Compiling program...");
+		e->err_code = clCompileProgram(kprogs[i], 1, &device, args, 0, NULL, NULL, NULL, NULL);
+		if(e->err_code)
+		{
+			if(e->err_code == CL_BUILD_PROGRAM_FAILURE)
+				handleClBuildProgram(e->err_code, kprogs[i], device);
+			e->detail = "clCompileProgram";
+			return 0;
+		}
+
+		// Link program
+		puts("Linking...");
+		 = clLinkProgram(context, 1, &device, args, 1, &kprogs[i], NULL, NULL, &e->err_code);
 
 		// create kernels from the built program
 		if(kernel_cnt < max_kernels)
@@ -157,7 +156,7 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 		handleClError(clErr, "clGetKernelArgInfo");
 
 		// current arg staging data being processed
-		ArgStaging* this_s_arg = &(stage->arg_idxs[j]);
+		ArgStaging* this_s_arg = &(stage->arg_idxs[j]);	//FIXME: broken here due to updates
 
 		TrackedArg* ref_arg = &(at->args[this_s_arg->size.ref_idx]);
 
@@ -269,7 +268,7 @@ void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked)
 	
 	// Read pixel data
 	int dims[3];
-	// the loading of the image hides a malloc deep in it
+	// the loading of the image has a malloc deep in it
 	unsigned char* data = stbi_load(fname, &dims[0], &dims[1], &dims[2], channels);
 	if(!data)
 	{
@@ -294,7 +293,7 @@ void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked)
 		.image_slice_pitch = 0,
 		.num_mip_levels = 0,
 		.num_samples = 0,
-		.buffer= NULL
+		.buffer = NULL
 	};
 
 	// Create the input image object from the image file data

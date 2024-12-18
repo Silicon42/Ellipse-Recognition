@@ -138,6 +138,6 @@ void handleClBuildProgram(cl_int cl_error, cl_program program, cl_device_id devi
 		printClError(cl_error);
 		fputs("------ BUILD FAILED ------\n", stderr);
 		printBuildLog(program, device);
-		exit(1);
+//		exit(1);
 	}
 }
