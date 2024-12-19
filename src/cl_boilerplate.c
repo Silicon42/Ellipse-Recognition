@@ -119,8 +119,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 
 // returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
-//TODO: Convert to clbp_error system
-void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at)
+void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at, clbp_Error* e)
 {
 	cl_int clErr;
 	// get the count of how many args the kernel has to iterate over
@@ -238,7 +237,7 @@ void prepQStages(cl_context context, const QStaging* staging, const cl_program k
 		//FIXME: Temp fix for OpenCL 1.2 support, just assign the ref_kernel and don't free it, means each can only be used once
 	//	cl_kernel curr_kern = ref_kernels[kern_idx];
 		stages[i].kernel = kernel;
-		setKernelArgs(context, curr_stage, kernel, at);
+		setKernelArgs(context, curr_stage, kernel, at, e);
 
 		TrackedArg* ref_arg = &(at->args[curr_stage->range.ref_idx]);
 
