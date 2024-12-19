@@ -63,19 +63,23 @@ int getStringIndex(char** list, const char* str)
 	return -1;
 }
 
-cl_uint buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, cl_program* kprogs, clbp_Error* e)
+cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, cl_program* kprogs, clbp_Error* e)
 {
+	assert(src_dir && staging && kprogs && e);
 	char fpath[1024];
+	//TODO: add whole program binary caching by checking existence of compiled + linked bin,
+	// and last modified dates match cached version for all sources in list
 
 	// Read kernel program source file and place content into buffer
-	cl_uint kernel_cnt = 0;
+//	cl_uint kernel_cnt = 0;
 	for(cl_uint i = 0; i < staging->kernel_cnt; ++i)
 	{
-		//append src dir to name and attempt read
+		//TODO: add binary caching/loading, needs to check existence of binary and last modified timestamp of source
+		//append src dir to name and attempt read, unfortunately not smart enough to know about header changes but it'll have to do
 		snprintf(fpath, sizeof(fpath)-1, "%s%s.cl", src_dir, staging->kprog_names[i]);
 		char* k_src = readFileToCstring(fpath, e);
 		if(e->err_code)
-			return 0;
+			return NULL;
 
 		// Create program from file
 		kprogs[i] = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &e->err_code);
@@ -83,53 +87,39 @@ cl_uint buildKernelProgsFromSource(cl_context context, cl_device_id device, cons
 		if(e->err_code)
 		{
 			e->detail = "clCreateProgramWithSource";
-			return 0;
+			return NULL;
 		}
 
 		// Compile program
 		// device should be singular and specified or else you can end up with multiple to a context,
 		// error out, and then fail to print the log for the one that actually had the error
-		puts("Compiling program...");
+		printf("Compiling %s\n", fpath);
 		e->err_code = clCompileProgram(kprogs[i], 1, &device, args, 0, NULL, NULL, NULL, NULL);
 		if(e->err_code)
 		{
-			if(e->err_code == CL_BUILD_PROGRAM_FAILURE)
+			if(e->err_code == CL_COMPILE_PROGRAM_FAILURE)
 				handleClBuildProgram(e->err_code, kprogs[i], device);
 			e->detail = "clCompileProgram";
-			return 0;
+			return NULL;
 		}
-
-		// Link program
-		puts("Linking...");
-		 = clLinkProgram(context, 1, &device, args, 1, &kprogs[i], NULL, NULL, &e->err_code);
-
-		// create kernels from the built program
-		if(kernel_cnt < max_kernels)
-		{
-			cl_uint kernels_ret;
-			clErr = clCreateKernelsInProgram(program, max_kernels - kernel_cnt, kernels + kernel_cnt, &kernels_ret);
-			handleClError(clErr, "clCreateKernelsInProgram");
-			kernel_cnt += kernels_ret;
-		}
-		else
-		{
-			// this assumes that there can only be at most one kernel program per file, otherwise there can only
-			// be enough for some of the kernels in a file without ever sending out an error message
-			perror("Out of kernel slots, kernel not created.\n");
-		}
-
-		// done with program, safe to release it now so we don't need to track it
-		// It won't be fully released yet since the kernels have references to it
-		clReleaseProgram(program);
-		handleClError(clErr, "clReleaseProgram");
-
 	}
 
-	return kernel_cnt;
+	puts("Linking...\n");
+	cl_program linked_prog = clLinkProgram(context, 1, &device, args, staging->kernel_cnt, kprogs, NULL, NULL, &e->err_code);
+	if(e->err_code)
+	{
+			if(e->err_code == CL_LINK_PROGRAM_FAILURE)
+				handleClBuildProgram(e->err_code, linked_prog, device);
+			e->detail = "clLinkProgram";
+			return NULL;
+	}
+	//TODO: add release of individual kernel programs
+	return linked_prog;
 }
 
 // returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
+//TODO: Convert to clbp_error system
 void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at)
 {
 	cl_int clErr;
@@ -219,26 +209,25 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 	}
 }
 
-// staging is a NULL terminated KernStaging* array that is no longer than the kernels array
-int prepQStages(cl_context context, const KernStaging** staging, const cl_kernel* ref_kernels, QStage* stages, int max_stages, ArgTracker* at)
+void prepQStages(cl_context context, const QStaging* staging, const cl_program kprog, QStage* stages, ArgTracker* at, clbp_Error* e)
 {
-	cl_int clErr;
-	
-	int i=0;
-	for(; staging[i]; ++i)
+	assert(staging && kprog && stages && at && e);
+	for(int i = 0; i < staging->stage_cnt; ++i)
 	{
-		if(i==max_stages)
+		KernStaging* curr_stage = &staging->kern_stg[i];
+		char* kprog_name = staging->kprog_names[curr_stage->kernel_idx];
+		printf("Staging %s\n", kprog_name);
+		cl_kernel kernel = clCreateKernel(kprog, kprog_name, &e->err_code);
+		if(e->err_code)
 		{
-			fputs("\nWarning: more stages in staging than max_stages, aborting further staging\n", stderr);
-			break;
+			e->detail = "clCreateKernel";
+			return;
 		}
 
-		int kern_idx = staging[i]->kernel_idx;
-
 		// set the name in the current stage and print it, done early to easier identify errors
-		clErr = clGetKernelInfo(ref_kernels[kern_idx], CL_KERNEL_FUNCTION_NAME, sizeof(stages[i].name), &(stages[i].name), NULL);
-		handleClError(clErr, "clGetKernelInfo");
-		printf("\n\nStaging kernel: %s", stages[i].name);
+	//	e->err_code = clGetKernelInfo(ref_kernels[kern_idx], CL_KERNEL_FUNCTION_NAME, sizeof(stages[i].name), &(stages[i].name), NULL);
+	//	handleClError(clErr, "clGetKernelInfo");
+	//	printf("\n\nStaging kernel: %s", stages[i].name);
 		
 		// it's maybe a little wasteful to always clone the reference kernel every time,
 		// but at least I don't need to manually track if it's been used already this way
@@ -247,16 +236,16 @@ int prepQStages(cl_context context, const KernStaging** staging, const cl_kernel
 		handleClError(clErr, "clCloneKernel");
 		*/
 		//FIXME: Temp fix for OpenCL 1.2 support, just assign the ref_kernel and don't free it, means each can only be used once
-		cl_kernel curr_kern = ref_kernels[kern_idx];
-		stages[i].kernel = curr_kern;
-		setKernelArgs(context, staging[i], curr_kern, at);
+	//	cl_kernel curr_kern = ref_kernels[kern_idx];
+		stages[i].kernel = kernel;
+		setKernelArgs(context, curr_stage, kernel, at);
 
-		TrackedArg* ref_arg = &(at->args[staging[i]->range.ref_idx]);
+		TrackedArg* ref_arg = &(at->args[curr_stage->range.ref_idx]);
 
-		calcSizeByMode(ref_arg->size, &staging[i]->range, stages[i].range);
+		calcSizeByMode(ref_arg->size, &curr_stage->range, stages[i].range);
 	}
 
-	return i;
+	return;
 }
 
 

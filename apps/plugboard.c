@@ -88,15 +88,19 @@ int main(int argc, char *argv[])
 
 /*	cl_kernel* kernels = malloc(staging.kernel_cnt * sizeof(cl_kernel));
 	if(!kernels)
-		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_kernel array"});
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_kernel array"});*/
 	//FIXME: temp fix for OpenCL 1.2 support, add a macro that automatically fixes this
-	/*	cl_uint kernel_cnt = */buildKernelProgsFromSource(context, device, KERNEL_SRC_DIR, staging.kprog_names, KERNEL_GLOBAL_BUILD_ARGS, kprogs, staging.kernel_cnt);
+	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_SRC_DIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, kprogs, &e);
+	if(e.err_code)
+		handleClBoilerplateError(e);
 
 	// convert the settings into an actual staged queue using the reference kernels generated earlier
 	QStage* stages = malloc(staging.stage_cnt * sizeof(QStage));
 	if(!stages)
 		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "QStage array"});
-	int stage_cnt = prepQStages(context, staging.kern_stg, kernels, stages, staging.stage_cnt, &tracker);
+	
+	prepQStages(context, &staging, stages, staging.stage_cnt, &tracker, &e);
+	handleClBoilerplateError(e);
 
 	//freeStagingArray(staging);
 	//free(kernel_progs);
@@ -120,10 +124,10 @@ int main(int argc, char *argv[])
 	//TODO: this eventually should be a camera feed driven loop
 
 	// enqueue kernels to the command queue
-	for(int i = 0; i < stage_cnt; ++i)
+	for(int i = 0; i < staging.stage_cnt; ++i)
 	{
 		size_t* range = stages[i].range;
-		printf("Enqueueing %s with range %zu*%zu*%zu.\n", stages[i].name, range[0], range[1], range[2]);
+		printf("Enqueueing %s with range %zu*%zu*%zu.\n", staging.kprog_names[i], range[0], range[1], range[2]);
 		clErr = clEnqueueNDRangeKernel(queue, stages[i].kernel, 2, NULL, range, NULL, 0, NULL, NULL);
 		handleClError(clErr, "clEnqueueNDRangeKernel");
 	}
@@ -149,7 +153,7 @@ int main(int argc, char *argv[])
 	printf("\nSuccessfully processed image.\n");
 
 	// Deallocate resources
-	for(int i = 0; i < stage_cnt; ++i)
+	for(int i = 0; i < staging.stage_cnt; ++i)
 	{
 		clReleaseKernel(stages[i].kernel);
 		handleClError(clErr, "clReleaseKernel");
