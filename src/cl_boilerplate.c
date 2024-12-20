@@ -117,50 +117,75 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	return linked_prog;
 }
 
+// fills in the ArgTracker according to the arg staging data in staging,
+// assumes the ArgTracker was allocated big enough not to overrun it and
+// is pre-populated with the expected number of hard-coded input entries
+// such that it may add the first new entry at i
+void instantiateKernelArgs(QStaging const* staging, ArgTracker* at, uint16_t i, clbp_Error* e)
+{
+	for(; i < staging->arg_cnt; ++i)
+	{
+		ArgStaging* curr_s_arg = &staging->arg_stg[i];
+		TrackedArg* curr_t_arg = &at->args[i];
+		// which arg this arg references for its size calculation
+		TrackedArg* ref_arg = &at->args[curr_s_arg->size.ref_idx];
+		calcSizeByMode(ref_arg->size, &curr_s_arg->size, curr_t_arg->size);
+		curr_t_arg->format.image_channel_data_type = ;
+		curr_t_arg->format.image_channel_order = ;
+	}
+}
+
 // returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at, clbp_Error* e)
+void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging const* arg_stg, cl_kernel kernel, ArgTracker* at, clbp_Error* e)
 {
-	cl_int clErr;
 	// get the count of how many args the kernel has to iterate over
 	cl_uint arg_cnt;
-	clErr = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &arg_cnt, NULL);
-	handleClError(clErr, "clGetKernelInfo");
-
-	for(cl_uint j=0; j < arg_cnt; ++j)
+	e->err_code = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &arg_cnt, NULL);
+	if(e->err_code)
 	{
-		printf("\n* [%i] ", j);
-		cl_kernel_arg_access_qualifier arg_access;
-		clErr = clGetKernelArgInfo(kernel, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(cl_kernel_arg_access_qualifier), &arg_access, NULL);
-		handleClError(clErr, "clGetKernelArgInfo");
+		e->detail = "clGetKernelInfo";
+		return;
+	}
 
+	for(cl_uint i=0; i < arg_cnt; ++i)
+	{
+		printf("\n* [%i] ", i);
+		cl_kernel_arg_access_qualifier arg_access;
+		e->err_code = clGetKernelArgInfo(kernel, i, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(cl_kernel_arg_access_qualifier), &arg_access, NULL);
+		if(e->err_code)
+		{
+			e->detail = "clGetKernelArgInfo";
+			return;
+		}
+	
 		// I attach type data in a similar style to Hungarian notation to the names so that the expected type backing of
 		// the image is stored with the kernel itself and can be interpreted here by querying the name.
-		// [0] == [f/u/i] the read/write type used with it
-		// [1] == [F/H/C/S/I/f/h/c/s/i]	the type and signedness of the expected texture, uppercase is signed, lowercase is unsigned
-		// [2] == [1/2/3/4] how many channels it expects
-		// [4] == [_/n] 'n' for read/write buffers that are new buffers, otherwise not relevant
+		// [0] == [f/h/u/i] the read/write type used with it, using a non matched cl_channel_type can lead to Undefined Behavior
+		// [1] == [for f/h: s/u/f, for u/i: c/s/i] hint for what range of values are expected, float:signed norm/unsigned norm/full range, int: char/short/integer
+		// [2] == [1/2/3/4] hint for how many channels it expects
 		char arg_metadata[64];	// although only 4 entries are needed, reading the name will fail if there's not enough room for the whole name
-		clErr = clGetKernelArgInfo(kernel, j, CL_KERNEL_ARG_NAME, 64, arg_metadata, NULL);
-		handleClError(clErr, "clGetKernelArgInfo");
+		e->err_code = clGetKernelArgInfo(kernel, i, CL_KERNEL_ARG_NAME, 64, arg_metadata, NULL);
+		if(e->err_code)
+		{
+			e->detail = "clGetKernelArgInfo";
+			return;
+		}
 
 		// current arg staging data being processed
-		ArgStaging* this_s_arg = &(stage->arg_idxs[j]);	//FIXME: broken here due to updates
-
-		TrackedArg* ref_arg = &(at->args[this_s_arg->size.ref_idx]);
+		ArgStaging* curr_s_arg = &arg_stg[stage->arg_idxs[i]];
+		// which arg this arg references for its size calculation
+		TrackedArg* ref_arg = &(at->args[curr_s_arg->size.ref_idx]);
 
 		char isValid = isArgMetadataValid(arg_metadata);
+		if(!isValid)
+			fputs("WARNING: invalid argument metadata, can't validate correctness", stderr);
 
-		// write-only and certain r/w arguments create new mem objects to write their outputs to
-		//NOTE: theoretically you might have an uneeded output that you leave unassigned but I'm not supporting that, just rewrite it without it instead
+		// write-only and certain r/w arguments should be the only ones that correspond to the first use
 		//TODO: add more diagnostic info to created args like channel count and type
-		if(arg_access == CL_KERNEL_ARG_ACCESS_WRITE_ONLY || (arg_access == CL_KERNEL_ARG_ACCESS_READ_WRITE && arg_metadata[3] == 'n'))
+		if(arg_access == CL_KERNEL_ARG_ACCESS_WRITE_ONLY || arg_access == CL_KERNEL_ARG_ACCESS_READ_WRITE)
 		{
-			if(!isValid)
-			{
-				fputs("Couldn't parse argument metadata, can't create image object", stderr);
-				exit(1);
-			}
+
 
 			if(at->args_cnt >= at->max_args)
 			{
@@ -168,26 +193,26 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 				exit(1);
 			}
 
-			TrackedArg* this_t_arg = &(at->args[at->args_cnt]);
+			TrackedArg* curr_t_arg = &(at->args[at->args_cnt]);
 
-			this_t_arg->format.image_channel_data_type = getTypeFromMetadata(arg_metadata);
-			this_t_arg->format.image_channel_order = getOrderFromMetadata(arg_metadata);
-			calcSizeByMode(ref_arg->size, &this_s_arg->size, this_t_arg->size);
+			curr_t_arg->format.image_channel_data_type = getTypeFromMetadata(arg_metadata);
+			curr_t_arg->format.image_channel_order = getOrderFromMetadata(arg_metadata);
+			calcSizeByMode(ref_arg->size, &curr_s_arg->size, curr_t_arg->size);
 
 			// if this is a host readable output, we need to see if the size in bytes is bigger than any previous args so the
 			// final read buffer can be allocated large enough
-			if(this_s_arg->is_host_readable)
+			if(curr_s_arg->is_host_readable)
 			{
-				size_t size_in_bytes = this_t_arg->size[0] * this_t_arg->size[1] * this_t_arg->size[2];
+				size_t size_in_bytes = curr_t_arg->size[0] * curr_t_arg->size[1] * curr_t_arg->size[2];
 				size_in_bytes *= arg_metadata[2] - '0';	// 3 can't be specified as output so should be safe to do this
 				size_in_bytes *= getChannelWidth(arg_metadata[1]);
 				at->max_out_size = (at->max_out_size >= size_in_bytes) ? at->max_out_size : size_in_bytes;
 			}
 
 //FIXME: no magic values vvv here vvv come back later and properly fix handling of the arg type when you understand the other types better
-			this_t_arg->arg = createImageBuffer(context, this_s_arg->is_host_readable, this_s_arg->type == 'a', &(this_t_arg->format), this_t_arg->size);
+			curr_t_arg->arg = createImageBuffer(context, curr_s_arg->is_host_readable, curr_s_arg->type == 'a', &(curr_t_arg->format), curr_t_arg->size);
 
-			clErr = clSetKernelArg(kernel, j, sizeof(cl_mem), &(this_t_arg->arg));
+			clErr = clSetKernelArg(kernel, i, sizeof(cl_mem), &(curr_t_arg->arg));
 			handleClError(clErr, "clSetKernelArg");
 
 			at->args_cnt++;
@@ -202,7 +227,7 @@ void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kerne
 		
 			printf("Using %zu*%zu*%zu buffer with format %c%c%i.", ref_arg->size[0],ref_arg->size[1],ref_arg->size[2], \
 			getDeviceRWType(ref_arg->format.image_channel_data_type), getArgStorageType(ref_arg->format.image_channel_data_type), getChannelCount(ref_arg->format.image_channel_order));
-			clErr = clSetKernelArg(kernel, j, sizeof(cl_mem), &(ref_arg->arg));
+			clErr = clSetKernelArg(kernel, i, sizeof(cl_mem), &(ref_arg->arg));
 			handleClError(clErr, "clSetKernelArg");
 		}
 	}

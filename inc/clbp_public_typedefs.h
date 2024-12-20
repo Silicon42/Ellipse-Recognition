@@ -66,8 +66,8 @@ typedef struct {
 
 typedef struct {
 	TrackedArg* args;
-	uint16_t args_cnt;
-	uint16_t max_args;
+//	uint16_t args_cnt;
+//	uint16_t max_args;
 	size_t max_out_size;
 } ArgTracker;
 

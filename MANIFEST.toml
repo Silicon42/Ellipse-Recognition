@@ -3,13 +3,16 @@ stages = [
 {name = "scharr3_char", args=["input", "output"], range = {ref_arg = "input"}},
 ]
 
+# hard-coded entries corresponding to program input
+# this is a list of names that are to be associated with the hard-coded host inputs
+# and are assumed to correspond to the first n entries of the ArgTracker where n is
+# how many entries appear here.
+# DO NOT MODIFY IF YOU AREN'T MODIFYING THE MAIN PROGRAM
+hardCodedArgs = [
+"input",
+]
 # Master list of all kernel args by name used for OpenCL kernels listed in stages
+# user configurable entries, instantiated as needed for specified stages
 # Used for handling creation and checking of argument validity
 [args]
-# hard-coded entries corresponding to program input
-# DO NOT MODIFY IF YOU AREN'T MODIFYING THE MAIN PROGRAM
-input = {type = "image2d_t", storage = "uchar", size = {mode = "input"}}
-
-# user configurable entries, instantiated as needed for specified stages
-output = {type = "image2d_t", storage = "uchar4", host_readable = true, size = {ref_arg = "input", mode = "", params = []}}
-
+output = {type = "image2d_t", channel_type = "uchar4", size = {ref_arg = "input", mode = "", params = []}}

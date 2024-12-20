@@ -66,33 +66,38 @@ cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_arra
 }
 
 // validates metadata[0 thru 2] formating and returns true if valid
-char isArgMetadataValid(char* metadata)
+char isArgMetadataValid(char const metadata[static 3])
 {
 	// valid amount of channels
 	if(metadata[2] <= '0' || metadata[2] > '4')
 		return 0;
 	// valid r/w type and storage type combination
-	switch (metadata[1])
+	switch (metadata[0])
 	{
-	case 'c':
-	case 's':
-	case 'i':
-		if(metadata[0] == 'u' || metadata[0] == 'f')
+	case 'u':	// unsigned int r/w
+	case 'i':	// signed int r/w
+		// check expected width validity
+		switch(metadata[1])
+		{
+		case 'c':	// char		 8-bit
+		case 's':	// short	16-bit
+		case 'i':	// int		32-bit
 			return 1;
-	case 'C':
-	case 'S':
-	case 'I':
-		if(metadata[0] == 'i')
+		default:
+			return 0;
+		}
+	case 'f':	// float r/w
+	case 'h':	// half r/w
+		// check expected range validity
+		switch(metadata[1])
+		{
+		case 's':	// signed normalized	[-1.0, 1.0]
+		case 'u':	// unsigned normalized	[ 0.0, 1.0]
+		case 'f':	// full range			[-Inf, Inf]
 			return 1;
-	case 'f':
-	case 'h':
-	case 'F':
-	case 'H':
-		if(metadata[0] == 'f' && ((metadata[1] | LOWER_MASK) != 'i'))	// no int32 backed type for floating point
-			return 1;
-	default:
-		return 0;
+		}
 	}
+	return 0;
 }
 
 cl_channel_type getTypeFromMetadata(const char* metadata)
