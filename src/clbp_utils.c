@@ -6,10 +6,10 @@
 // ascii has this bit set for lowercase letters
 #define LOWER_MASK 0x20
 
-cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3])
+cl_mem createImageBuffer(cl_context context, char force_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3])
 {
 	cl_int clErr;
-	cl_mem_flags flags = is_host_readable ? (CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY):(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
+	cl_mem_flags flags = force_host_readable ? (CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY):(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
 
 	cl_image_desc image_desc = {
 		.image_type = CL_MEM_OBJECT_IMAGE1D,

@@ -121,23 +121,55 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 // assumes the ArgTracker was allocated big enough not to overrun it and
 // is pre-populated with the expected number of hard-coded input entries
 // such that it may add the first new entry at i
-void instantiateKernelArgs(QStaging const* staging, ArgTracker* at, uint16_t i, clbp_Error* e)
+void instantiateKernelArgs(cl_context context, QStaging const* staging, cl_mem* img_args, uint16_t i, clbp_Error* e)
 {
 	for(; i < staging->arg_cnt; ++i)
 	{
-		ArgStaging* curr_s_arg = &staging->arg_stg[i];
-		TrackedArg* curr_t_arg = &at->args[i];
+		ArgStaging curr_s_arg = staging->arg_stg[i];
 		// which arg this arg references for its size calculation
-		TrackedArg* ref_arg = &at->args[curr_s_arg->size.ref_idx];
-		calcSizeByMode(ref_arg->size, &curr_s_arg->size, curr_t_arg->size);
-		curr_t_arg->format.image_channel_data_type = ;
-		curr_t_arg->format.image_channel_order = ;
+		cl_mem ref_arg = img_args[curr_s_arg.size.ref_idx];
+
+		// query the reference size
+		size_t ref_size[3];
+		e->detail = "clGetImageInfo";
+		e->err_code = clGetImageInfo(ref_arg, CL_IMAGE_WIDTH, sizeof(size_t), ref_size, NULL);
+		if(e->err_code)
+			return;
+		e->err_code = clGetImageInfo(ref_arg, CL_IMAGE_HEIGHT, sizeof(size_t), &ref_size[1], NULL);
+		if(e->err_code)
+			return;
+		e->err_code = clGetImageInfo(ref_arg, CL_IMAGE_DEPTH, sizeof(size_t), &ref_size[2], NULL);
+		if(e->err_code)
+			return;
+
+		size_t size[3];
+		calcSizeByMode(ref_size, &curr_s_arg.size, size);
+		cl_image_desc desc = {
+			.image_type = CL_MEM_OBJECT_IMAGE2D,
+			.image_width = size[0],
+			.image_height = size[1],
+			.image_depth = size[2],
+			.image_array_size = 1,
+			.image_row_pitch = 0,
+			.image_slice_pitch = 0,
+			.num_mip_levels = 0,
+			.num_samples = 0,
+			.buffer = NULL
+		};
+		
+
+		img_args[i] = clCreateImage(context, flags, &curr_s_arg->format, &desc, NULL, &e->err_code);
+		if(e->err_code)
+		{
+			e->detail = "clCreateImage";
+			return;
+		}
 	}
 }
 
 // returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging const* arg_stg, cl_kernel kernel, ArgTracker* at, clbp_Error* e)
+void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging const* arg_stg, cl_kernel kernel, cl_mem* img_args, clbp_Error* e)
 {
 	// get the count of how many args the kernel has to iterate over
 	cl_uint arg_cnt;
@@ -201,7 +233,7 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 
 			// if this is a host readable output, we need to see if the size in bytes is bigger than any previous args so the
 			// final read buffer can be allocated large enough
-			if(curr_s_arg->is_host_readable)
+			if(curr_s_arg->force_host_readable)
 			{
 				size_t size_in_bytes = curr_t_arg->size[0] * curr_t_arg->size[1] * curr_t_arg->size[2];
 				size_in_bytes *= arg_metadata[2] - '0';	// 3 can't be specified as output so should be safe to do this
@@ -210,7 +242,7 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 			}
 
 //FIXME: no magic values vvv here vvv come back later and properly fix handling of the arg type when you understand the other types better
-			curr_t_arg->arg = createImageBuffer(context, curr_s_arg->is_host_readable, curr_s_arg->type == 'a', &(curr_t_arg->format), curr_t_arg->size);
+			curr_t_arg->arg = createImageBuffer(context, curr_s_arg->force_host_readable, curr_s_arg->type == 'a', &(curr_t_arg->format), curr_t_arg->size);
 
 			clErr = clSetKernelArg(kernel, i, sizeof(cl_mem), &(curr_t_arg->arg));
 			handleClError(clErr, "clSetKernelArg");
@@ -275,9 +307,9 @@ void prepQStages(cl_context context, const QStaging* staging, const cl_program k
 
 // creates a single channel cl_mem image from a file and attaches it to the tracked arg pointer provided
 // the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
-void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked)
+cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, clbp_Error* e)
 {
-	int channels = getChannelCount(tracked->format.image_channel_order);
+	int channels = getChannelCount(format->image_channel_order);
 	
 	// Read pixel data
 	int dims[3];
@@ -285,22 +317,17 @@ void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked)
 	unsigned char* data = stbi_load(fname, &dims[0], &dims[1], &dims[2], channels);
 	if(!data)
 	{
-		perror("\nCouldn't open input image");
-		exit(1);
+		*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = "\nCouldn't open input image"};
+		return NULL;
 	}
 
 	printf("loaded %s, %i*%i image with %i channel(s), using %i channel(s).\n", fname, dims[0], dims[1], dims[2], channels);
-	tracked->size[0] = dims[0];
-	tracked->size[1] = dims[1];
-	tracked->size[2] = 1;
-
-	cl_int clErr;
 
 	cl_image_desc image_desc = {
 		.image_type = CL_MEM_OBJECT_IMAGE2D,
-		.image_width = tracked->size[0],
-		.image_height = tracked->size[1],
-		.image_depth = tracked->size[2],
+		.image_width = dims[0],
+		.image_height = dims[1],
+		.image_depth = 1,
 		.image_array_size = 1,
 		.image_row_pitch = 0,
 		.image_slice_pitch = 0,
@@ -310,10 +337,12 @@ void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked)
 	};
 
 	// Create the input image object from the image file data
-	tracked->arg = clCreateImage(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_WRITE_ONLY, &(tracked->format), &image_desc, data, &clErr);
-	handleClError(clErr, "clCreateImage");
-
+	cl_mem img = clCreateImage(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS, format, &image_desc, data, &e->err_code);
 	free(data);
+	if(e->err_code)
+		e->detail = "clCreateImage";
+
+	return img;
 }
 
 // converts format of data to char array compatible read, returns channel count since it's often needed after this and is already called here

@@ -34,10 +34,10 @@ typedef struct {
 } RangeData;
 
 typedef struct {
-	RangeData size;			// data on how to calculate the size_t[3] of the arg
-	char is_host_readable;	// indicates whether to forcibly make an arg readable by the host, otherwise default is false unless it's the output of the last kernel
 	char type;				// indicates what broad type of argument this should be, 'i'mage, image 'a'rray, 'p'ipe, 'b'uffer, or 's'calar
-	StorageType storage_type;	// bitfield representing the C type that the arg contents behave as
+	RangeData size;			// data on how to calculate the size_t[3] of the arg
+	char force_host_readable;	// indicates whether to forcibly make an arg readable by the host, otherwise default is false unless it's the output of the last kernel
+	cl_image_format format;	// used for verifying compatible channel types, spacing and read/write operations
 } ArgStaging;	//TODO: since stbi only supports 8 bit depth the host readable flag forces 8 bit output which may cause calculation issues if buffer isn't last
 
 // user provided info of how to set up kernels in a queue and their arguments
@@ -56,7 +56,7 @@ typedef struct {
 	uint16_t stage_cnt;
 	uint16_t arg_cnt;
 } QStaging;
-
+/*
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects
 typedef struct {
 	cl_mem arg;				// pointer to the image or generic cl_mem object in question
@@ -70,7 +70,7 @@ typedef struct {
 //	uint16_t max_args;
 	size_t max_out_size;
 } ArgTracker;
-
+*/
 // info actually used in enqueueing kernels
 typedef struct {
 	cl_kernel kernel;	// stage's kernel pointer gets stored here

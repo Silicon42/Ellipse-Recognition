@@ -12,7 +12,7 @@
 #include <CL/cl.h>
 #include "clbp_public_typedefs.h"
 
-cl_mem createImageBuffer(cl_context context, char is_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3]);
+cl_mem createImageBuffer(cl_context context, char force_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3]);
 // validates metadata[0 thru 2] formating and returns true if valid
 char isArgMetadataValid(char const metadata[static 3]);
 cl_channel_type getTypeFromMetadata(const char* metadata);

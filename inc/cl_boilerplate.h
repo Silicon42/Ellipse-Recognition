@@ -34,7 +34,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 void prepQStages(cl_context context, const QStaging* staging, const cl_program kprog, QStage* stages, ArgTracker* at, clbp_Error* e);
 // creates a single channel cl_mem image from a file and attaches it to the tracked arg pointer provided
 // the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
-void imageFromFile(cl_context context, const char* fname, TrackedArg* tracked);
+cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, clbp_Error* e);
 
 // converts format of data read from device to char array suitable for writing to typical image file
 unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
