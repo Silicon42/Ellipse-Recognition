@@ -20,23 +20,33 @@ enum rangeMode {
 	COLUMN,	// REL on x axis, EXACT on y and z
 };
 
+// 'i'mage, image 'a'rray, 'p'ipe, 'b'uffer, or 's'calar
+enum argType {
+	CLBP_IMAGE = 'i',
+	CLBP_IMAGE_ARRAY = 'a',
+	CLBP_BUFFER = 'b',
+	CLBP_PIPE = 'p',
+	CLBP_SCALAR = 's',
+};
+
 typedef struct {
 	uint8_t widthExp:3;		// width in bytes represented as 2^widthExp, Ex: int32_t would be 2
 	uint8_t isUnsigned:1;	// whether the type is signed or not, ignored if isFloat is true
 	uint8_t isFloat:1;		// whether the type is a floating point type, if it is widthExp may not be 0
 	uint8_t vecExp:3;		// number of elements in the vector represented as 2^vecExp, Ex: 4 would be 2, 3 is special cased as 6
-} StorageType ;//__attribute__((packed));
+} StorageType;// __attribute__((packed));
 
 typedef struct {
-	int param[3];			// effects execution range and size of the output buffers, see rangeMode above
+	int32_t param[3];		// effects execution range and size of the output buffers, see rangeMode above
 	uint16_t ref_idx;		// index of the arg whose size is the reference size that any relative size calculations will be based on
 	enum rangeMode mode;	// what mode to calculate the NDRange/size_t[3] in
 } RangeData;
 
+// used to track fixed arg settings that stay constant between instances of a staged queue, regardless of image size
 typedef struct {
-	char type;				// indicates what broad type of argument this should be, 'i'mage, image 'a'rray, 'p'ipe, 'b'uffer, or 's'calar
+	enum argType type;		// indicates what broad type of argument this should be
 	RangeData size;			// data on how to calculate the size_t[3] of the arg
-	char force_host_readable;	// indicates whether to forcibly make an arg readable by the host, otherwise default is false unless it's the output of the last kernel
+	cl_mem_flags flags;		// stores flag state to be assigned to eventual cl_mem object at creation, some from manifest, some from kernel arg queries
 	cl_image_format format;	// used for verifying compatible channel types, spacing and read/write operations
 } ArgStaging;	//TODO: since stbi only supports 8 bit depth the host readable flag forces 8 bit output which may cause calculation issues if buffer isn't last
 
@@ -56,7 +66,7 @@ typedef struct {
 	uint16_t stage_cnt;
 	uint16_t arg_cnt;
 } QStaging;
-/*
+
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects
 typedef struct {
 	cl_mem arg;				// pointer to the image or generic cl_mem object in question

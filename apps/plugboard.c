@@ -61,6 +61,24 @@ int main(int argc, char *argv[])
 
 	//TODO: add QStaging caching so that if the manifest isn't changed, we don't have to re-parse everything
 
+	// allocate tracking array for image args
+	cl_mem* img_args = malloc(staging.arg_cnt * sizeof(cl_mem));
+	if(!img_args)
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"});
+
+	// instantiate hard-coded args, this gives us the base image sizes that things are calculated relative to
+	cl_image_format img_format = {
+		.image_channel_order = CL_R,
+		.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
+	};
+
+	img_args[0] = imageFromFile(context, in_file, &img_format, &e);
+	if(e.err_code)
+		handleClBoilerplateError(e);
+
+	// calculate arg sizes and kernel ranges, this allows baking of image sizes and kernel ranges into kernels if desired
+	calcRanges()
+
 	// compile and link kernel programs from source
 	cl_program* kprogs = malloc(staging.kernel_cnt * sizeof(cl_program));
 	if(!kprogs)
@@ -80,24 +98,13 @@ int main(int argc, char *argv[])
 	if(!stages)
 		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "QStage array"});
 	
-	// allocate tracking array for image args and instantiate hard-coded ones
-	cl_mem* img_args = malloc(staging.arg_cnt * sizeof(cl_mem));
-	if(!img_args)
-		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "TrackedArg array"});
-
-	cl_image_format img_format = {
-		.image_channel_order = CL_R,
-		.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
-	};
-
-	img_args[0] = imageFromFile(context, in_file, &img_format, &e);
-	if(e.err_code)
-		handleClBoilerplateError(e);
-
-	//instantiateKernelArgs
-	
 	prepQStages(context, &staging, stages, staging.stage_cnt, &tracker, &e);
 	handleClBoilerplateError(e);
+
+	// kernel arguments can't be queried before kernel instantiaion
+	//instantiateKernelArgs
+
+	//assignKernelArgs
 
 	//freeStagingArray(staging);
 	//free(kernel_progs);

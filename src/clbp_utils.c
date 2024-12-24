@@ -158,68 +158,56 @@ cl_channel_order getOrderFromMetadata(const char* metadata)
 }
 
 // in can be NULL if mode is EXACT or SINGLE
-void calcSizeByMode(const size_t* in, const RangeData* range, size_t* out)
+void calcSizeByMode(int32_t const* in, RangeData const* range, int32_t* out)
 {
-
-	if(!in && range->mode != EXACT)// && range->mode != SINGLE)
-	{
-		out[0] = 0;	// if you got here you probably didn't specify something correctly
-		return;
-	}
-
-	switch (range->mode)
+	int32_t const* param = range->param;
+	// modes that don't use the reference don't need to check it.
+	switch(range->mode)
 	{
 	case EXACT:
-		out[0] = range->param[0];
-		out[1] = range->param[1];
-		out[2] = range->param[2];
-		break;
+		out[0] = param[0];
+		out[1] = param[1];
+		out[2] = param[2];
+		return;
 /*	case SINGLE:	//TODO: make this check the target device to find out how many threads to a hardware compute unit
 		out[0] = 1;
 		out[1] = 1;
 		out[2] = 1;
-		break;
+		return;
 */	case REL:
-		out[0] = in[0] + range->param[0];
-		out[1] = in[1] + range->param[1];
-		out[2] = in[2] + range->param[2];
-		break;
+		out[0] = in[0] + param[0];
+		out[1] = in[1] + param[1];
+		out[2] = in[2] + param[2];
+		return;
 	case DIAG:
-		out[0] = range->param[0];
-		out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + range->param[1]) & -2;	//diagonal length truncated down to even
-		out[2] = in[2] + range->param[2];
-		break;
+		out[0] = param[0];
+		out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + param[1]) & -2;	//diagonal length truncated down to even
+		out[2] = in[2] + param[2];
+		return;
 	case DIVIDE:
-		out[0] = in[0] / range->param[0];
-		out[1] = in[1] / range->param[1];
-		out[2] = in[2] / range->param[2];
-		break;
+		out[0] = in[0] / param[0];
+		out[1] = in[1] / param[1];
+		out[2] = in[2] / param[2];
+		return;
 	case MULT:
-		out[0] = in[0] * range->param[0];
-		out[1] = in[1] * range->param[1];
-		out[2] = in[2] * range->param[2];
-		break;
+		out[0] = in[0] * param[0];
+		out[1] = in[1] * param[1];
+		out[2] = in[2] * param[2];
+		return;
 	case ROW:
-		out[0] = range->param[0];
-		out[1] = in[1] + range->param[1];
-		out[2] = range->param[2];
-		break;
+		out[0] = param[0];
+		out[1] = in[1] + param[1];
+		out[2] = param[2];
+		return;
 	case COLUMN:
-		out[0] = in[0] + range->param[0];
-		out[1] = range->param[1];
-		out[2] = range->param[2];
-		break;
+		out[0] = in[0] + param[0];
+		out[1] = param[1];
+		out[2] = param[2];
+		return;
 	default:
-		out[0]=0;	// if you got here you probably forgot to implement a mode
+		out[0] = 0;	// if you got here you probably forgot to implement a mode
 		perror("Unknown range mode!\n");
 	}
-	// if any of the values of out are 0, the range will be invalid
-	if(!out[0] || !out[1] || !out[2])
-	{
-		perror("Invalid range!\n");
-		exit(1);
-	}
-	return;
 }
 
 //TODO: add ifdefs for OpenCL versions to the following 3 helper functions

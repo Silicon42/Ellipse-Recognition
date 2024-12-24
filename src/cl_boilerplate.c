@@ -117,6 +117,20 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	return linked_prog;
 }
 
+// applies the relative calculations for all arg sizes starting from index i in the ArgStaging array,
+// assumes all prior entries were already set and interprets their sizes as exact values
+void calcRanges(QStaging* staging, TrackedArg* t_args)
+{
+	for(uint16_t i = 0; i < staging->arg_cnt; ++i)
+	{
+		RangeData* curr_range = &staging->arg_stg[i].size;
+		int32_t const* ref_size = &staging->arg_stg[curr_range->ref_idx].size.param;
+		calcSizeByMode(ref_size, curr_range, &t_args[i]);
+	}
+
+	
+}
+
 // fills in the ArgTracker according to the arg staging data in staging,
 // assumes the ArgTracker was allocated big enough not to overrun it and
 // is pre-populated with the expected number of hard-coded input entries
@@ -156,6 +170,12 @@ void instantiateKernelArgs(cl_context context, QStaging const* staging, cl_mem* 
 			.num_samples = 0,
 			.buffer = NULL
 		};
+
+		//W
+		cl_mem_flags flags = 0;
+		// is it a hard-coded input? if so, copy it
+		if()
+		 (CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
 		
 
 		img_args[i] = clCreateImage(context, flags, &curr_s_arg->format, &desc, NULL, &e->err_code);
@@ -336,8 +356,10 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 		.buffer = NULL
 	};
 
+	cl_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS;
+
 	// Create the input image object from the image file data
-	cl_mem img = clCreateImage(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS, format, &image_desc, data, &e->err_code);
+	cl_mem img = clCreateImage(context, flags, format, &image_desc, data, &e->err_code);
 	free(data);
 	if(e->err_code)
 		e->detail = "clCreateImage";
