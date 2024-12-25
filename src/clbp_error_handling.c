@@ -7,6 +7,9 @@ static const char* clbp_error_strings[] = {
 	"\nNo Error.\n",
 	"\nERROR: Out of memory, failed to allocate %s.\n",
 	"\nERROR: Couldn't find file \"%s\".\n",
+	"\nERROR: Invalid RangeMode at index %i (+: arg index, -: kernel index)\n",
+	"\nERROR: Invalid RangeMode at index %i (+: arg index, -: kernel index)\n",
+
 	"\nTOML ERROR: %s\n",
 	MANIFEST_ERROR"Stages array must be a table array with at least one item.\n",
 	MANIFEST_ERROR"Args table was empty.\n",

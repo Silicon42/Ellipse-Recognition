@@ -30,6 +30,10 @@ enum argType {
 };
 
 typedef struct {
+	size_t d[3];
+} Size3D;
+
+typedef struct {
 	uint8_t widthExp:3;		// width in bytes represented as 2^widthExp, Ex: int32_t would be 2
 	uint8_t isUnsigned:1;	// whether the type is signed or not, ignored if isFloat is true
 	uint8_t isFloat:1;		// whether the type is a floating point type, if it is widthExp may not be 0
@@ -37,7 +41,7 @@ typedef struct {
 } StorageType;// __attribute__((packed));
 
 typedef struct {
-	int32_t param[3];		// effects execution range and size of the output buffers, see rangeMode above
+	int16_t param[3];		// effects execution range and size of the output buffers, see rangeMode above
 	uint16_t ref_idx;		// index of the arg whose size is the reference size that any relative size calculations will be based on
 	enum rangeMode mode;	// what mode to calculate the NDRange/size_t[3] in
 } RangeData;
@@ -58,15 +62,15 @@ typedef struct {
 } KernStaging;
 
 typedef struct {
+	uint16_t kernel_cnt;
+	uint16_t stage_cnt;
+	uint16_t arg_cnt;
 	char** kprog_names;		// array of kernel program names that are used and must be compiled
 	KernStaging* kern_stg;	// kernel staging array listing all stages, their scheduling details, and their program indices
 	char** arg_names;		// array of kernel program argument names that get used for the stages
 	ArgStaging* arg_stg;	// arg staging array listing details about type of arg, and size
-	uint16_t kernel_cnt;
-	uint16_t stage_cnt;
-	uint16_t arg_cnt;
 } QStaging;
-
+/*
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects
 typedef struct {
 	cl_mem arg;				// pointer to the image or generic cl_mem object in question
@@ -83,9 +87,14 @@ typedef struct {
 */
 // info actually used in enqueueing kernels
 typedef struct {
-	cl_kernel kernel;	// stage's kernel pointer gets stored here
-	size_t range[3];	// stage's range size gets stored here
-//	char name[32];			// name of the kernel function, only used for user convenience/debugging
-} QStage;
+	// counts duplicated from QStaging so that it may safely have its contents freed and go out of scope
+	uint16_t stage_cnt;	// how many stages the kernel array contains
+	uint16_t arg_cnt;	// how many args the img_args array contains
+	cl_kernel* kernels;	// array of kernel instances corresponding to each stage
+	Size3D* ranges;		// array of 3D ranges to enque the matching kernel index with
+	cl_mem* img_args;	// array of all image args associated with the kernel
+	Size3D* img_sizes;	// array of images sizes corresponding to each arg
+//	char name[32];		// name of the kernel function, only used for user convenience/debugging
+} StagedQ;
 
 #endif//CLBP_PUBLIC_TYPEDEFS_H

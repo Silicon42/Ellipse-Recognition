@@ -1,5 +1,5 @@
 #include "clbp_utils.h"
-#include "cl_error_handlers.h"
+#include "clbp_error_handling.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -158,8 +158,19 @@ cl_channel_order getOrderFromMetadata(const char* metadata)
 }
 
 // in can be NULL if mode is EXACT or SINGLE
-void calcSizeByMode(int32_t const* in, RangeData const* range, int32_t* out)
+// This is a massive oversimplification since NDRanges aren't capped at 3, but
+// that's all I expect to ever need from this and it makes implementation much easier
+// plus it's the minimum required upper limit for non-custom device types in the spec
+// so it's the maximum reliably portable value
+char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
 {
+	// C promotion prevention
+	int32_t in[3];
+	in[0] = ref->d[0];
+	in[1] = ref->d[1];
+	in[2] = ref->d[2];
+	int32_t out[3];
+
 	int32_t const* param = range->param;
 	// modes that don't use the reference don't need to check it.
 	switch(range->mode)
@@ -168,46 +179,52 @@ void calcSizeByMode(int32_t const* in, RangeData const* range, int32_t* out)
 		out[0] = param[0];
 		out[1] = param[1];
 		out[2] = param[2];
-		return;
+		break;
 /*	case SINGLE:	//TODO: make this check the target device to find out how many threads to a hardware compute unit
 		out[0] = 1;
 		out[1] = 1;
 		out[2] = 1;
-		return;
+		break;
 */	case REL:
 		out[0] = in[0] + param[0];
 		out[1] = in[1] + param[1];
 		out[2] = in[2] + param[2];
-		return;
+		break;
 	case DIAG:
 		out[0] = param[0];
 		out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + param[1]) & -2;	//diagonal length truncated down to even
 		out[2] = in[2] + param[2];
-		return;
+		break;
 	case DIVIDE:
 		out[0] = in[0] / param[0];
 		out[1] = in[1] / param[1];
 		out[2] = in[2] / param[2];
-		return;
+		break;
 	case MULT:
 		out[0] = in[0] * param[0];
 		out[1] = in[1] * param[1];
 		out[2] = in[2] * param[2];
-		return;
+		break;
 	case ROW:
 		out[0] = param[0];
 		out[1] = in[1] + param[1];
 		out[2] = param[2];
-		return;
+		break;
 	case COLUMN:
 		out[0] = in[0] + param[0];
 		out[1] = param[1];
 		out[2] = param[2];
-		return;
-	default:
-		out[0] = 0;	// if you got here you probably forgot to implement a mode
-		perror("Unknown range mode!\n");
+		break;
+	default:	// if you got here you probably forgot to finish implementing a mode
+		return CLBP_INVALID_RANGEMODE;
 	}
+	for(int i; i < 3; ++i)
+	{
+		if(out[i] <= 0)
+			return CLBP_INVALID_SIZE3D;
+		ret->d[i] = out[i];
+	}
+	return CLBP_OK;
 }
 
 //TODO: add ifdefs for OpenCL versions to the following 3 helper functions

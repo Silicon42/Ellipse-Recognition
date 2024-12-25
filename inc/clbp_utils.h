@@ -19,7 +19,7 @@ cl_channel_type getTypeFromMetadata(const char* metadata);
 cl_channel_order getOrderFromMetadata(const char* metadata);
 
 // in can be NULL if mode is EXACT or SINGLE
-void calcSizeByMode(int32_t const* in, RangeData const* range, int32_t* out);
+char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret);
 
 char getDeviceRWType(cl_channel_type type);
 char getArgStorageType(cl_channel_type type);

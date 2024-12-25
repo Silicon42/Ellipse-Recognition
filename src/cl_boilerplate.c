@@ -119,16 +119,37 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 
 // applies the relative calculations for all arg sizes starting from index i in the ArgStaging array,
 // assumes all prior entries were already set and interprets their sizes as exact values
-void calcRanges(QStaging* staging, TrackedArg* t_args)
+void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
-	for(uint16_t i = 0; i < staging->arg_cnt; ++i)
+	RangeData const* curr_range;
+	Size3D const* ref_size;
+	Size3D* sizes;
+	
+	sizes = staged->img_sizes;
+	for(int i = 0; i < staged->arg_cnt; ++i)
 	{
-		RangeData* curr_range = &staging->arg_stg[i].size;
-		int32_t const* ref_size = &staging->arg_stg[curr_range->ref_idx].size.param;
-		calcSizeByMode(ref_size, curr_range, &t_args[i]);
+		curr_range = &staging->arg_stg[i].size;
+		ref_size = &sizes[curr_range->ref_idx];
+		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
+		if(e->err_code)
+		{
+			e->detail = i;
+			return;
+		}
 	}
 
-	
+	sizes = staged->ranges;
+	for(int i = 0; i < staged->stage_cnt; ++i)
+	{
+		curr_range = &staging->kern_stg[i].range;
+		ref_size = &sizes[curr_range->ref_idx];
+		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
+		if(e->err_code)
+		{
+			e->detail = -i;
+			return;
+		}
+	}
 }
 
 // fills in the ArgTracker according to the arg staging data in staging,
