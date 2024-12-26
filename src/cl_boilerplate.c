@@ -126,9 +126,9 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	Size3D* sizes;
 	
 	sizes = staged->img_sizes;
-	for(int i = 0; i < staged->arg_cnt; ++i)
+	for(int i = 0; i < staged->img_arg_cnt; ++i)
 	{
-		curr_range = &staging->arg_stg[i].size;
+		curr_range = &staging->img_arg_stg[i].size;
 		ref_size = &sizes[curr_range->ref_idx];
 		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
 		if(e->err_code)
@@ -156,31 +156,13 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 // assumes the ArgTracker was allocated big enough not to overrun it and
 // is pre-populated with the expected number of hard-coded input entries
 // such that it may add the first new entry at i
-void instantiateKernelArgs(cl_context context, QStaging const* staging, cl_mem* img_args, uint16_t i, clbp_Error* e)
+void instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
-	for(; i < staging->arg_cnt; ++i)
+	for(int i = staging->input_img_cnt; i < staging->img_arg_cnt; ++i)
 	{
-		ArgStaging curr_s_arg = staging->arg_stg[i];
-		// which arg this arg references for its size calculation
-		cl_mem ref_arg = img_args[curr_s_arg.size.ref_idx];
-
-		// query the reference size
-		size_t ref_size[3];
-		e->detail = "clGetImageInfo";
-		e->err_code = clGetImageInfo(ref_arg, CL_IMAGE_WIDTH, sizeof(size_t), ref_size, NULL);
-		if(e->err_code)
-			return;
-		e->err_code = clGetImageInfo(ref_arg, CL_IMAGE_HEIGHT, sizeof(size_t), &ref_size[1], NULL);
-		if(e->err_code)
-			return;
-		e->err_code = clGetImageInfo(ref_arg, CL_IMAGE_DEPTH, sizeof(size_t), &ref_size[2], NULL);
-		if(e->err_code)
-			return;
-
-		size_t size[3];
-		calcSizeByMode(ref_size, &curr_s_arg.size, size);
+		size_t* size = staged->img_sizes[i].d;
 		cl_image_desc desc = {
-			.image_type = CL_MEM_OBJECT_IMAGE2D,
+			.image_type = ,
 			.image_width = size[0],
 			.image_height = size[1],
 			.image_depth = size[2],
@@ -196,7 +178,7 @@ void instantiateKernelArgs(cl_context context, QStaging const* staging, cl_mem* 
 		cl_mem_flags flags = 0;
 		// is it a hard-coded input? if so, copy it
 		if()
-		 (CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
+			(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
 		
 
 		img_args[i] = clCreateImage(context, flags, &curr_s_arg->format, &desc, NULL, &e->err_code);
@@ -210,18 +192,18 @@ void instantiateKernelArgs(cl_context context, QStaging const* staging, cl_mem* 
 
 // returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging const* arg_stg, cl_kernel kernel, cl_mem* img_args, clbp_Error* e)
+void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging const* img_arg_stg, cl_kernel kernel, cl_mem* img_args, clbp_Error* e)
 {
 	// get the count of how many args the kernel has to iterate over
-	cl_uint arg_cnt;
-	e->err_code = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &arg_cnt, NULL);
+	cl_uint img_arg_cnt;
+	e->err_code = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &img_arg_cnt, NULL);
 	if(e->err_code)
 	{
 		e->detail = "clGetKernelInfo";
 		return;
 	}
 
-	for(cl_uint i=0; i < arg_cnt; ++i)
+	for(cl_uint i=0; i < img_arg_cnt; ++i)
 	{
 		printf("\n* [%i] ", i);
 		cl_kernel_arg_access_qualifier arg_access;
@@ -246,7 +228,7 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 		}
 
 		// current arg staging data being processed
-		ArgStaging* curr_s_arg = &arg_stg[stage->arg_idxs[i]];
+		ArgStaging* curr_s_arg = &img_arg_stg[stage->arg_idxs[i]];
 		// which arg this arg references for its size calculation
 		TrackedArg* ref_arg = &(at->args[curr_s_arg->size.ref_idx]);
 
@@ -306,10 +288,10 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 	}
 }
 
-void prepQStages(cl_context context, const QStaging* staging, const cl_program kprog, QStage* stages, ArgTracker* at, clbp_Error* e)
+void instantiateKernels(cl_context context, QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e)
 {
-	assert(staging && kprog && stages && at && e);
-	for(int i = 0; i < staging->stage_cnt; ++i)
+	assert(staging && kprog && staged && e);
+	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
 		KernStaging* curr_stage = &staging->kern_stg[i];
 		char* kprog_name = staging->kprog_names[curr_stage->kernel_idx];
@@ -321,25 +303,7 @@ void prepQStages(cl_context context, const QStaging* staging, const cl_program k
 			return;
 		}
 
-		// set the name in the current stage and print it, done early to easier identify errors
-	//	e->err_code = clGetKernelInfo(ref_kernels[kern_idx], CL_KERNEL_FUNCTION_NAME, sizeof(stages[i].name), &(stages[i].name), NULL);
-	//	handleClError(clErr, "clGetKernelInfo");
-	//	printf("\n\nStaging kernel: %s", stages[i].name);
-		
-		// it's maybe a little wasteful to always clone the reference kernel every time,
-		// but at least I don't need to manually track if it's been used already this way
-		/*	// clCloneKernel() not available in OpenCL1.2
-		cl_kernel curr_kern = clCloneKernel(ref_kernels[kern_idx], &clErr);
-		handleClError(clErr, "clCloneKernel");
-		*/
-		//FIXME: Temp fix for OpenCL 1.2 support, just assign the ref_kernel and don't free it, means each can only be used once
-	//	cl_kernel curr_kern = ref_kernels[kern_idx];
-		stages[i].kernel = kernel;
-		setKernelArgs(context, curr_stage, kernel, at, e);
-
-		TrackedArg* ref_arg = &(at->args[curr_stage->range.ref_idx]);
-
-		calcSizeByMode(ref_arg->size, &curr_stage->range, stages[i].range);
+		staged->kernels[i] = kernel;
 	}
 
 	return;

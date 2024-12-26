@@ -2,13 +2,13 @@
 #include "clbp_parse_manifest.h"
 #include "cl_boilerplate.h"
 
-clbp_Error parseRangeData(char** arg_name_list, int arg_cnt, RangeData* ret, toml_table_t* size_tbl)
+clbp_Error parseRangeData(char** arg_name_list, int img_arg_cnt, RangeData* ret, toml_table_t* size_tbl)
 {
 	if(!size_tbl)	// size wasn't specified, fallback to default
 	{
 		*ret = (RangeData){
 			.param = {0,0,0},
-			.ref_idx = arg_cnt - 1,
+			.ref_idx = img_arg_cnt - 1,
 			.mode = REL
 		};
 		return (clbp_Error){0};
@@ -17,7 +17,7 @@ clbp_Error parseRangeData(char** arg_name_list, int arg_cnt, RangeData* ret, tom
 	//read the name of the reference arg
 	toml_value_t val = toml_table_string(size_tbl, "ref_arg");
 	if(!val.u.s[0])	//string defaults to empty string if val.ok == false
-		ret->ref_idx = arg_cnt - 1;	// if missing or empty, default to previous arg
+		ret->ref_idx = img_arg_cnt - 1;	// if missing or empty, default to previous arg
 	else
 	{
 		int ref_idx = getStringIndex(arg_name_list, val.u.s);
@@ -42,13 +42,13 @@ clbp_Error parseRangeData(char** arg_name_list, int arg_cnt, RangeData* ret, tom
 	return (clbp_Error){0};
 }
 
-clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* arg_stg, int arg_cnt, toml_table_t* args, char* arg_name)
+clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg, int img_arg_cnt, toml_table_t* args, char* arg_name)
 {
 	toml_table_t* arg_conf = toml_table_table(args, arg_name);
 	if(!arg_conf)
 		return (clbp_Error){.err_code = CLBP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
 
-	ArgStaging* new_arg = &arg_stg[arg_cnt];
+	ArgStaging* new_arg = &img_arg_stg[img_arg_cnt];
 	toml_value_t storage = toml_table_string(arg_conf, "storage");
 	StorageType st = {0};
 	int pos = 0;
@@ -145,7 +145,7 @@ clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* arg_stg, in
 	}
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
-	return parseRangeData(arg_name_list, arg_cnt, &new_arg->size, size_tbl);
+	return parseRangeData(arg_name_list, img_arg_cnt, &new_arg->size, size_tbl);
 
 }
 
@@ -208,14 +208,14 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "kernel arguments names array"};
 		return;
 	}
-	staging->arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
-	if(!staging->arg_stg)
+	staging->img_arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
+	if(!staging->img_arg_stg)
 	{
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "ArgStaging array"};
 		return;
 	}
 	//technically this is an upper limit but it can be stored here temporarily until we get the real count
-	staging->arg_cnt = max_defined_args;
+	staging->img_arg_cnt = max_defined_args;
 	return;
 }
 
@@ -223,8 +223,8 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_Error* e)
 {
 	assert(root_tbl && staging && e);
-	int max_defined_args = staging->arg_cnt;
-	int arg_cnt = 0;
+	int max_defined_args = staging->img_arg_cnt;
+	int img_arg_cnt = 0;
 
 	// assumes stage list and args table was already validated
 	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
@@ -260,28 +260,28 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 			return;
 		}
 
-		int stg_arg_cnt = toml_array_len(stage_args);
+		int stg_img_arg_cnt = toml_array_len(stage_args);
 
 		// iterate over args to find any new ones
-		for(int j = 0; j < stg_arg_cnt; ++j)
+		for(int j = 0; j < stg_img_arg_cnt; ++j)
 		{
 			char* arg_name = toml_array_string(stage_args, j).u.s;	//guaranteed exists due to kind, and type checks above
 			if(arg_name[0])	// if not empty string
 			{
 				int arg_idx = addUniqueString(staging->arg_names, max_defined_args, arg_name);
 				staging->kern_stg[i].arg_idxs[j] = arg_idx;
-				if(arg_idx == arg_cnt)	//check if this was a newly referenced argument
+				if(arg_idx == img_arg_cnt)	//check if this was a newly referenced argument
 				{
-					++arg_cnt;	//is only ever bigger by one so this is safe
+					++img_arg_cnt;	//is only ever bigger by one so this is safe
 					//instantiate a corresponding arg on the arg staging array
 
-					*e = validateNstoreArgConfig(staging->arg_names, staging->arg_stg, arg_cnt, args_table, arg_name);
+					*e = validateNstoreArgConfig(staging->arg_names, staging->img_arg_stg, img_arg_cnt, args_table, arg_name);
 					if(e->err_code != CLBP_OK)
 						return;
 				}
 			}
 			else	// empty string is a special case that always selects whatever was last added
-				staging->kern_stg[i].arg_idxs[j] = arg_cnt - 1;
+				staging->kern_stg[i].arg_idxs[j] = img_arg_cnt - 1;
 		}
 	}
 

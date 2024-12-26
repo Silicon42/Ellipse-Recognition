@@ -64,11 +64,12 @@ typedef struct {
 typedef struct {
 	uint16_t kernel_cnt;
 	uint16_t stage_cnt;
-	uint16_t arg_cnt;
+	uint16_t img_arg_cnt;
+	uint16_t input_img_cnt;
 	char** kprog_names;		// array of kernel program names that are used and must be compiled
 	KernStaging* kern_stg;	// kernel staging array listing all stages, their scheduling details, and their program indices
 	char** arg_names;		// array of kernel program argument names that get used for the stages
-	ArgStaging* arg_stg;	// arg staging array listing details about type of arg, and size
+	ArgStaging* img_arg_stg;// arg staging array listing details about type of arg, and size
 } QStaging;
 /*
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects
@@ -89,7 +90,7 @@ typedef struct {
 typedef struct {
 	// counts duplicated from QStaging so that it may safely have its contents freed and go out of scope
 	uint16_t stage_cnt;	// how many stages the kernel array contains
-	uint16_t arg_cnt;	// how many args the img_args array contains
+	uint16_t img_arg_cnt;	// how many args the img_args array contains
 	cl_kernel* kernels;	// array of kernel instances corresponding to each stage
 	Size3D* ranges;		// array of 3D ranges to enque the matching kernel index with
 	cl_mem* img_args;	// array of all image args associated with the kernel

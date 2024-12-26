@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 	//TODO: add QStaging caching so that if the manifest isn't changed, we don't have to re-parse everything
 
 	// allocate tracking array for image args
-	cl_mem* img_args = malloc(staging.arg_cnt * sizeof(cl_mem));
+	cl_mem* img_args = malloc(staging.img_arg_cnt * sizeof(cl_mem));
 	if(!img_args)
 		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"});
 
