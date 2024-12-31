@@ -99,7 +99,7 @@ void handleClError(cl_int cl_error, const char* from)
 	fputs("(): ", stderr);
 	printClError(cl_error);
 
-	exit(cl_error);
+//	exit(cl_error);
 }
 
 int handleClGetDeviceIDs(cl_int cl_error)

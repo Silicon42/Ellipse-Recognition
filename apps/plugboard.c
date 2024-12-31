@@ -18,9 +18,6 @@
 //#define MAX_KERNELS 32
 //#define MAX_STAGES 32
 //#define MAX_ARGS 200
-// macro to stringify defined literal values
-#define STR_EXPAND(tok) #tok
-#define STR(tok) STR_EXPAND(tok)
 
 //FIXME: need to think of this as a library since we want people to use this to track things
 // in their own programs, therefore, it can't be calling exit() in case of an error

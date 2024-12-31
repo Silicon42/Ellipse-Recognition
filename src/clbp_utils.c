@@ -100,7 +100,7 @@ char isArgMetadataValid(char const metadata[static 3])
 	return 0;
 }
 
-cl_channel_type getTypeFromMetadata(const char* metadata)
+char doesChannelTypeMatch(const char* metadata, cl_channel_type type)
 {
 	if(metadata[0] == 'f')
 	{

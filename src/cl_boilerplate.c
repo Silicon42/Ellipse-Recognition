@@ -44,7 +44,6 @@ int addUniqueString(char** list, int max_entries, char* str)
 	return i;
 }
 
-
 // Searches through a string array (char** list) for a match to the contents of char* str
 // Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
 //NOTE: does not check str for a null pointer
@@ -63,6 +62,56 @@ int getStringIndex(char** list, const char* str)
 	return -1;
 }
 
+// helper function that returns the first position that a string differs by,
+// assumes at least one is null terminated
+int strDiffPos(char const* lhs, char const* rhs)
+{
+	int i = 0;
+	while(lhs[i] == rhs[i])
+	{
+		if(lhs[i++] == '\0')	// if the matched character was a null character, stop comparing
+			break;
+	}
+	return i;
+}
+
+// applies the relative calculations for all arg sizes starting from index i in the ArgStaging array,
+// assumes all prior entries were already set and interprets their sizes as exact values
+void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
+{
+	RangeData const* curr_range;
+	Size3D const* ref_size;
+	Size3D* sizes;
+	
+	sizes = staged->img_sizes;
+	for(int i = 0; i < staged->img_arg_cnt; ++i)
+	{
+		curr_range = &staging->img_arg_stg[i].size;
+		ref_size = &sizes[curr_range->ref_idx];
+		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
+		if(e->err_code)
+		{
+			e->detail = i;
+			return;
+		}
+	}
+
+	sizes = staged->ranges;
+	for(int i = 0; i < staged->stage_cnt; ++i)
+	{
+		curr_range = &staging->kern_stg[i].range;
+		ref_size = &sizes[curr_range->ref_idx];
+		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
+		if(e->err_code)
+		{
+			e->detail = -i;
+			return;
+		}
+	}
+}
+
+// handles using staging data to selectively open kernel program source files and compile and link them into a single program binary
+//TODO: add support for using pre-calculated ranges as defined constants
 cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, cl_program* kprogs, clbp_Error* e)
 {
 	assert(src_dir && staging && kprogs && e);
@@ -71,8 +120,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	// and last modified dates match cached version for all sources in list
 
 	// Read kernel program source file and place content into buffer
-//	cl_uint kernel_cnt = 0;
-	for(cl_uint i = 0; i < staging->kernel_cnt; ++i)
+	for(int i = 0; i < staging->kernel_cnt; ++i)
 	{
 		//TODO: add binary caching/loading, needs to check existence of binary and last modified timestamp of source
 		//append src dir to name and attempt read, unfortunately not smart enough to know about header changes but it'll have to do
@@ -117,37 +165,145 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	return linked_prog;
 }
 
-// applies the relative calculations for all arg sizes starting from index i in the ArgStaging array,
-// assumes all prior entries were already set and interprets their sizes as exact values
-void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
+// creates actual kernel instances from staging data and stores it in the staged queue
+void instantiateKernels(cl_context context, QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e)
 {
-	RangeData const* curr_range;
-	Size3D const* ref_size;
-	Size3D* sizes;
-	
-	sizes = staged->img_sizes;
-	for(int i = 0; i < staged->img_arg_cnt; ++i)
-	{
-		curr_range = &staging->img_arg_stg[i].size;
-		ref_size = &sizes[curr_range->ref_idx];
-		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
-		if(e->err_code)
-		{
-			e->detail = i;
-			return;
-		}
-	}
-
-	sizes = staged->ranges;
+	assert(staging && kprog && staged && e);
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
-		curr_range = &staging->kern_stg[i].range;
-		ref_size = &sizes[curr_range->ref_idx];
-		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
+		KernStaging* curr_stage = &staging->kern_stg[i];
+		char* kprog_name = staging->kprog_names[curr_stage->kernel_idx];
+		printf("Staging %s\n", kprog_name);
+		cl_kernel kernel = clCreateKernel(kprog, kprog_name, &e->err_code);
 		if(e->err_code)
 		{
-			e->detail = -i;
+			e->detail = "clCreateKernel";
 			return;
+		}
+
+		staged->kernels[i] = kernel;
+	}
+
+	return;
+}
+
+// infers the access qualifiers of the image args as well as verifies that type data specified matches what the kernels expect of it
+// meant to be run once after kernels have been instantiated for at least 1 staged queue, additional staged queues don't
+// require re-runs of inferArgAccessAndVerifyTypes() since data extracted from the kernel instance args shouldn't change
+void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
+{
+	// for each stage
+	for(int i = 0; i < staged->stage_cnt; ++i)
+	{
+		cl_kernel curr_kern = staged->kernels[i];
+		char const* kprog_name = staging->kprog_names[staging->kern_stg[i].kernel_idx];
+		cl_uint arg_cnt;
+		cl_uint err;
+		err = clGetKernelInfo(curr_kern, CL_KERNEL_NUM_ARGS, sizeof(arg_cnt), &arg_cnt, NULL);
+		if(err)
+		{
+			handleClError(err, "clGetKernelInfo");
+			fprintf(stderr, "WARNING: couldn't get CL_KERNEL_NUM_ARGS @ stage %i (%s),"
+			"	skipping type verification and argument access qualifier inferencing.\n", i, kprog_name);
+			continue;
+		}
+		// for each argument of the current kernel
+		for(int j = 0; j < arg_cnt; ++j)
+		{
+			int arg_idx = staging->kern_stg[i].arg_idxs[j];
+			char const* arg_name = staging->arg_names[arg_idx];
+			ArgStaging* curr_arg = &staging->img_arg_stg[arg_idx];
+			cl_kernel_arg_access_qualifier access_qual;
+			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(access_qual), &access_qual, NULL);
+			if(err)
+			{
+				handleClError(err, "clGetKernelArgInfo");
+				fprintf(stderr, "WARNING: couldn't get CL_KERNEL_ARG_ACCESS_QUALIFIER @ stage %i (%s), arg %i (%s)"
+				"	Skipping argument access qualifier inferencing.\n", i, kprog_name, j, arg_name);
+			}
+			else
+			{
+				cl_mem_flags* curr_flags = &curr_arg->flags;
+				switch(access_qual)
+				{
+				//FIXME: not sure if this is correct, it might be that arguments that get written and read by different kernels
+				// need to be read/write instead of read only + write only, once I know for sure, I'll fix this or remove this note
+				case CL_KERNEL_ARG_ACCESS_READ_ONLY:
+					// check for read before write, if none of these flags are set, nothing* could have written to it before this read occured
+					// *except writing to it from the same kernel but that's undefined behavior and not portable and harder to check so I'm not checking that
+					if(!(*curr_flags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_WRITE_ONLY)))
+						fprintf(stderr, "WARNING: reading arg before writing to it @ stage %i (%s), arg %i (%s)\n", i, kprog_name, j, arg_name);
+					*curr_flags |= CL_MEM_READ_ONLY;
+					break;
+				case CL_KERNEL_ARG_ACCESS_WRITE_ONLY:
+					*curr_flags |= CL_MEM_WRITE_ONLY;
+					break;
+				case CL_KERNEL_ARG_ACCESS_READ_WRITE:
+					*curr_flags |= CL_MEM_READ_WRITE;
+					break;
+			//	case CL_KERNEL_ARG_ACCESS_NONE:	//not an image or pipe, access qualifier doesn't apply
+				default:
+					fprintf(stderr, "WARNING: non-image arg requested @ stage %i (%s), arg %i (%s)"
+					"	Currently no non-image support implemented.\n", i, kprog_name, j, arg_name);
+					continue;	//TODO: currently doesn't handle non-image types, this is just placeholder code that would probably break if executed
+				}
+			}
+
+			char arg_metadata[64];	// although only 4 entries are needed, reading the name will fail if there's not enough room for the whole name
+			err = clGetKernelArgInfo(curr_kern, i, CL_KERNEL_ARG_TYPE_NAME, sizeof(arg_metadata), arg_metadata, NULL);
+			if(err)
+			{
+				handleClError(err, "clGetKernelArgInfo");
+				fprintf(stderr, "WARNING: couldn't get CL_KERNEL_ARG_TYPE_NAME @ stage %i (%s), arg %i (%s)"
+				"	Couldn't verify arg type.\n", i, kprog_name, j, arg_name);
+				continue;
+			}
+			//else
+			puts(arg_metadata);//TODO: remove this debugging line once you know what all the types actually return
+			int cmp = strncmp(arg_metadata, "image", 5);
+			if(cmp)
+			{
+				fprintf(stderr, "WARNING: non-image arg requested @ stage %i (%s), arg %i (%s)"
+				"	Currently no non-image support implemented.\n", i, kprog_name, j, arg_name);
+				continue;
+			}
+			//else, arg type was image1d, image2d, or image3d
+			//FIXME: following block is a hack fix, at this point I just want this shit to work for what I need it to and I'll come fix this properly eventually
+			cmp = arg_metadata[5] - '0';
+			int img_dims = curr_arg->type - CLBP_IMAGE_1D + 1;
+			if(img_dims != cmp)
+			{
+				fprintf(stderr, "WARNING: image type mismatch @ stage %i (%s), arg %i (%s)"
+				"	provided image%id, requested image%id.\n", i, kprog_name, j, arg_name, img_dims, cmp);
+				continue;
+			}
+			// else, no warning, verified!
+
+			// I attach type data in a similar style to Hungarian notation to the names so that the expected type backing of
+			// the image is stored with the kernel itself and can be interpreted here by querying the name.
+			// [0] == [f/h/u/i] the read/write type used with it, using a non matched cl_channel_type can lead to Undefined Behavior
+			// [1] == [for f/h: s/u/f, for u/i: c/s/i] hint for what range of values are expected, float:signed norm/unsigned norm/full range, int: char/short/integer
+			// [2] == [1/2/3/4] hint for how many channels it expects
+			err = clGetKernelArgInfo(curr_kern, i, CL_KERNEL_ARG_NAME, sizeof(arg_metadata), arg_metadata, NULL);
+			if(err)
+			{
+				handleClError(err, "clGetKernelArgInfo");
+				fprintf(stderr, "WARNING: couldn't get CL_KERNEL_ARG_NAME @ stage %i (%s), arg %i (%s)"
+				"	Skipping image access type verification.\n", i, kprog_name, j, arg_name);
+				continue;
+			}
+
+			char isValid = isArgMetadataValid(arg_metadata);
+			if(!isValid)
+			{
+				fprintf(stderr, "WARNING: invalid argument metadata @ stage %i (%s), arg %i (%s)"
+				"	Skipping image access type verification.\n", i, kprog_name, j, arg_name);
+				continue;
+			}
+
+			 getTypeFromMetadata(arg_metadata);
+			 getOrderFromMetadata(arg_metadata);
+
 		}
 	}
 }
@@ -214,27 +370,11 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 			return;
 		}
 	
-		// I attach type data in a similar style to Hungarian notation to the names so that the expected type backing of
-		// the image is stored with the kernel itself and can be interpreted here by querying the name.
-		// [0] == [f/h/u/i] the read/write type used with it, using a non matched cl_channel_type can lead to Undefined Behavior
-		// [1] == [for f/h: s/u/f, for u/i: c/s/i] hint for what range of values are expected, float:signed norm/unsigned norm/full range, int: char/short/integer
-		// [2] == [1/2/3/4] hint for how many channels it expects
-		char arg_metadata[64];	// although only 4 entries are needed, reading the name will fail if there's not enough room for the whole name
-		e->err_code = clGetKernelArgInfo(kernel, i, CL_KERNEL_ARG_NAME, 64, arg_metadata, NULL);
-		if(e->err_code)
-		{
-			e->detail = "clGetKernelArgInfo";
-			return;
-		}
-
 		// current arg staging data being processed
 		ArgStaging* curr_s_arg = &img_arg_stg[stage->arg_idxs[i]];
 		// which arg this arg references for its size calculation
 		TrackedArg* ref_arg = &(at->args[curr_s_arg->size.ref_idx]);
 
-		char isValid = isArgMetadataValid(arg_metadata);
-		if(!isValid)
-			fputs("WARNING: invalid argument metadata, can't validate correctness", stderr);
 
 		// write-only and certain r/w arguments should be the only ones that correspond to the first use
 		//TODO: add more diagnostic info to created args like channel count and type
@@ -250,8 +390,6 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 
 			TrackedArg* curr_t_arg = &(at->args[at->args_cnt]);
 
-			curr_t_arg->format.image_channel_data_type = getTypeFromMetadata(arg_metadata);
-			curr_t_arg->format.image_channel_order = getOrderFromMetadata(arg_metadata);
 			calcSizeByMode(ref_arg->size, &curr_s_arg->size, curr_t_arg->size);
 
 			// if this is a host readable output, we need to see if the size in bytes is bigger than any previous args so the
@@ -287,28 +425,6 @@ void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging cons
 		}
 	}
 }
-
-void instantiateKernels(cl_context context, QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e)
-{
-	assert(staging && kprog && staged && e);
-	for(int i = 0; i < staged->stage_cnt; ++i)
-	{
-		KernStaging* curr_stage = &staging->kern_stg[i];
-		char* kprog_name = staging->kprog_names[curr_stage->kernel_idx];
-		printf("Staging %s\n", kprog_name);
-		cl_kernel kernel = clCreateKernel(kprog, kprog_name, &e->err_code);
-		if(e->err_code)
-		{
-			e->detail = "clCreateKernel";
-			return;
-		}
-
-		staged->kernels[i] = kernel;
-	}
-
-	return;
-}
-
 
 // creates a single channel cl_mem image from a file and attaches it to the tracked arg pointer provided
 // the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
@@ -353,7 +469,7 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 }
 
 // converts format of data to char array compatible read, returns channel count since it's often needed after this and is already called here
-unsigned char readImageAsCharArr(char* data, TrackedArg* arg)
+unsigned char readImageAsCharArr(char* data, cl_mem arg)
 {
 	unsigned char channel_cnt = getChannelCount(arg->format.image_channel_order);
 	size_t length = arg->size[0] * arg->size[1] * arg->size[2] * channel_cnt;

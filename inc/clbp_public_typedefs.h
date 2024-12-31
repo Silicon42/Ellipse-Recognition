@@ -22,7 +22,9 @@ enum rangeMode {
 
 // 'i'mage, image 'a'rray, 'p'ipe, 'b'uffer, or 's'calar
 enum argType {
-	CLBP_IMAGE = 'i',
+	CLBP_IMAGE_1D = 'i',
+	CLBP_IMAGE_2D,//'j',
+	CLBP_IMAGE_3D,//'k',
 	CLBP_IMAGE_ARRAY = 'a',
 	CLBP_BUFFER = 'b',
 	CLBP_PIPE = 'p',
