@@ -91,8 +91,8 @@ char isArgMetadataValid(char const metadata[static 3])
 		// check expected range validity
 		switch(metadata[1])
 		{
-		case 's':	// signed normalized	[-1.0, 1.0]
 		case 'u':	// unsigned normalized	[ 0.0, 1.0]
+		case 's':	// signed normalized	[-1.0, 1.0]
 		case 'f':	// full range			[-Inf, Inf]
 			return 1;
 		}
@@ -102,46 +102,38 @@ char isArgMetadataValid(char const metadata[static 3])
 
 char doesChannelTypeMatch(const char* metadata, cl_channel_type type)
 {
-	if(metadata[0] == 'f')
+	switch(type)
 	{
-		switch(metadata[1])
-		{
-		case 'F':
-		case 'f':
-			return CL_FLOAT;
-		case 'H':
-		case 'h':
-			return CL_HALF_FLOAT;
-		case 'c':
-			return CL_UNORM_INT8;
-		case 's':
-			return CL_UNORM_INT16;
-		case 'C':
-			return CL_SNORM_INT8;
-		case 'S':
-			return CL_SNORM_INT16;
-		}
-		//warning fix/error trap
-		return 0;
+	case CL_UNSIGNED_INT8:
+		return metadata[0] == 'u' && metadata[1] == 'c';
+	case CL_UNSIGNED_INT16:
+		return metadata[0] == 'u' && metadata[1] == 's';
+	case CL_UNSIGNED_INT32:
+		return metadata[0] == 'u' && metadata[1] == 'i';
+	case CL_SIGNED_INT8:
+		return metadata[0] == 'i' && metadata[1] == 'c';
+	case CL_SIGNED_INT16:
+		return metadata[0] == 'i' && metadata[1] == 's';
+	case CL_SIGNED_INT32:
+		return metadata[0] == 'i' && metadata[1] == 'i';
+	case CL_SNORM_INT8:
+	case CL_SNORM_INT16:
+		if(metadata[1] != 's')
+			return 0;
+	case CL_HALF_FLOAT:
+		if(metadata[0] == 'h')
+			return 1;
+	case CL_FLOAT:
+		return metadata[0] == 'f';
+	default:	// all the weird/extension only ones are unsigned normalized
+/*	case CL_UNORM_SHORT_565:
+	case CL_UNORM_SHORT_555:
+	case CL_UNORM_INT_101010:
+	case CL_UNORM_INT_101010_2:
+	case CL_UNORM_INT8:
+	case CL_UNORM_INT16:*/
+		return metadata[1] == 'u' && (metadata[0] == 'h' || metadata[0] == 'f');
 	}
-	//else
-	switch(metadata[1])
-	{
-	case 'c':
-		return CL_UNSIGNED_INT8;
-	case 's':
-		return CL_UNSIGNED_INT16;
-	case 'i':
-		return CL_UNSIGNED_INT32;
-	case 'C':
-		return CL_SIGNED_INT8;
-	case 'S':
-		return CL_SIGNED_INT16;
-	case 'I':
-		return CL_SIGNED_INT32;
-	}
-	//warning fix/error trap
-	return 0;
 }
 
 cl_channel_order getOrderFromMetadata(const char* metadata)
