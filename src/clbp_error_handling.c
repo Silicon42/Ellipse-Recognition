@@ -13,6 +13,8 @@ static const char* clbp_error_strings[] = {
 	"\nTOML ERROR: %s\n",
 	MANIFEST_ERROR"Stages array must be a table array with at least one item.\n",
 	MANIFEST_ERROR"Args table was empty.\n",
+	MANIFEST_ERROR"Hardcoded args array must be a string array.\n",
+	MANIFEST_ERROR"Arg must have valid name. Hardcoded arg index: %i\n",
 	MANIFEST_ERROR"Missing \"name\" key at entry %i of stages array.\n",
 	MANIFEST_ERROR"Args array at entry %i of stages array must be an array of strings with at least one item.\n",
 	MANIFEST_ERROR"Requested arg \"%s\" but no such key was found under [args].\n",

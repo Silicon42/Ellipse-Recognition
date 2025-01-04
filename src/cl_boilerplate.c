@@ -189,9 +189,16 @@ void instantiateKernels(cl_context context, QStaging const* staging, const cl_pr
 
 // infers the access qualifiers of the image args as well as verifies that type data specified matches what the kernels expect of it
 // meant to be run once after kernels have been instantiated for at least 1 staged queue, additional staged queues don't
-// require re-runs of inferArgAccessAndVerifyTypes() since data extracted from the kernel instance args shouldn't change
-void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
+// require re-runs of inferArgAccessAndVerifyFormats() since data extracted from the kernel instance args shouldn't change
+void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 {
+	for(int i = 0; i < staging->input_img_cnt; ++i)
+	{
+		// is it a hard-coded input? if so, copy it
+			(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
+	}
+
+	printf("[Verifying kernel args]\n");
 	// for each stage
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
@@ -199,12 +206,13 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 		char const* kprog_name = staging->kprog_names[staging->kern_stg[i].kernel_idx];
 		cl_uint arg_cnt;
 		cl_uint err;
+		printf("%i:	%s\n", i, kprog_name);
 		err = clGetKernelInfo(curr_kern, CL_KERNEL_NUM_ARGS, sizeof(arg_cnt), &arg_cnt, NULL);
 		if(err)
 		{
 			handleClError(err, "clGetKernelInfo");
-			fprintf(stderr, "WARNING: couldn't get CL_KERNEL_NUM_ARGS @ stage %i (%s),"
-			"	skipping type verification and argument access qualifier inferencing.\n", i, kprog_name);
+			perror("WARNING: couldn't get CL_KERNEL_NUM_ARGS\n"
+			"	Skipping argument access qualifier inferencing and format verification.\n");
 			continue;
 		}
 		// for each argument of the current kernel
@@ -212,14 +220,15 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 		{
 			int arg_idx = staging->kern_stg[i].arg_idxs[j];
 			char const* arg_name = staging->arg_names[arg_idx];
+			printf("	%i:	%s", j, arg_name);
 			ArgStaging* curr_arg = &staging->img_arg_stg[arg_idx];
 			cl_kernel_arg_access_qualifier access_qual;
 			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(access_qual), &access_qual, NULL);
 			if(err)
 			{
 				handleClError(err, "clGetKernelArgInfo");
-				fprintf(stderr, "WARNING: couldn't get CL_KERNEL_ARG_ACCESS_QUALIFIER @ stage %i (%s), arg %i (%s)"
-				"	Skipping argument access qualifier inferencing.\n", i, kprog_name, j, arg_name);
+				perror("WARNING: couldn't get CL_KERNEL_ARG_ACCESS_QUALIFIER\n"
+				"	Skipping argument access qualifier inferencing.\n");
 			}
 			else
 			{
@@ -232,7 +241,7 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 					// check for read before write, if none of these flags are set, nothing* could have written to it before this read occured
 					// *except writing to it from the same kernel but that's undefined behavior and not portable and harder to check so I'm not checking that
 					if(!(*curr_flags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_WRITE_ONLY)))
-						fprintf(stderr, "WARNING: reading arg before writing to it @ stage %i (%s), arg %i (%s)\n", i, kprog_name, j, arg_name);
+						perror("WARNING: reading arg before writing to it.\n");
 					*curr_flags |= CL_MEM_READ_ONLY;
 					break;
 				case CL_KERNEL_ARG_ACCESS_WRITE_ONLY:
@@ -243,8 +252,8 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 					break;
 			//	case CL_KERNEL_ARG_ACCESS_NONE:	//not an image or pipe, access qualifier doesn't apply
 				default:
-					fprintf(stderr, "WARNING: non-image arg requested @ stage %i (%s), arg %i (%s)"
-					"	Currently no non-image support implemented.\n", i, kprog_name, j, arg_name);
+					perror("WARNING: non-image arg requested\n"
+					"	Currently no non-image support implemented.\n");
 					continue;	//TODO: currently doesn't handle non-image types, this is just placeholder code that would probably break if executed
 				}
 			}
@@ -254,8 +263,8 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 			if(err)
 			{
 				handleClError(err, "clGetKernelArgInfo");
-				fprintf(stderr, "WARNING: couldn't get CL_KERNEL_ARG_TYPE_NAME @ stage %i (%s), arg %i (%s)"
-				"	Couldn't verify arg type.\n", i, kprog_name, j, arg_name);
+				perror("WARNING: couldn't get CL_KERNEL_ARG_TYPE_NAME\n"
+				"	Couldn't verify arg type.\n");
 				continue;
 			}
 			//else
@@ -263,8 +272,8 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 			int cmp = strncmp(arg_metadata, "image", 5);
 			if(cmp)
 			{
-				fprintf(stderr, "WARNING: non-image arg requested @ stage %i (%s), arg %i (%s)"
-				"	Currently no non-image support implemented.\n", i, kprog_name, j, arg_name);
+				perror("WARNING: non-image arg requested\n"
+				"	Currently no non-image support implemented.\n");
 				continue;
 			}
 			//else, arg type was image1d, image2d, or image3d
@@ -273,8 +282,8 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 			int img_dims = curr_arg->type - CLBP_IMAGE_1D + 1;
 			if(img_dims != cmp)
 			{
-				fprintf(stderr, "WARNING: image type mismatch @ stage %i (%s), arg %i (%s)"
-				"	provided image%id, requested image%id.\n", i, kprog_name, j, arg_name, img_dims, cmp);
+				fprintf(stderr, "WARNING: image type mismatch\n"
+				"	provided %s, requested image%id.\n", arg_metadata, cmp);
 				continue;
 			}
 			// else, no warning, verified!
@@ -288,22 +297,25 @@ void inferArgAccessAndVerifyTypes(QStaging* staging, StagedQ const* staged)
 			if(err)
 			{
 				handleClError(err, "clGetKernelArgInfo");
-				fprintf(stderr, "WARNING: couldn't get CL_KERNEL_ARG_NAME @ stage %i (%s), arg %i (%s)"
-				"	Skipping image access type verification.\n", i, kprog_name, j, arg_name);
+				perror("WARNING: couldn't get CL_KERNEL_ARG_NAME\n"
+				"	Skipping image format verification.\n");
 				continue;
 			}
 
 			char isValid = isArgMetadataValid(arg_metadata);
 			if(!isValid)
 			{
-				fprintf(stderr, "WARNING: invalid argument metadata @ stage %i (%s), arg %i (%s)"
-				"	Skipping image access type verification.\n", i, kprog_name, j, arg_name);
+				fprintf(stderr, "WARNING: invalid argument metadata: %s\n"
+				"	Skipping image format verification.\n", arg_metadata);
 				continue;
 			}
 
-			 getTypeFromMetadata(arg_metadata);
-			 getOrderFromMetadata(arg_metadata);
+			if(!isMatchingChannelType(arg_metadata, curr_arg->format.image_channel_data_type))
+				fprintf(stderr, "WARNING: channel data type mismatch\n");	//TODO: add more info of the mismatch
 
+			if(ChannelOrderDiff(arg_metadata[2], curr_arg->format.image_channel_order))
+				fprintf(stderr, "WARNING: channel count mismatch\n");	//TODO: add more info of the mismatch
+				//NOTE: may need to add special processing for 3 channel items since those aren't required to be supported by the OpenCL spec
 		}
 	}
 }
@@ -316,9 +328,10 @@ void instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* st
 {
 	for(int i = staging->input_img_cnt; i < staging->img_arg_cnt; ++i)
 	{
+		ArgStaging* curr_arg = &staging->img_arg_stg[i];
 		size_t* size = staged->img_sizes[i].d;
 		cl_image_desc desc = {
-			.image_type = ,
+			.image_type = curr_arg->type,
 			.image_width = size[0],
 			.image_height = size[1],
 			.image_depth = size[2],
@@ -330,14 +343,9 @@ void instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* st
 			.buffer = NULL
 		};
 
-		//W
-		cl_mem_flags flags = 0;
-		// is it a hard-coded input? if so, copy it
-		if()
-			(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
 		
 
-		img_args[i] = clCreateImage(context, flags, &curr_s_arg->format, &desc, NULL, &e->err_code);
+		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, NULL, &e->err_code);
 		if(e->err_code)
 		{
 			e->detail = "clCreateImage";

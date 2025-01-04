@@ -4,7 +4,7 @@
 #include <math.h>
 
 // ascii has this bit set for lowercase letters
-#define LOWER_MASK 0x20
+//#define LOWER_MASK 0x20
 
 cl_mem createImageBuffer(cl_context context, char force_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3])
 {
@@ -100,7 +100,13 @@ char isArgMetadataValid(char const metadata[static 3])
 	return 0;
 }
 
-char doesChannelTypeMatch(const char* metadata, cl_channel_type type)
+// checks provided channel type against one requested via the metadata, while some
+// mismatches could result in undefined behavior, others are just likely not what
+// you intended if you specified the metadata correctly, such as requesting a read
+// from a full range float but providing a signed normalized value instead. This is
+// primarily just to warn you that you might have made a mistake, but if it was
+// intentional, you can safely ignore the warning that will follow
+char isMatchingChannelType(const char* metadata, cl_channel_type type)
 {
 	switch(type)
 	{
@@ -125,28 +131,15 @@ char doesChannelTypeMatch(const char* metadata, cl_channel_type type)
 			return 1;
 	case CL_FLOAT:
 		return metadata[0] == 'f';
-	default:	// all the weird/extension only ones are unsigned normalized
-/*	case CL_UNORM_SHORT_565:
-	case CL_UNORM_SHORT_555:
-	case CL_UNORM_INT_101010:
-	case CL_UNORM_INT_101010_2:
-	case CL_UNORM_INT8:
-	case CL_UNORM_INT16:*/
-		return metadata[1] == 'u' && (metadata[0] == 'h' || metadata[0] == 'f');
 	}
+	// all the weird/extension only ones are unsigned normalized
+	return metadata[1] == 'u' && (metadata[0] == 'h' || metadata[0] == 'f');
 }
 
-cl_channel_order getOrderFromMetadata(const char* metadata)
+// returns the difference in number of channels provided vs requested,
+inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
 {
-	//only powers of 2 channels can be used for write buffers so 3 gets promoted to 4
-	switch(metadata[2])
-	{
-	case '1':
-		return CL_R;
-	case '2':
-		return CL_RG;
-	}
-	return CL_RGBA;
+	return getChannelCount(order) - (ch_cnt_data - '0');
 }
 
 // in can be NULL if mode is EXACT or SINGLE
@@ -219,7 +212,6 @@ char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
 	return CLBP_OK;
 }
 
-//TODO: add ifdefs for OpenCL versions to the following 3 helper functions
 char getDeviceRWType(cl_channel_type type)
 {
 	switch(type)
@@ -284,38 +276,39 @@ char getArgStorageType(cl_channel_type type)
 //TODO: currently assumes number of channels is the only thing important, NOT posistioning or ordering
 // this is likely wrong for the case of RA, INTENSITY, LUMINANCE, and DEPTH, however none of those should
 // be generated as output buffers which is the only time this should matter so it's not high priority to fix
-unsigned char getChannelCount(cl_channel_order order)
+char getChannelCount(cl_channel_order order)
 {	// not certain I interpreted the _x channel counts right but it'll do for now until I have a problem
 	switch(order)
 	{
 	case CL_R:
 	case CL_A:
-	case CL_Rx:
 	case CL_INTENSITY:
 	case CL_LUMINANCE:
 //	case CL_DEPTH:
 		return 1;
 	case CL_RG:
 	case CL_RA:
-	case CL_RGx:
+	case CL_Rx:
 		return 2;
 	case CL_RGB:
-	case CL_RGBx:
+	case CL_RGx:
 //	case CL_sRGB:
-//	case CL_sRGBx:
 		return 3;
 	case CL_RGBA:
 	case CL_BGRA:
 	case CL_ARGB:
+	case CL_RGBx:
 //	case CL_ABGR:
 //	case CL_sRGBA:
 //	case CL_sBGRA:
+//	case CL_sRGBx:
 		return 4;
 	default:
 		return 0;
 	}
 }
 
+/*
 unsigned char getChannelWidth(char metadata_type)
 {
 	switch(metadata_type | LOWER_MASK)
@@ -375,7 +368,7 @@ void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata)
 		if(found_channels < expected_channels)
 			fputs("Warning: less channels available to read than expected\n", stderr);
 	}
-}
+}*/
 /*
 // converts an end relative arg index to a pointer to the referenced TrackedArg with error checking
 TrackedArg* getRefArg(const ArgTracker* at, uint16_t rel_ref)

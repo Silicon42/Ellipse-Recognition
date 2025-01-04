@@ -50,7 +50,7 @@ typedef struct {
 
 // used to track fixed arg settings that stay constant between instances of a staged queue, regardless of image size
 typedef struct {
-	enum argType type;		// indicates what broad type of argument this should be
+	cl_mem_object_type type;// indicates what broad type of argument this should be
 	RangeData size;			// data on how to calculate the size_t[3] of the arg
 	cl_mem_flags flags;		// stores flag state to be assigned to eventual cl_mem object at creation, some from manifest, some from kernel arg queries
 	cl_image_format format;	// used for verifying compatible channel types, spacing and read/write operations

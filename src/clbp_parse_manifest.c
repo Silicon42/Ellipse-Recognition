@@ -59,8 +59,8 @@ clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg
 		st.isUnsigned = true;
 		++pos;
 		break;
-	case 'q':	// quad
-	case 'd':	// double
+//	case 'q':	// quad
+//	case 'd':	// double
 	case 'f':	// float
 	case 'h':	// half
 		st.isFloat = true;
@@ -129,7 +129,7 @@ clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg
 		st.vecExp = 6;
 	case '\0':	// single item/not a vector
 	}
-	new_arg->storage_type = st;
+	new_arg->type = st;
 
 	toml_value_t type = toml_table_string(arg_conf, "type");
 	switch(type.u.s[0])
@@ -197,10 +197,24 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 	toml_table_t* args_table = toml_table_table(root_tbl, "args");
 	if(!args_table || !args_table->nkval)
 	{
-		*e = (clbp_Error){.err_code = CLBP_MF_INVALID_ARGS_TABLE};
+		e->err_code = CLBP_MF_INVALID_ARGS_TABLE;
 		return;
 	}
 	int max_defined_args = args_table->nkval;
+
+	// get hardcoded args array (typically inputs defined in the source code)
+	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "hardCodedArgs");
+	if(hardcoded_args_arr)
+	{	// if the hardcoded args array exists, it must be a string array
+		if(!hardcoded_args_arr->type != 's')
+		{
+			e->err_code = CLBP_MF_INVALID_HC_ARGS_ARRAY;
+			return;
+		}
+		// if it was a string array, add the count to the max arg count such that space can be allocated for them
+		staging->input_img_cnt = hardcoded_args_arr->nitem;
+		max_defined_args += hardcoded_args_arr->nitem;
+	}
 
 	staging->arg_names = calloc(max_defined_args + 1, sizeof(char*));
 	if(!staging->arg_names)
@@ -214,6 +228,19 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "ArgStaging array"};
 		return;
 	}
+
+	// set the names of the hard-coded args while we have a reference to the toml_array_t
+	for(int i = 0; i < staging->input_img_cnt; ++i)
+	{
+		toml_value_t name = toml_array_string(hardcoded_args_arr, i);
+		if(name.u.s[0] == '\0')
+		{
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_NAME, .detail = i};
+			return;
+		}
+		staging->arg_names[i] = name.u.s;
+	}
+	//TODO: check if it max_defined_args is still needed or if this can be set to the hardcoded args count
 	//technically this is an upper limit but it can be stored here temporarily until we get the real count
 	staging->img_arg_cnt = max_defined_args;
 	return;

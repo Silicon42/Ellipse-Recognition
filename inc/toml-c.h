@@ -6,7 +6,9 @@ Fixes/Changes
 + errbufsz should be size_t, which is unsigned since it is only ever used for
  limiting snprintf length
 + added a fallback empty string for if reading a string value fails to prevent
- possible null dereferences
+ possible null dereferences, this prevents having to add a null dereference check
+ for anyone who doesn't check that the read succeeded for whatever reason and
+ costs virtually nothing
 
 Concerns
 - toml_timestamp_t contents aren't unsigned and some fields may be elligble for
@@ -18,6 +20,9 @@ Concerns
 - prevent accidental freeing of subtables with toml_free by aliasing the
  toml_table_t to a new type specifically for the root table
 - single character type codes should be enums for readability
+- for toml_array_t, type and kind and for toml_arritem_t, valtype should be a an
+ enumerated type with flags for which type the item is, this way an empty array
+ could be read as any type of array of 0 length and the type info would take less space
 */
 #ifndef TOML_H
 #define TOML_H
@@ -89,7 +94,7 @@ struct toml_keyval_t {
 // value is guaranteed to be correct UTF-8.
 struct toml_value_t {
 	bool ok; // Was this value present?
-	int  sl; // string length, excluding NULL.
+	int  sl; // string length
 	union {
 		toml_timestamp_t *ts; // datetime; must be freed after use.
 		char             *s;  // string value; must be freed after use

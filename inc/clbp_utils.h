@@ -15,28 +15,43 @@
 cl_mem createImageBuffer(cl_context context, char force_host_readable, char is_array, const cl_image_format* img_format, const size_t img_size[3]);
 // validates metadata[0 thru 2] formating and returns true if valid
 char isArgMetadataValid(char const metadata[static 3]);
-cl_channel_type getTypeFromMetadata(const char* metadata);
-cl_channel_order getOrderFromMetadata(const char* metadata);
+// checks provided channel type against one requested via the metadata, while some
+// mismatches could result in undefined behavior, others are just likely not what
+// you intended if you specified the metadata correctly, such as requesting a read
+// from a full range float but providing a signed normalized value instead. This is
+// primarily just to warn you that you might have made a mistake, but if it was
+// intentional, you can safely ignore the warning that will follow
+char isMatchingChannelType(const char* metadata, cl_channel_type type);
+// returns the difference in number of channels provided vs requested,
+inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order);
+
+//cl_channel_type getTypeFromMetadata(const char* metadata);
+//cl_channel_order getOrderFromMetadata(const char* metadata);
 
 // in can be NULL if mode is EXACT or SINGLE
+// This is a massive oversimplification since NDRanges aren't capped at 3, but
+// that's all I expect to ever need from this and it makes implementation much easier
+// plus it's the minimum required upper limit for non-custom device types in the spec
+// so it's the maximum reliably portable value
 char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret);
 
+//TODO: remove/replace this function, it no longer is useful for it's original purpose
 char getDeviceRWType(cl_channel_type type);
 char getArgStorageType(cl_channel_type type);
 
 // currently assumes number of channels is the only thing important, NOT posistioning or ordering
 unsigned char getChannelCount(cl_channel_order order);
-unsigned char getChannelWidth(char metadata_type);
+//unsigned char getChannelWidth(char metadata_type);
 
 
 // this only issues warnings to the user since they could easily have misnamed it
 // and it isn't required data unlike on writes that need new textures
-void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata);
+//void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata);
 
 // converts an end relative arg index to a pointer to the referenced TrackedArg with error checking
 //TrackedArg* getRefArg(const ArgTracker* at, uint16_t rel_ref);
 
-void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at);
+//void setKernelArgs(cl_context context, const KernStaging* stage, cl_kernel kernel, ArgTracker* at);
 
 
 #endif//CLBP_UTILS_H

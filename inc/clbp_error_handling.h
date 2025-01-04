@@ -11,6 +11,8 @@ enum clbp_ErrCode{
 	CLBP_MF_PARSING_FAILED,				// all toml-c errors get converted to this
 	CLBP_MF_INVALID_STAGES_ARRAY,		// stages array is missing or invalid, ie not a table array or empty
 	CLBP_MF_INVALID_ARGS_TABLE,			// args table is missing or invalid, ie empty
+	CLBP_MF_INVALID_HC_ARGS_ARRAY,		// hardcoded args array is invalid, ie not a string array
+	CLBP_MF_INVALID_ARG_NAME,			// arg name can't be empty, only occurs on reading hardcoded args array
 	CLBP_MF_MISSING_STAGE_NAME,			// stages must specify names since that identifies which file kernel program to use
 	CLBP_MF_INVALID_STAGE_ARGS_ARRAY,	// stage is missing its args array or has non-string entries in the array
 	CLBP_MF_MISSING_ARG_ENTRY,			// key by name of the requested arg is missing in the args table
