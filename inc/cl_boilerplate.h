@@ -24,7 +24,7 @@ int addUniqueString(char** list, int max_entries, char* str);
 // Searches through a string array (char** list) for a match to the contents of char* str
 // Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
 //NOTE: does not check str for a null pointer
-int getStringIndex(char** list, const char* str);
+int getStringIndex(char const** list, char const* str);
 
 // reads in a list of files by the names of the kernel functions, and compiles and links them into one cl_program object which it returns
 // also populates the kprogs list with compiled program objects from the individual source files.

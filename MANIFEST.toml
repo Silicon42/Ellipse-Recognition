@@ -1,5 +1,5 @@
 # Order to enqueue kernels in and what kernel config files to assign to each instance
-stages = [
+Stages = [
 {name = 'scharr3_char', args=['input', 'output'], range = {ref_arg = 'input'}},
 ]
 
@@ -8,11 +8,11 @@ stages = [
 # and are assumed to correspond to the first n entries of the ArgTracker where n is
 # how many entries appear here.
 # DO NOT MODIFY IF YOU AREN'T MODIFYING THE MAIN PROGRAM
-hardCodedArgs = [
+HCInputArgs = [
 'input',
 ]
 # Master list of all kernel args by name used for OpenCL kernels listed in stages
 # user configurable entries, instantiated as needed for specified stages
 # Used for handling creation and checking of argument validity
-[args]
-output = {type = 'image2d_t', channel_type = 'uchar4', size = {ref_arg = 'input', mode = '', params = []}}
+[Args]
+output = {type = 'image2d_t', channel_type = 'uchar4', channel_count = 4, is_host_readable = true, size = {ref_arg = 'input', mode = '', params = []}}

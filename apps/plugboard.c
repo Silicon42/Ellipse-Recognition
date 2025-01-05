@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	handleClBoilerplateError(e);
 
 	//TODO: add QStaging caching so that if the manifest isn't changed, we don't have to re-parse everything
-
+	//TODO: finish conversion to StagedQ type
 	// allocate tracking array for image args
 	cl_mem* img_args = malloc(staging.img_arg_cnt * sizeof(cl_mem));
 	if(!img_args)

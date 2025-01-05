@@ -1,14 +1,15 @@
 
 #include "clbp_parse_manifest.h"
 #include "cl_boilerplate.h"
+#include "clbp_utils.h"
 
-clbp_Error parseRangeData(char** arg_name_list, int img_arg_cnt, RangeData* ret, toml_table_t* size_tbl)
+clbp_Error parseRangeData(char** arg_name_list, int last_arg_index, RangeData* ret, toml_table_t* size_tbl)
 {
 	if(!size_tbl)	// size wasn't specified, fallback to default
 	{
 		*ret = (RangeData){
 			.param = {0,0,0},
-			.ref_idx = img_arg_cnt - 1,
+			.ref_idx = last_arg_index,
 			.mode = REL
 		};
 		return (clbp_Error){0};
@@ -17,7 +18,7 @@ clbp_Error parseRangeData(char** arg_name_list, int img_arg_cnt, RangeData* ret,
 	//read the name of the reference arg
 	toml_value_t val = toml_table_string(size_tbl, "ref_arg");
 	if(!val.u.s[0])	//string defaults to empty string if val.ok == false
-		ret->ref_idx = img_arg_cnt - 1;	// if missing or empty, default to previous arg
+		ret->ref_idx = last_arg_index;	// if missing or empty, default to previous arg
 	else
 	{
 		int ref_idx = getStringIndex(arg_name_list, val.u.s);
@@ -42,111 +43,49 @@ clbp_Error parseRangeData(char** arg_name_list, int img_arg_cnt, RangeData* ret,
 	return (clbp_Error){0};
 }
 
-clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg, int img_arg_cnt, toml_table_t* args, char* arg_name)
+clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg, int last_arg_index, toml_table_t* args, char* arg_name)
 {
 	toml_table_t* arg_conf = toml_table_table(args, arg_name);
 	if(!arg_conf)
 		return (clbp_Error){.err_code = CLBP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
 
-	ArgStaging* new_arg = &img_arg_stg[img_arg_cnt];
-	toml_value_t storage = toml_table_string(arg_conf, "storage");
-	StorageType st = {0};
-	int pos = 0;
-	// set the storage type flags
-	switch(storage.u.s[0])
+	ArgStaging* new_arg = &img_arg_stg[last_arg_index + 1];
+
+	// parse if arg was manually set to host readable, defaults to false if not specified
+	toml_value_t is_host_readable = toml_table_bool(arg_conf, "is_host_readable");
+	new_arg->flags = is_host_readable.u.b ? CL_MEM_HOST_READ_ONLY : 0;	// not ok should default to false I think
+
+	toml_value_t ch_type_toml = toml_table_string(arg_conf, "channel_type");
+	enum clChannelType ch_type = CLBP_INVALID_CHANNEL_TYPE;
+	if(ch_type_toml.u.s[0] != '\0');
+		ch_type = getStringIndex(channelTypes, ch_type_toml.u.s) + CLBP_CHANNELTYPE_OFFSET;
+
+	if(ch_type >= CLBP_INVALID_CHANNEL_TYPE || ch_type < CLBP_CHANNELTYPE_OFFSET)
+		return (clbp_Error){.err_code = CLBP_MF_INVALID_CHANNEL_TYPE, .detail = arg_name};
+
+	enum clChannelOrder ch_order = isChannelTypeRestricedOrder(ch_type);
+	// infer order from channel count
+	if(!ch_order)
 	{
-	case 'u':	//	uchar, ushort, uint, ulong
-		st.isUnsigned = true;
-		++pos;
-		break;
-//	case 'q':	// quad
-//	case 'd':	// double
-	case 'f':	// float
-	case 'h':	// half
-		st.isFloat = true;
+		toml_value_t ch_cnt = toml_table_int(arg_conf, "channel_count");
+		// clamp channel count to 1 thru 4
+		if(ch_cnt.u.i < 1)
+			ch_cnt.u.i = 1;
+		else if(ch_cnt.u.i > 4)
+			ch_cnt.u.i = 4;
+		
+		ch_order = getOrderFromChannelCnt(ch_cnt.u.i);
 	}
 
-	// set the width exponent of the type and advance pos to the character where the vector size would be specified
-	switch(storage.u.s[pos])
-	{
-	default:	// invalid
-		return (clbp_Error){.err_code = CLBP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
-	case 'c':	// char
-		st.widthExp = 0;
-		pos += 4;
-		break;
-	case 's':	// short
-		st.widthExp = 1;
-		pos += 5;
-		break;
-	case 'i':	// int
-		st.widthExp = 2;
-		pos += 3;
-		break;
-	case 'l':	// long
-		st.widthExp = 3;
-		pos += 4;
-		break;
-	case 'h':	// half
-		st.widthExp = 1;
-		pos += 4;
-		break;
-	case 'f':	// float
-		st.widthExp = 2;
-		pos += 5;
-		break;
-	case 'd':	// double
-		st.widthExp = 3;
-		pos += 6;
-		break;
-	case 'q':	// quad
-		st.widthExp = 4;
-		pos += 4;
-	}
+	new_arg->format = (cl_image_format){.image_channel_data_type = ch_type, .image_channel_order = ch_order};
 
-	// check that we won't potentially access past the end of the string
-	if(storage.sl < pos)
-		return (clbp_Error){.err_code = CLBP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
-
-	// check type's vector size if any
-	switch(storage.u.s[pos])
-	{
-	default:	//invalid
-		return (clbp_Error){.err_code = CLBP_MF_INVALID_STORAGE_TYPE, .detail = arg_name};
-	case '2':	// 2
-		st.vecExp = 1;
-		break;
-	case '4':	// 4
-		st.vecExp = 2;
-		break;
-	case '8':	// 8
-		st.vecExp = 3;
-		break;
-	case '1':	// 16
-		st.vecExp = 4;
-		break;
-	case '3':	// 3 (special case)
-		st.vecExp = 6;
-	case '\0':	// single item/not a vector
-	}
-	new_arg->type = st;
-
-	toml_value_t type = toml_table_string(arg_conf, "type");
-	switch(type.u.s[0])
-	{
-	default:	// invalid
+	toml_value_t mem_type_toml = toml_table_string(arg_conf, "type");
+	enum clMemType mem_type = getStringIndex(memTypes, mem_type_toml.u.s) + CLBP_MEMTYPE_OFFSET;
+	if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_MEMTYPE_OFFSET)
 		return (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_TYPE, .detail = arg_name};
-	case 'b':	// buffer		//TODO: implement the rest of these types
-	case 'p':	// pipe
-	case 's':	// scalar
-	case 'a':	// array (image)
-	case 'i':	// image
-		new_arg->type = type.u.s[0];
-	}
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
-	return parseRangeData(arg_name_list, img_arg_cnt, &new_arg->size, size_tbl);
-
+	return parseRangeData(arg_name_list, last_arg_index, &new_arg->size, size_tbl);
 }
 
 toml_table_t* parseManifestFile(char* fname, clbp_Error* e)
@@ -172,7 +111,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 {
 	assert(root_tbl && staging && e);
 	// get stages array and check valid size and type
-	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
+	toml_array_t* stage_list = toml_table_array(root_tbl, "Stages");
 	if(!stage_list || stage_list->kind != 't')
 	{
 		*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGES_ARRAY};
@@ -194,7 +133,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 	staging->stage_cnt = stage_cnt;
 
 	// get arg table
-	toml_table_t* args_table = toml_table_table(root_tbl, "args");
+	toml_table_t* args_table = toml_table_table(root_tbl, "Args");
 	if(!args_table || !args_table->nkval)
 	{
 		e->err_code = CLBP_MF_INVALID_ARGS_TABLE;
@@ -203,7 +142,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 	int max_defined_args = args_table->nkval;
 
 	// get hardcoded args array (typically inputs defined in the source code)
-	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "hardCodedArgs");
+	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "HCInputArgs");
 	if(hardcoded_args_arr)
 	{	// if the hardcoded args array exists, it must be a string array
 		if(!hardcoded_args_arr->type != 's')
@@ -235,13 +174,16 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		toml_value_t name = toml_array_string(hardcoded_args_arr, i);
 		if(name.u.s[0] == '\0')
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_NAME, .detail = i};
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_NAME, .detail = (char*)i};
 			return;
 		}
 		staging->arg_names[i] = name.u.s;
+		// set the flag for the hardcoded arg to copy the contents of host memory to device memory
+		staging->img_arg_stg[i].flags = CL_MEM_COPY_HOST_PTR;
 	}
 	//TODO: check if it max_defined_args is still needed or if this can be set to the hardcoded args count
 	//technically this is an upper limit but it can be stored here temporarily until we get the real count
+	//ADDENDUM: it's not but it would require a couple other changes to remove it so it stays for now
 	staging->img_arg_cnt = max_defined_args;
 	return;
 }
@@ -251,19 +193,19 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 {
 	assert(root_tbl && staging && e);
 	int max_defined_args = staging->img_arg_cnt;
-	int img_arg_cnt = 0;
+	int last_arg_idx = staging->input_img_cnt - 1;
 
 	// assumes stage list and args table was already validated
-	toml_array_t* stage_list = toml_table_array(root_tbl, "stages");
-	toml_table_t* args_table = toml_table_table(root_tbl, "args");
+	toml_array_t* stage_list = toml_table_array(root_tbl, "Stages");
+	toml_table_t* args_table = toml_table_table(root_tbl, "Args");
 
 	for(int i = 0; i < staging->stage_cnt; ++i)
 	{
 		toml_table_t* stage = toml_array_table(stage_list, i);	//can't return null since we already have valid stage count
 		toml_value_t tval = toml_table_string(stage, "name");
-		if(!tval.ok || !tval.u.s[0])	// with the change to toml-c.h, should be safe just to check for empty string
+		if(!tval.u.s[0])	// with the change to toml-c.h, should be safe just to check for empty string
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = NULL + i};
+			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = (char*)i};
 			return;
 		}
 
@@ -271,11 +213,13 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		// additionally set the kernel program reference index for the stage to the returned index of the match/new program name
 		staging->kern_stg[i].kernel_idx = addUniqueString(staging->kprog_names, staging->stage_cnt, tval.u.s);
 		//FIXME: ^ something must eventually copy the string or you'll have a read after free for the toml strings
+		// alternatively, figure out how to parse the toml values in place such that their contents fit into the space of the
+		// original file
 
 		toml_array_t* stage_args = toml_table_array(stage, "args");
 		if(!stage_args || stage_args->kind != 'v' || stage_args->type != 's')
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = NULL + i};
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = (char*)i};
 			return;
 		}
 		int args_cnt = stage_args->nitem;
@@ -297,18 +241,18 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 			{
 				int arg_idx = addUniqueString(staging->arg_names, max_defined_args, arg_name);
 				staging->kern_stg[i].arg_idxs[j] = arg_idx;
-				if(arg_idx == img_arg_cnt)	//check if this was a newly referenced argument
+				if(last_arg_idx < arg_idx)	//check if this was a newly referenced argument
 				{
-					++img_arg_cnt;	//is only ever bigger by one so this is safe
+					last_arg_idx = arg_idx;
 					//instantiate a corresponding arg on the arg staging array
 
-					*e = validateNstoreArgConfig(staging->arg_names, staging->img_arg_stg, img_arg_cnt, args_table, arg_name);
+					*e = validateNstoreArgConfig(staging->arg_names, staging->img_arg_stg, last_arg_idx, args_table, arg_name);
 					if(e->err_code != CLBP_OK)
 						return;
 				}
 			}
 			else	// empty string is a special case that always selects whatever was last added
-				staging->kern_stg[i].arg_idxs[j] = img_arg_cnt - 1;
+				staging->kern_stg[i].arg_idxs[j] = last_arg_idx;
 		}
 	}
 

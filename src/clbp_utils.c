@@ -136,6 +136,23 @@ char isMatchingChannelType(const char* metadata, cl_channel_type type)
 	return metadata[1] == 'u' && (metadata[0] == 'h' || metadata[0] == 'f');
 }
 
+// if the channel type has a restricted order, returns the order that best fits normal types
+inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const type)
+{
+	switch(type)
+	{
+	case CLBP_UNORM_SHORT_565:
+	case CLBP_UNORM_SHORT_555:
+	case CLBP_UNORM_INT_101010:
+		return CLBP_RGBx;
+	case CLBP_UNORM_INT_101010_2:
+		return CLBP_RGBA;
+	//case CLBP_UNORM_INT_2_101010_EXT:
+	//	return CLBP_ARGB;
+	}
+	return 0;
+}
+
 // returns the difference in number of channels provided vs requested,
 inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
 {
@@ -306,6 +323,22 @@ char getChannelCount(cl_channel_order order)
 	default:
 		return 0;
 	}
+}
+
+inline enum clChannelOrder getOrderFromChannelCnt(char count)
+{
+	switch(count)
+	{
+	case 1:
+		return CLBP_R;
+	case 2:
+		return CLBP_RG;
+	case 3:
+		return CLBP_RGB;
+	case 4:
+		return CLBP_RGBA;
+	}
+	return 0;
 }
 
 /*

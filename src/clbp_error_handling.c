@@ -18,7 +18,7 @@ static const char* clbp_error_strings[] = {
 	MANIFEST_ERROR"Missing \"name\" key at entry %i of stages array.\n",
 	MANIFEST_ERROR"Args array at entry %i of stages array must be an array of strings with at least one item.\n",
 	MANIFEST_ERROR"Requested arg \"%s\" but no such key was found under [args].\n",
-	MANIFEST_ERROR"[args] \"%s\" has invalid storage type.\n",
+	MANIFEST_ERROR"[args] \"%s\" has invalid channel type.\n",
 	MANIFEST_ERROR"[args] \"%s\" has invalid argument type.\n",
 	MANIFEST_ERROR"Referenced arg \"%s\" for size but it is not staged prior to this point.\n"
 };

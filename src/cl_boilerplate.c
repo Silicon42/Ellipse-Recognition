@@ -47,7 +47,7 @@ int addUniqueString(char** list, int max_entries, char* str)
 // Searches through a string array (char** list) for a match to the contents of char* str
 // Stops searching if it reaches a null pointer in the list. Returns -1 if no match is found.
 //NOTE: does not check str for a null pointer
-int getStringIndex(char** list, const char* str)
+int getStringIndex(char const** list, char const* str)
 {
 	int i = 0;
 	while(list[i])
@@ -192,12 +192,6 @@ void instantiateKernels(cl_context context, QStaging const* staging, const cl_pr
 // require re-runs of inferArgAccessAndVerifyFormats() since data extracted from the kernel instance args shouldn't change
 void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 {
-	for(int i = 0; i < staging->input_img_cnt; ++i)
-	{
-		// is it a hard-coded input? if so, copy it
-			(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS);
-	}
-
 	printf("[Verifying kernel args]\n");
 	// for each stage
 	for(int i = 0; i < staged->stage_cnt; ++i)

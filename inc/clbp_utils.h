@@ -22,11 +22,14 @@ char isArgMetadataValid(char const metadata[static 3]);
 // primarily just to warn you that you might have made a mistake, but if it was
 // intentional, you can safely ignore the warning that will follow
 char isMatchingChannelType(const char* metadata, cl_channel_type type);
+// if the channel type has a restricted order, returns the order that best fits normal types
+inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const type);
 // returns the difference in number of channels provided vs requested,
 inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order);
 
 //cl_channel_type getTypeFromMetadata(const char* metadata);
-//cl_channel_order getOrderFromMetadata(const char* metadata);
+
+inline enum clChannelOrder getOrderFromChannelCnt(char count);
 
 // in can be NULL if mode is EXACT or SINGLE
 // This is a massive oversimplification since NDRanges aren't capped at 3, but
@@ -40,7 +43,7 @@ char getDeviceRWType(cl_channel_type type);
 char getArgStorageType(cl_channel_type type);
 
 // currently assumes number of channels is the only thing important, NOT posistioning or ordering
-unsigned char getChannelCount(cl_channel_order order);
+char getChannelCount(cl_channel_order order);
 //unsigned char getChannelWidth(char metadata_type);
 
 
