@@ -62,7 +62,7 @@ int getStringIndex(char const** list, char const* str)
 	return -1;
 }
 
-// helper function that returns the first position that a string differs by,
+/*/ helper function that returns the first position that a string differs by,
 // assumes at least one is null terminated
 int strDiffPos(char const* lhs, char const* rhs)
 {
@@ -74,9 +74,37 @@ int strDiffPos(char const* lhs, char const* rhs)
 	}
 	return i;
 }
+*/
 
-// applies the relative calculations for all arg sizes starting from index i in the ArgStaging array,
-// assumes all prior entries were already set and interprets their sizes as exact values
+// Initializes a StagedQ object's arrays and counts
+void allocStagedQArrays(QStaging const* staging, StagedQ* staged, clbp_Error* e)
+{
+	staged->img_arg_cnt = staging->img_arg_cnt;
+	staged->stage_cnt = staging->stage_cnt;
+
+	staged->img_args = malloc(staging->img_arg_cnt * sizeof(cl_mem));
+	if(!staged->img_args)
+	{
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"};
+		return;
+	}
+
+	staged->img_sizes = malloc(staging->img_arg_cnt * sizeof(Size3D));
+	if(!staged->img_sizes)
+	{
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_sizes array"};
+		return;
+	}
+
+	staged->kernels = malloc(staging->kernel_cnt * sizeof(cl_kernel));
+	if(!staged->kernels)
+	{
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_program array"};
+		return;
+	}
+}
+
+// applies the relative calculations for all arg sizes starting from the first non-hardcoded input argument
 void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
 	RangeData const* curr_range;
@@ -84,7 +112,7 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	Size3D* sizes;
 	
 	sizes = staged->img_sizes;
-	for(int i = 0; i < staged->img_arg_cnt; ++i)
+	for(int i = staging->input_img_cnt; i < staged->img_arg_cnt; ++i)
 	{
 		curr_range = &staging->img_arg_stg[i].size;
 		ref_size = &sizes[curr_range->ref_idx];
@@ -112,12 +140,18 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 
 // handles using staging data to selectively open kernel program source files and compile and link them into a single program binary
 //TODO: add support for using pre-calculated ranges as defined constants
-cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, cl_program* kprogs, clbp_Error* e)
+cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, clbp_Error* e)
 {
-	assert(src_dir && staging && kprogs && e);
+	assert(src_dir && staging && e);
 	char fpath[1024];
 	//TODO: add whole program binary caching by checking existence of compiled + linked bin,
 	// and last modified dates match cached version for all sources in list
+	cl_program* kprogs = malloc(staging->kernel_cnt * sizeof(cl_program));
+	if(!kprogs)
+	{
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_program array"};
+		return NULL;
+	}
 
 	// Read kernel program source file and place content into buffer
 	for(int i = 0; i < staging->kernel_cnt; ++i)
@@ -127,13 +161,17 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 		snprintf(fpath, sizeof(fpath)-1, "%s%s.cl", src_dir, staging->kprog_names[i]);
 		char* k_src = readFileToCstring(fpath, e);
 		if(e->err_code)
+		{
+			free(kprogs);
 			return NULL;
+		}
 
 		// Create program from file
 		kprogs[i] = clCreateProgramWithSource(context, 1, (const char**)&k_src, NULL, &e->err_code);
 		free(k_src);
 		if(e->err_code)
 		{
+			free(kprogs);
 			e->detail = "clCreateProgramWithSource";
 			return NULL;
 		}
@@ -145,6 +183,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 		e->err_code = clCompileProgram(kprogs[i], 1, &device, args, 0, NULL, NULL, NULL, NULL);
 		if(e->err_code)
 		{
+			free(kprogs);
 			if(e->err_code == CL_COMPILE_PROGRAM_FAILURE)
 				handleClBuildProgram(e->err_code, kprogs[i], device);
 			e->detail = "clCompileProgram";
@@ -156,6 +195,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	cl_program linked_prog = clLinkProgram(context, 1, &device, args, staging->kernel_cnt, kprogs, NULL, NULL, &e->err_code);
 	if(e->err_code)
 	{
+			free(kprogs);
 			if(e->err_code == CL_LINK_PROGRAM_FAILURE)
 				handleClBuildProgram(e->err_code, linked_prog, device);
 			e->detail = "clLinkProgram";
@@ -202,6 +242,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 		cl_uint err;
 		printf("%i:	%s\n", i, kprog_name);
 		err = clGetKernelInfo(curr_kern, CL_KERNEL_NUM_ARGS, sizeof(arg_cnt), &arg_cnt, NULL);
+		staging->kern_stg[i].arg_cnt = arg_cnt;
 		if(err)
 		{
 			handleClError(err, "clGetKernelInfo");
@@ -261,23 +302,20 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 				"	Couldn't verify arg type.\n");
 				continue;
 			}
-			//else
+
 			puts(arg_metadata);//TODO: remove this debugging line once you know what all the types actually return
-			int cmp = strncmp(arg_metadata, "image", 5);
-			if(cmp)
+			enum clMemType mem_type = getStringIndex(memTypes, arg_metadata) + CLBP_MEMTYPE_OFFSET;
+			if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_MEMTYPE_OFFSET)
 			{
-				perror("WARNING: non-image arg requested\n"
-				"	Currently no non-image support implemented.\n");
+				perror("WARNING: non-mem object arg requested\n"
+				"	Currently non-mem objects not supported.\n");
 				continue;
 			}
-			//else, arg type was image1d, image2d, or image3d
-			//FIXME: following block is a hack fix, at this point I just want this shit to work for what I need it to and I'll come fix this properly eventually
-			cmp = arg_metadata[5] - '0';
-			int img_dims = curr_arg->type - CLBP_IMAGE_1D + 1;
-			if(img_dims != cmp)
+
+			if(mem_type != curr_arg->type)
 			{
-				fprintf(stderr, "WARNING: image type mismatch\n"
-				"	provided %s, requested image%id.\n", arg_metadata, cmp);
+				fprintf(stderr, "WARNING: argument type mismatch\n"
+				"	provided %s, requested %s.\n", arg_metadata, memTypes[curr_arg->type - CLBP_MEMTYPE_OFFSET]);
 				continue;
 			}
 			// else, no warning, verified!
@@ -317,9 +355,13 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 // fills in the ArgTracker according to the arg staging data in staging,
 // assumes the ArgTracker was allocated big enough not to overrun it and
 // is pre-populated with the expected number of hard-coded input entries
-// such that it may add the first new entry at i
-void instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e)
+// such that it may add the first new entry at input_img_cnt
+// returns the max number of bytes needed for reading out of any of the host readable buffers
+//FIXME: currently doesn't take into account input args being read out for the return value
+size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
+	size_t max_out_sz = 0;
+	cl_mem* img_args = staged->img_args;
 	for(int i = staging->input_img_cnt; i < staging->img_arg_cnt; ++i)
 	{
 		ArgStaging* curr_arg = &staging->img_arg_stg[i];
@@ -337,100 +379,48 @@ void instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* st
 			.buffer = NULL
 		};
 
-		
+		if(curr_arg->flags & (CL_MEM_HOST_READ_ONLY))
+		{
+
+		}
+		else// if(!(curr_arg->flags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR))) //I suspect these flags might qualify too
+			curr_arg->flags |= CL_MEM_HOST_NO_ACCESS;
+
 
 		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, NULL, &e->err_code);
 		if(e->err_code)
 		{
 			e->detail = "clCreateImage";
-			return;
+			return 0;
 		}
 	}
 }
 
-// returns the max number of bytes needed for reading out of any of the host readable buffers
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, KernStaging const* stage, ArgStaging const* img_arg_stg, cl_kernel kernel, cl_mem* img_args, clbp_Error* e)
+void setKernelArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
-	// get the count of how many args the kernel has to iterate over
-	cl_uint img_arg_cnt;
-	e->err_code = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &img_arg_cnt, NULL);
-	if(e->err_code)
+	//for each stage
+	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
-		e->detail = "clGetKernelInfo";
-		return;
-	}
-
-	for(cl_uint i=0; i < img_arg_cnt; ++i)
-	{
-		printf("\n* [%i] ", i);
-		cl_kernel_arg_access_qualifier arg_access;
-		e->err_code = clGetKernelArgInfo(kernel, i, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(cl_kernel_arg_access_qualifier), &arg_access, NULL);
-		if(e->err_code)
+		KernStaging const* curr_kstaging = &staging->kern_stg[i];
+		cl_kernel curr_kern = staged->kernels[i];
+		for(int j = 0; j < curr_kstaging->arg_cnt; ++j)
 		{
-			e->detail = "clGetKernelArgInfo";
-			return;
-		}
-	
-		// current arg staging data being processed
-		ArgStaging* curr_s_arg = &img_arg_stg[stage->arg_idxs[i]];
-		// which arg this arg references for its size calculation
-		TrackedArg* ref_arg = &(at->args[curr_s_arg->size.ref_idx]);
-
-
-		// write-only and certain r/w arguments should be the only ones that correspond to the first use
-		//TODO: add more diagnostic info to created args like channel count and type
-		if(arg_access == CL_KERNEL_ARG_ACCESS_WRITE_ONLY || arg_access == CL_KERNEL_ARG_ACCESS_READ_WRITE)
-		{
-
-
-			if(at->args_cnt >= at->max_args)
+			uint16_t arg_idx = curr_kstaging->arg_idxs[j];
+			e->err_code = clSetKernelArg(curr_kern, j, sizeof(cl_mem), staged->img_args[arg_idx]);
+			if(e->err_code)
 			{
-				fputs("Not enough room in ArgTracker.args array", stderr);
-				exit(1);
+				fprintf(stderr, "@ stage %i (%s), arg %i (%s):", i, staging->kprog_names[curr_kstaging->kernel_idx], j, staging->arg_names[arg_idx]);
+				e->detail = "clSetKernelArg";
+				return;
 			}
-
-			TrackedArg* curr_t_arg = &(at->args[at->args_cnt]);
-
-			calcSizeByMode(ref_arg->size, &curr_s_arg->size, curr_t_arg->size);
-
-			// if this is a host readable output, we need to see if the size in bytes is bigger than any previous args so the
-			// final read buffer can be allocated large enough
-			if(curr_s_arg->force_host_readable)
-			{
-				size_t size_in_bytes = curr_t_arg->size[0] * curr_t_arg->size[1] * curr_t_arg->size[2];
-				size_in_bytes *= arg_metadata[2] - '0';	// 3 can't be specified as output so should be safe to do this
-				size_in_bytes *= getChannelWidth(arg_metadata[1]);
-				at->max_out_size = (at->max_out_size >= size_in_bytes) ? at->max_out_size : size_in_bytes;
-			}
-
-//FIXME: no magic values vvv here vvv come back later and properly fix handling of the arg type when you understand the other types better
-			curr_t_arg->arg = createImageBuffer(context, curr_s_arg->force_host_readable, curr_s_arg->type == 'a', &(curr_t_arg->format), curr_t_arg->size);
-
-			clErr = clSetKernelArg(kernel, i, sizeof(cl_mem), &(curr_t_arg->arg));
-			handleClError(clErr, "clSetKernelArg");
-
-			at->args_cnt++;
-		}
-		// read-only and r/w args that don't create new mem objects need to be checked that they match
-		else// if(arg_access == CL_KERNEL_ARG_ACCESS_READ_ONLY || (arg_access == CL_KERNEL_ARG_ACCESS_READ_WRITE && arg_metadata[3] != 'n'))
-		{
-			if(isValid)
-				verifyReadArgTypeMatch(ref_arg->format, arg_metadata);
-			else
-				fputs("Warning: invalid argument metadata on argument to be read, can't provide type warnings\n", stderr);
-		
-			printf("Using %zu*%zu*%zu buffer with format %c%c%i.", ref_arg->size[0],ref_arg->size[1],ref_arg->size[2], \
-			getDeviceRWType(ref_arg->format.image_channel_data_type), getArgStorageType(ref_arg->format.image_channel_data_type), getChannelCount(ref_arg->format.image_channel_order));
-			clErr = clSetKernelArg(kernel, i, sizeof(cl_mem), &(ref_arg->arg));
-			handleClError(clErr, "clSetKernelArg");
 		}
 	}
 }
 
 // creates a single channel cl_mem image from a file and attaches it to the tracked arg pointer provided
 // the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
-cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, clbp_Error* e)
+cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, Size3D* size, clbp_Error* e)
 {
 	int channels = getChannelCount(format->image_channel_order);
 	
@@ -443,6 +433,10 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 		*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = "\nCouldn't open input image"};
 		return NULL;
 	}
+	
+	size->d[0] = dims[0];
+	size->d[1] = dims[1];
+	size->d[2] = 1;
 
 	printf("loaded %s, %i*%i image with %i channel(s), using %i channel(s).\n", fname, dims[0], dims[1], dims[2], channels);
 
@@ -545,4 +539,40 @@ char* readFileToCstring(char* fname, clbp_Error* e)
 	manifest[k_src_size] = '\0';
 
 	return manifest;
+}
+
+void freeQStagingArrays(QStaging* staging)
+{
+	for(int i = 0; i < staging->stage_cnt; ++i)
+	{
+		free(staging->kern_stg[i].arg_idxs);
+		//TODO: if you add kprog_names copying the names would need to be freed here
+	}
+	free(staging->kern_stg);
+	free(staging->kprog_names);
+	//TODO: if you add arg_names copying the names would need to be freed here
+	free(staging->arg_names);
+	free(staging->img_arg_stg);
+}
+
+void freeStagedQArrays(StagedQ* staged)
+{
+	free(staged->ranges);
+	free(staged->img_sizes);
+	//TODO: see if these items can be released earlier so that they all automatically get fully released when the
+	// command queue gets released
+	cl_uint err;
+	for(int i = 0; i < staged->img_arg_cnt; ++i)
+	{
+		err = clReleaseMemObject(staged->img_args[i]);
+		handleClError(err, "clReleaseMemObject");
+	}
+	free(staged->img_args);
+
+	for(int i = 0; i < staged->stage_cnt; ++i)
+	{
+		err = clReleaseKernel(staged->kernels[i]);
+		handleClError(err, "clReleaseKernel");
+	}
+	free(staged->kernels);
 }

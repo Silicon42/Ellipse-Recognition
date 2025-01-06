@@ -55,13 +55,20 @@ int main(int argc, char *argv[])
 	handleClBoilerplateError(e);
 	populateQStagingArrays(root_tbl, &staging, &e);
 	handleClBoilerplateError(e);
-
 	//TODO: add QStaging caching so that if the manifest isn't changed, we don't have to re-parse everything
-	//TODO: finish conversion to StagedQ type
-	// allocate tracking array for image args
-	cl_mem* img_args = malloc(staging.img_arg_cnt * sizeof(cl_mem));
-	if(!img_args)
-		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"});
+
+	// compile and link kernel programs from source
+	// may be moved after calcRanges() if processing size plays a factor in the build process
+	// such as if there is only ever a single fixed size that is discovered at runtime
+	// tradeoff is it's worse for the memory footprint, but allows for minor optimization for the kernel program
+	//TODO: add support for individualized build args
+	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_SRC_DIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, &e);
+	handleClBoilerplateError(e);
+
+	//at this point, the arg list and kernel list are finalized and we know how many there will be
+	StagedQ staged;
+	allocStagedQArrays(&staging, &staged, &e);
+	handleClBoilerplateError(e);
 
 	// instantiate hard-coded args, this gives us the base image sizes that things are calculated relative to
 	cl_image_format img_format = {
@@ -69,75 +76,63 @@ int main(int argc, char *argv[])
 		.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
 	};
 
-	img_args[0] = imageFromFile(context, in_file, &img_format, &e);
-	if(e.err_code)
-		handleClBoilerplateError(e);
+	//TODO: see if the instantiation of the mem object can be moved to be at the same time as the others
+	staged.img_args[0] = imageFromFile(context, in_file, &img_format, &staged.img_sizes[0], &e);
+	handleClBoilerplateError(e);
 
 	// calculate arg sizes and kernel ranges, this allows baking of image sizes and kernel ranges into kernels if desired
-	calcRanges()
-
-	// compile and link kernel programs from source
-	cl_program* kprogs = malloc(staging.kernel_cnt * sizeof(cl_program));
-	if(!kprogs)
-		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_program array"});
-
-
-/*	cl_kernel* kernels = malloc(staging.kernel_cnt * sizeof(cl_kernel));
-	if(!kernels)
-		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_kernel array"});*/
-	//FIXME: temp fix for OpenCL 1.2 support, add a macro that automatically fixes this
-	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_SRC_DIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, kprogs, &e);
-	if(e.err_code)
-		handleClBoilerplateError(e);
-
-	// convert the settings into an actual staged queue using the reference kernels generated earlier
-	QStage* stages = malloc(staging.stage_cnt * sizeof(QStage));
-	if(!stages)
-		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "QStage array"});
-	
-	prepQStages(context, &staging, stages, staging.stage_cnt, &tracker, &e);
+	calcRanges(&staging, &staged, &e);
 	handleClBoilerplateError(e);
 
 	// kernel arguments can't be queried before kernel instantiaion
-	//instantiateKernelArgs
+	instantiateKernels(context, &staging, linked_prog, &staged, &e);
+	handleClBoilerplateError(e);
 
-	//assignKernelArgs
+	// must be run once after first instantiation of kernels and before first instantiation of args
+	inferArgAccessAndVerifyFormats(&staging, &staged);
 
-	//freeStagingArray(staging);
-	//free(kernel_progs);
+	size_t max_out_sz = instantiateImgArgs(context, &staging, &staged, &e);
+	handleClBoilerplateError(e);
+
+	setKernelArgs(context, &staging, &staged, &e);
+	handleClBoilerplateError(e);
+
+	// cleanup now that config is fully processed
+	freeQStagingArrays(&staging);
 	toml_free(root_tbl);
+	//TODO: if you add multiple output tracking, then the sizes array of the StagedQ can be freed here
 
 	// safe to release the context here since it's never used after this point
 	clErr = clReleaseContext(context);
 	handleClError(clErr, "clReleaseContext");
 
-	// allocate output buffer
-	char* out_data = (char*)malloc(tracker.max_out_size);
-
 	clErr = clUnloadCompiler();
 	handleClError(clErr, "clUnloadCompiler");
 
+	// allocate output buffer
+	char* out_data = (char*)malloc(max_out_sz);
+
 	puts("\n");
-	const size_t origin[3] = {0};
 
 	//------ END OF INITIALIZATION ------//
 	//------- START OF MAIN LOOP -------//
 	//TODO: this eventually should be a camera feed driven loop
 
 	// enqueue kernels to the command queue
-	for(int i = 0; i < staging.stage_cnt; ++i)
+	for(int i = 0; i < staged.stage_cnt; ++i)
 	{
-		size_t* range = stages[i].range;
+		size_t* range = staged.ranges;//TODO: write a function that returns a version of a Size3D object as size_t array
 		printf("Enqueueing %s with range %zu*%zu*%zu.\n", staging.kprog_names[i], range[0], range[1], range[2]);
-		clErr = clEnqueueNDRangeKernel(queue, stages[i].kernel, 2, NULL, range, NULL, 0, NULL, NULL);
+		clErr = clEnqueueNDRangeKernel(queue, staged.kernels[i], 2, NULL, range, NULL, 0, NULL, NULL);
 		handleClError(clErr, "clEnqueueNDRangeKernel");
 	}
 
 	printf("\nProcessing image.\n");
 	//clFinish(queue);
-	size_t* last_size = tracker.args[tracker.args_cnt - 1].size;
+	uint16_t* out_sz = staged.img_sizes[staged.img_arg_cnt-1].d;
+	size_t region[3] = {out_sz[0], out_sz[1], out_sz[2]};
 	// Enqueue a data read back to the host and wait for it to complete
-	clErr = clEnqueueReadImage(queue, tracker.args[tracker.args_cnt - 1].arg, CL_TRUE, origin, last_size, 0, 0, out_data, 0, NULL, NULL);
+	clErr = clEnqueueReadImage(queue, staged.img_args[staged.img_arg_cnt-1], CL_TRUE, (size_t[3]){0}, region, 0, 0, out_data, 0, NULL, NULL);
 	handleClError(clErr, "clEnqueueReadImage");
 
 	unsigned char channel_cnt = readImageAsCharArr(out_data, &tracker.args[tracker.args_cnt - 1]);
@@ -145,26 +140,15 @@ int main(int argc, char *argv[])
 	// save result
 	//TODO: replace this with displaying or other processing
 	//NOTE: if channel_cnt == 2, then this gets interpreted as gray + alpha so may look strange simply viewing it
-	stbi_write_png(OUTPUT_NAME".png", last_size[0], last_size[1], channel_cnt, out_data, channel_cnt*last_size[0]);
+	stbi_write_png(OUTPUT_NAME".png", out_sz[0], out_sz[1], channel_cnt, out_data, channel_cnt*out_sz[0]);
 
 	//----------- END OF MAIN LOOP -----------//
 	//------ START OF DE-INITIALIZATION ------//
-	free(out_data);
-
 	printf("\nSuccessfully processed image.\n");
 
 	// Deallocate resources
-	for(int i = 0; i < staging.stage_cnt; ++i)
-	{
-		clReleaseKernel(stages[i].kernel);
-		handleClError(clErr, "clReleaseKernel");
-	}
-
-	for(int i = 0; i < tracker.args_cnt; ++i)
-	{
-		clReleaseMemObject(tracker.args[i].arg);
-		handleClError(clErr, "clReleaseMemObject");
-	}
+	free(out_data);
+	freeStagedQArrays(&staged);
 
 	clReleaseCommandQueue(queue);
 	handleClError(clErr, "clReleaseCommandQueue");

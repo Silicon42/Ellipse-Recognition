@@ -45,14 +45,15 @@ char const* channelTypes[] = {
 
 #define CLBP_MEMTYPE_OFFSET 0x10F0
 char const* memTypes[] = {
-"BUFFER",
-"IMAGE2D",
-"IMAGE3D",
-"IMAGE2D_ARRAY",
-"IMAGE1D",
-"IMAGE1D_ARRAY",
-"IMAGE1D_BUFFER",
-"PIPE",
+	"BUFFER",
+	"IMAGE2D",
+	"IMAGE3D",
+	"IMAGE2D_ARRAY",
+	"IMAGE1D",
+	"IMAGE1D_ARRAY",
+	"IMAGE1D_BUFFER",
+	"PIPE",
+	NULL
 };
 
 typedef struct {
@@ -84,7 +85,8 @@ typedef struct {
 typedef struct {
 	RangeData range;		// data on how to calculate the NDRange
 	uint16_t kernel_idx;	// index of the kernel program name
-	uint16_t* arg_idxs;		// array containing indices for each arg to use, freed when using freeStagingArray()	//TODO: write freeStagingArray()
+	uint16_t arg_cnt;		// cached count of how many arguments this kernel requests
+	uint16_t* arg_idxs;		// array containing indices for each arg to use, freed when using freeQStagingArrays()
 } KernStaging;
 
 typedef struct {
@@ -115,13 +117,12 @@ typedef struct {
 // info actually used in enqueueing kernels
 typedef struct {
 	// counts duplicated from QStaging so that it may safely have its contents freed and go out of scope
-	uint16_t stage_cnt;	// how many stages the kernel array contains
+	uint16_t stage_cnt;		// how many stages the kernel array contains
 	uint16_t img_arg_cnt;	// how many args the img_args array contains
-	cl_kernel* kernels;	// array of kernel instances corresponding to each stage
-	Size3D* ranges;		// array of 3D ranges to enque the matching kernel index with
-	cl_mem* img_args;	// array of all image args associated with the kernel
-	Size3D* img_sizes;	// array of images sizes corresponding to each arg
-//	char name[32];		// name of the kernel function, only used for user convenience/debugging
+	cl_kernel* kernels;		// array of kernel instances corresponding to each stage
+	Size3D* ranges;			// array of 3D ranges to enque the matching kernel index with
+	cl_mem* img_args;		// array of all image args associated with the kernel
+	Size3D* img_sizes;		// array of images sizes corresponding to each arg
 } StagedQ;
 
 #endif//CLBP_PUBLIC_TYPEDEFS_H
