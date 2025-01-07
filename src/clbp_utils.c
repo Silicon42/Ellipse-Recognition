@@ -50,8 +50,7 @@ cl_mem createImageBuffer(cl_context context, char force_host_readable, char is_a
 
 	}
 
-	printf("Creating %zu*%zu*%zu buffer with format %c%c%i.", img_size[0], img_size[1], img_size[2], \
-	getDeviceRWType(img_format->image_channel_data_type), getArgStorageType(img_format->image_channel_data_type), getChannelCount(img_format->image_channel_order));
+	printf("Creating %zu*%zu*%zu buffer with format %i.", img_size[0], img_size[1], img_size[2], getChannelCount(img_format->image_channel_order));
 	cl_mem img_buffer = clCreateImage(context, flags, img_format, &image_desc, NULL, &clErr);
 	handleClError(clErr, "clCreateImage");
 /*
@@ -136,7 +135,7 @@ char isMatchingChannelType(const char* metadata, cl_channel_type type)
 	return metadata[1] == 'u' && (metadata[0] == 'h' || metadata[0] == 'f');
 }
 
-// if the channel type has a restricted order, returns the order that best fits normal types
+/*/ if the channel type has a restricted order, returns the order that best fits normal types
 inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const type)
 {
 	switch(type)
@@ -151,7 +150,7 @@ inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const
 	//	return CLBP_ARGB;
 	}
 	return 0;
-}
+}*/
 
 // returns the difference in number of channels provided vs requested,
 inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
@@ -228,7 +227,7 @@ char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
 	}
 	return CLBP_OK;
 }
-
+/*
 char getDeviceRWType(cl_channel_type type)
 {
 	switch(type)
@@ -289,60 +288,90 @@ char getArgStorageType(cl_channel_type type)
 		return '?';
 	}
 }
-
+*/
 //TODO: currently assumes number of channels is the only thing important, NOT posistioning or ordering
 // this is likely wrong for the case of RA, INTENSITY, LUMINANCE, and DEPTH, however none of those should
 // be generated as output buffers which is the only time this should matter so it's not high priority to fix
-char getChannelCount(cl_channel_order order)
-{	// not certain I interpreted the _x channel counts right but it'll do for now until I have a problem
-	switch(order)
-	{
-	case CL_R:
-	case CL_A:
-	case CL_INTENSITY:
-	case CL_LUMINANCE:
-//	case CL_DEPTH:
-		return 1;
-	case CL_RG:
-	case CL_RA:
-	case CL_Rx:
-		return 2;
-	case CL_RGB:
-	case CL_RGx:
-//	case CL_sRGB:
-		return 3;
-	case CL_RGBA:
-	case CL_BGRA:
-	case CL_ARGB:
-	case CL_RGBx:
-//	case CL_ABGR:
-//	case CL_sRGBA:
-//	case CL_sBGRA:
-//	case CL_sRGBx:
-		return 4;
-	default:
-		return 0;
-	}
-}
-
-inline enum clChannelOrder getOrderFromChannelCnt(char count)
+uint8_t getChannelCount(cl_channel_order order)
 {
-	switch(count)
-	{
-	case 1:
-		return CLBP_R;
-	case 2:
-		return CLBP_RG;
-	case 3:
-		return CLBP_RGB;
-	case 4:
-		return CLBP_RGBA;
-	}
-	return 0;
+	uint8_t const ch_cnts_LUT[] = {
+		1,	//CL_R
+		1,	//CL_A
+		2,	//CL_RG
+		2,	//CL_RA
+		3,	//CL_RGB
+		4,	//CL_RGBA
+		4,	//CL_BGRA
+		4,	//CL_ARGB
+		1,	//CL_INTENSITY
+		1,	//CL_LUMINANCE
+		2,	//CL_Rx
+		3,	//CL_RGx
+		4,	//CL_RGBx
+		1,	//CL_DEPTH
+		3,	//CL_sRGB
+		4,	//CL_sRGBx
+		4,	//CL_sRGBA
+		4,	//CL_sBGRA
+		4,	//CL_ABGR
+	};
+	// range checked lookup, cl_channel_order is an unsigned type
+	order -= CLBP_OFFSET_CHANNEL_ORDER;
+	return (order < sizeof(ch_cnts_LUT)) ? ch_cnts_LUT[order] : 0;
 }
 
+//returns the size in bits of the largest channel for the type
+uint8_t get4ChannelWidths(cl_channel_type type)
+{
+	uint8_t const widths_LUT[] = {
+		4,	//SNORM_INT8
+		8,	//SNORM_INT16
+		4,	//UNORM_INT8
+		8,	//UNORM_INT16
+		2,	//UNORM_SHORT_565
+		2,	//UNORM_SHORT_555
+		4,	//UNORM_INT_101010
+		4,	//SIGNED_INT8
+		8,	//SIGNED_INT16
+		16,	//SIGNED_INT32
+		4,	//UNSIGNED_INT8
+		8,	//UNSIGNED_INT16
+		16,	//UNSIGNED_INT32
+		8,	//HALF_FLOAT
+		16,	//FLOAT
+		0,	//RESERVED
+		4,	//UNORM_INT_101010_2
+	};
+
+	type -= CLBP_OFFSET_CHANNEL_TYPE;
+	return (type < sizeof(widths_LUT)) ? widths_LUT[type] : 0;
+}
+
+cl_channel_order getOrderFromChannelCnt(uint8_t count)
+{
+	uint8_t const ch_order_off[] = {0, 2, 4, 5};	//{CL_R, CL_RG, CL_RGB, CL_RGBA}
+	--count;
+	return count < 4 ? (cl_channel_order)CLBP_OFFSET_CHANNEL_ORDER + ch_order_off[count] : 0;
+}
+
+// get the minimum bytes per pixel allocation size for reading a given format of output buffer to the host
+uint8_t getPixelSize(cl_image_format format)
+{
+	switch(format.image_channel_data_type)
+	{
+	case CL_UNORM_SHORT_565:
+		return 3;	// the in-place conversion to 8-bit values will expand it from 2 bytes to 3
+	case CL_UNORM_SHORT_555:
+		return 3 + (format.image_channel_order != CL_RGB);	// 3 channel expands to 3 bytes, 4 channel expands to 4
+	case CL_UNORM_INT_101010:
+	case CL_UNORM_INT_101010_2:
+		return 4;
+	}
+	
+	return (getChannelCount(format.image_channel_order) * get4ChannelWidths(format.image_channel_data_type)) >> 2;
+}
 /*
-unsigned char getChannelWidth(char metadata_type)
+uint8_t getChannelWidth(char metadata_type)
 {
 	switch(metadata_type | LOWER_MASK)
 	{
@@ -392,7 +421,7 @@ void verifyReadArgTypeMatch(cl_image_format ref_format, char* metadata)
 	}
 
 	//check minimum expected channels
-	unsigned char expected_channels = metadata[2] - '0';
+	uint8_t expected_channels = metadata[2] - '0';
 	if(expected_channels > 4)
 		fputs("Warning: non-conforming metadata found\n", stderr);
 	else

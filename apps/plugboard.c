@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	clErr = clEnqueueReadImage(queue, staged.img_args[staged.img_arg_cnt-1], CL_TRUE, (size_t[3]){0}, region, 0, 0, out_data, 0, NULL, NULL);
 	handleClError(clErr, "clEnqueueReadImage");
 
-	unsigned char channel_cnt = readImageAsCharArr(out_data, &tracker.args[tracker.args_cnt - 1]);
+	uint8_t channel_cnt = readImageAsCharArr(out_data, &staged, staged.img_arg_cnt-1);
 
 	// save result
 	//TODO: replace this with displaying or other processing

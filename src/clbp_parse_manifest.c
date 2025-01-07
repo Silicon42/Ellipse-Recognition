@@ -58,9 +58,9 @@ clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg
 	toml_value_t ch_type_toml = toml_table_string(arg_conf, "channel_type");
 	enum clChannelType ch_type = CLBP_INVALID_CHANNEL_TYPE;
 	if(ch_type_toml.u.s[0] != '\0');
-		ch_type = getStringIndex(channelTypes, ch_type_toml.u.s) + CLBP_CHANNELTYPE_OFFSET;
+		ch_type = getStringIndex(channelTypes, ch_type_toml.u.s) + CLBP_OFFSET_CHANNEL_TYPE;
 
-	if(ch_type >= CLBP_INVALID_CHANNEL_TYPE || ch_type < CLBP_CHANNELTYPE_OFFSET)
+	if(ch_type >= CLBP_INVALID_CHANNEL_TYPE || ch_type < CLBP_OFFSET_CHANNEL_TYPE)
 		return (clbp_Error){.err_code = CLBP_MF_INVALID_CHANNEL_TYPE, .detail = arg_name};
 
 	enum clChannelOrder ch_order = isChannelTypeRestricedOrder(ch_type);
@@ -80,8 +80,8 @@ clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg
 	new_arg->format = (cl_image_format){.image_channel_data_type = ch_type, .image_channel_order = ch_order};
 
 	toml_value_t mem_type_toml = toml_table_string(arg_conf, "type");
-	enum clMemType mem_type = getStringIndex(memTypes, mem_type_toml.u.s) + CLBP_MEMTYPE_OFFSET;
-	if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_MEMTYPE_OFFSET)
+	enum clMemType mem_type = getStringIndex(memTypes, mem_type_toml.u.s) + CLBP_OFFSET_MEMTYPE;
+	if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_OFFSET_MEMTYPE)
 		return (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_TYPE, .detail = arg_name};
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");

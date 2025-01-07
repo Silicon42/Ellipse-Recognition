@@ -62,7 +62,7 @@ void setKernelArgs(cl_context context, QStaging const* staging, StagedQ* staged,
 cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, Size3D* size, clbp_Error* e);
 
 // converts format of data read from device to char array suitable for writing to typical image file
-unsigned char readImageAsCharArr(char* data, TrackedArg* arg);
+uint8_t readImageAsCharArr(char* data, TrackedArg* arg);
 
 //TODO: verify that this is the correct header to place this function in
 // Returned pointer must be freed when done using

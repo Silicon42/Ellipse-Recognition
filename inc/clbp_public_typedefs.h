@@ -21,7 +21,6 @@ enum rangeMode {
 	COLUMN,	// REL on x axis, EXACT on y and z
 };
 
-#define CLBP_CHANNELTYPE_OFFSET 0x10D0
 char const* channelTypes[] = {
 	"SNORM_INT8",
 	"SNORM_INT16",
@@ -43,7 +42,6 @@ char const* channelTypes[] = {
 	NULL	// End of spec defined types, others may exist
 };
 
-#define CLBP_MEMTYPE_OFFSET 0x10F0
 char const* memTypes[] = {
 	"BUFFER",
 	"IMAGE2D",

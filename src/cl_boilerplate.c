@@ -304,8 +304,8 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 			}
 
 			puts(arg_metadata);//TODO: remove this debugging line once you know what all the types actually return
-			enum clMemType mem_type = getStringIndex(memTypes, arg_metadata) + CLBP_MEMTYPE_OFFSET;
-			if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_MEMTYPE_OFFSET)
+			enum clMemType mem_type = getStringIndex(memTypes, arg_metadata) + CLBP_OFFSET_MEMTYPE;
+			if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_OFFSET_MEMTYPE)
 			{
 				perror("WARNING: non-mem object arg requested\n"
 				"	Currently non-mem objects not supported.\n");
@@ -315,7 +315,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 			if(mem_type != curr_arg->type)
 			{
 				fprintf(stderr, "WARNING: argument type mismatch\n"
-				"	provided %s, requested %s.\n", arg_metadata, memTypes[curr_arg->type - CLBP_MEMTYPE_OFFSET]);
+				"	provided %s, requested %s.\n", arg_metadata, memTypes[curr_arg->type - CLBP_OFFSET_MEMTYPE]);
 				continue;
 			}
 			// else, no warning, verified!
@@ -365,7 +365,7 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 	for(int i = staging->input_img_cnt; i < staging->img_arg_cnt; ++i)
 	{
 		ArgStaging* curr_arg = &staging->img_arg_stg[i];
-		size_t* size = staged->img_sizes[i].d;
+		uint16_t* size = staged->img_sizes[i].d;
 		cl_image_desc desc = {
 			.image_type = curr_arg->type,
 			.image_width = size[0],
@@ -380,19 +380,21 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 		};
 
 		if(curr_arg->flags & (CL_MEM_HOST_READ_ONLY))
-		{
+		{	// calculate output size
 
+			size_t curr_size = getPixelSize(curr_arg->format);
+			curr_size *= (size_t)size[0] * size[1] * size[2];
+			if(max_out_sz < curr_size)
+				max_out_sz = curr_size;
 		}
 		else// if(!(curr_arg->flags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR))) //I suspect these flags might qualify too
 			curr_arg->flags |= CL_MEM_HOST_NO_ACCESS;
 
-
 		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, NULL, &e->err_code);
 		if(e->err_code)
-		{
 			e->detail = "clCreateImage";
-			return 0;
-		}
+		
+		return max_out_sz;
 	}
 }
 
@@ -427,7 +429,7 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 	// Read pixel data
 	int dims[3];
 	// the loading of the image has a malloc deep in it
-	unsigned char* data = stbi_load(fname, &dims[0], &dims[1], &dims[2], channels);
+	uint8_t* data = stbi_load(fname, &dims[0], &dims[1], &dims[2], channels);
 	if(!data)
 	{
 		*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = "\nCouldn't open input image"};
@@ -464,46 +466,39 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 	return img;
 }
 
-// converts format of data to char array compatible read, returns channel count since it's often needed after this and is already called here
-unsigned char readImageAsCharArr(char* data, cl_mem arg)
+// converts format of data to char array compatible read,
+// data must point to a 32-bit aligned array. if it was malloc'd, it is aligned
+// returns channel count since it's often needed after this and is already called here
+uint8_t readImageAsCharArr(char* data, StagedQ* staged, uint16_t idx)
 {
-	unsigned char channel_cnt = getChannelCount(arg->format.image_channel_order);
+	uint8_t channel_cnt = getChannelCount(staged->format.image_channel_order);
 	size_t length = arg->size[0] * arg->size[1] * arg->size[2] * channel_cnt;
 	switch (arg->format.image_channel_data_type)
 	{
-//	case CL_UNORM_SHORT_565:
-//	case CL_UNORM_SHORT_555:
 	case CL_UNORM_INT8:
 	case CL_UNSIGNED_INT8:
 	case CL_SNORM_INT8:
 	case CL_SIGNED_INT8:
 		break;	// no change, data is already 1 byte per channel
-//	case CL_UNORM_INT_101010:
-//	case CL_UNORM_INT_101010_2:
 	case CL_UNORM_INT16:
 	case CL_UNSIGNED_INT16:
 	case CL_SNORM_INT16:
 	case CL_SIGNED_INT16:
+	case CL_HALF_FLOAT:
 		for(size_t i = 0; i < length; ++i)
-			data[i] = ((int16_t*)data)[i] >> 8;	// assume 16-bit normalized so msb is most important to preserve
-
+			data[i] = ((int16_t*)data)[i] >> 8;	// assume msb is most important to preserve
 		break;
 	case CL_SIGNED_INT32:
 	case CL_UNSIGNED_INT32:
-		for(size_t i = 0; i < length; ++i)
-			data[i] = ((int32_t*)data)[i] >> 24;	// assume 32-bit normalized so msb is most important to preserve
-
-		break;
-	case CL_HALF_FLOAT:	//TODO: add support for float16
-//		for(size_t i = 0; i < length; ++i)
-//			data[i] = ((float*)data)[i] * 128 + 0.5;	// assume +/- 1.0 normalization
-
-		break;
 	case CL_FLOAT:
 		for(size_t i = 0; i < length; ++i)
-			data[i] = ((float*)data)[i] * 128 + 0.5;	// assume +/- 1.0 normalization
-
+			data[i] = ((int32_t*)data)[i] >> 24;	// assume msb is most important to preserve
 		break;
+	case CL_UNORM_SHORT_565:
+
+	case CL_UNORM_SHORT_555:
+	case CL_UNORM_INT_101010:
+	case CL_UNORM_INT_101010_2:
 	}
 	return channel_cnt;
 }

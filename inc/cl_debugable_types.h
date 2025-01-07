@@ -2,7 +2,8 @@
 #define CL_DEBUGABLE_TYPES_H
 // enum and bitfield equivalents for the cl.h defined types so they can actually be debugged
 //NOTE: not all types are represented here this is WIP
-
+#define CLBP_OFFSET_CHANNEL_ORDER	0x10B0
+#define CLBP_OFFSET_CHANNEL_TYPE	0x10D0
 enum clChannelType {
 	CLBP_SNORM_INT8			= 0x10D0,
 	CLBP_SNORM_INT16		= 0x10D1,
@@ -25,6 +26,7 @@ enum clChannelType {
 	CLBP_INVALID_CHANNEL_TYPE
 };
 
+#define CLBP_OFFSET_MEMTYPE 0x10F0
 enum clMemType {
 	CLBP_BUFFER			= 0x10F0,
 	CLBP_IMAGE2D		= 0x10F1,

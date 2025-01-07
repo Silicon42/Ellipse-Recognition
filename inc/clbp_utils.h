@@ -23,13 +23,16 @@ char isArgMetadataValid(char const metadata[static 3]);
 // intentional, you can safely ignore the warning that will follow
 char isMatchingChannelType(const char* metadata, cl_channel_type type);
 // if the channel type has a restricted order, returns the order that best fits normal types
-inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const type);
+//inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const type);
 // returns the difference in number of channels provided vs requested,
 inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order);
 
 //cl_channel_type getTypeFromMetadata(const char* metadata);
 
-inline enum clChannelOrder getOrderFromChannelCnt(char count);
+cl_channel_order getOrderFromChannelCnt(uint8_t count);
+
+// get the minimum per pixel allocation size for reading output buffers to the host
+uint8_t getPixelSize(cl_image_format format);
 
 // in can be NULL if mode is EXACT or SINGLE
 // This is a massive oversimplification since NDRanges aren't capped at 3, but
@@ -38,13 +41,13 @@ inline enum clChannelOrder getOrderFromChannelCnt(char count);
 // so it's the maximum reliably portable value
 char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret);
 
-//TODO: remove/replace this function, it no longer is useful for it's original purpose
-char getDeviceRWType(cl_channel_type type);
-char getArgStorageType(cl_channel_type type);
+//TODO: remove/replace these functions, they're no longer is useful for their original purpose and are only used in a print
+//char getDeviceRWType(cl_channel_type type);
+//char getArgStorageType(cl_channel_type type);
 
 // currently assumes number of channels is the only thing important, NOT posistioning or ordering
-char getChannelCount(cl_channel_order order);
-//unsigned char getChannelWidth(char metadata_type);
+uint8_t getChannelCount(cl_channel_order order);
+//uint8_t getChannelWidth(char metadata_type);
 
 
 // this only issues warnings to the user since they could easily have misnamed it
