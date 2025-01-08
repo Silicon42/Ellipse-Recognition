@@ -48,3 +48,4 @@ forgot the importance of using group shared memory when possible
 * (WIP)add support for re-using arguments for write_only parameters (colored_retrace_starts.cl)
 * add support for non-image type kernel arguments (serial_reduce/_lines.cl)
 * convert more cl types to debug friendly analogues 
+* remove dead code

@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	handleClBoilerplateError(e);
 
 	// kernel arguments can't be queried before kernel instantiaion
-	instantiateKernels(context, &staging, linked_prog, &staged, &e);
+	instantiateKernels(&staging, linked_prog, &staged, &e);
 	handleClBoilerplateError(e);
 
 	// must be run once after first instantiation of kernels and before first instantiation of args
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	size_t max_out_sz = instantiateImgArgs(context, &staging, &staged, &e);
 	handleClBoilerplateError(e);
 
-	setKernelArgs(context, &staging, &staged, &e);
+	setKernelArgs(&staging, &staged, &e);
 	handleClBoilerplateError(e);
 
 	// cleanup now that config is fully processed
@@ -106,8 +106,8 @@ int main(int argc, char *argv[])
 	clErr = clReleaseContext(context);
 	handleClError(clErr, "clReleaseContext");
 
-	clErr = clUnloadCompiler();
-	handleClError(clErr, "clUnloadCompiler");
+	//clErr = clUnloadCompiler();
+	//handleClError(clErr, "clUnloadCompiler");
 
 	// allocate output buffer
 	char* out_data = (char*)malloc(max_out_sz);
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 	// enqueue kernels to the command queue
 	for(int i = 0; i < staged.stage_cnt; ++i)
 	{
-		size_t* range = staged.ranges;//TODO: write a function that returns a version of a Size3D object as size_t array
+		size_t* range = staged.ranges[i].d;
 		printf("Enqueueing %s with range %zu*%zu*%zu.\n", staging.kprog_names[i], range[0], range[1], range[2]);
 		clErr = clEnqueueNDRangeKernel(queue, staged.kernels[i], 2, NULL, range, NULL, 0, NULL, NULL);
 		handleClError(clErr, "clEnqueueNDRangeKernel");
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 
 	printf("\nProcessing image.\n");
 	//clFinish(queue);
-	uint16_t* out_sz = staged.img_sizes[staged.img_arg_cnt-1].d;
+	size_t* out_sz = staged.img_sizes[staged.img_arg_cnt-1].d;
 	size_t region[3] = {out_sz[0], out_sz[1], out_sz[2]};
 	// Enqueue a data read back to the host and wait for it to complete
 	clErr = clEnqueueReadImage(queue, staged.img_args[staged.img_arg_cnt-1], CL_TRUE, (size_t[3]){0}, region, 0, 0, out_data, 0, NULL, NULL);

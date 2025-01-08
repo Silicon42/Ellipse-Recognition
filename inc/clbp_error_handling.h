@@ -1,3 +1,6 @@
+#ifndef CLBP_ERROR_HANDLING_H
+#define CLBP_ERROR_HANDLING_H
+
 #include <CL/cl.h>
 // all error values are 'true'
 enum clbp_ErrCode{
@@ -32,3 +35,5 @@ typedef struct {
 
 // if there is an error code, prints an error message and then exits with that error code;
 void handleClBoilerplateError(clbp_Error e);
+
+#endif//CLBP_ERROR_HANDLING_H

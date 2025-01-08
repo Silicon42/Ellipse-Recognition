@@ -37,7 +37,7 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e);
 cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, clbp_Error* e);
 
 // creates actual kernel instances from staging data and stores it in the staged queue
-void instantiateKernels(cl_context context, QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e);
+void instantiateKernels(QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e);
 
 // infers the access qualifiers of the image args as well as verifies that type data specified matches what the kernels expect of it
 // meant to be run once after kernels have been instantiated for at least 1 staged queue, additional staged queues don't
@@ -52,7 +52,7 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 
 // --returns the max number of bytes needed for reading out of any of the host readable buffers-- << not true anymore but might add back later
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e);
+void setKernelArgs(QStaging const* staging, StagedQ* staged, clbp_Error* e);
 
 // takes a NULL terminated array of KernStaging pointers and an array of kernels and fills in the QStage array and argTracker array
 // according to their details
@@ -61,8 +61,10 @@ void setKernelArgs(cl_context context, QStaging const* staging, StagedQ* staged,
 // the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
 cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, Size3D* size, clbp_Error* e);
 
-// converts format of data read from device to char array suitable for writing to typical image file
-uint8_t readImageAsCharArr(char* data, TrackedArg* arg);
+// converts format of data to char array compatible read,
+// data must point to a 32-bit aligned array. if it was malloc'd, it is aligned
+// returns channel count since it's often needed after this and is already called here
+uint8_t readImageAsCharArr(char* data, StagedQ const* staged, uint16_t idx);
 
 //TODO: verify that this is the correct header to place this function in
 // Returned pointer must be freed when done using

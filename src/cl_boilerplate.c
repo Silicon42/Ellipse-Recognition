@@ -112,6 +112,7 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	Size3D* sizes;
 	
 	sizes = staged->img_sizes;
+	puts("Calculating image argument sizes.");
 	for(int i = staging->input_img_cnt; i < staged->img_arg_cnt; ++i)
 	{
 		curr_range = &staging->img_arg_stg[i].size;
@@ -119,12 +120,13 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
 		if(e->err_code)
 		{
-			e->detail = i;
+			e->detail = NULL + i;
 			return;
 		}
 	}
 
 	sizes = staged->ranges;
+	puts("Calculating NDRanges.");
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
 		curr_range = &staging->kern_stg[i].range;
@@ -132,7 +134,7 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
 		if(e->err_code)
 		{
-			e->detail = -i;
+			e->detail = NULL + i;
 			return;
 		}
 	}
@@ -183,9 +185,9 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 		e->err_code = clCompileProgram(kprogs[i], 1, &device, args, 0, NULL, NULL, NULL, NULL);
 		if(e->err_code)
 		{
-			free(kprogs);
 			if(e->err_code == CL_COMPILE_PROGRAM_FAILURE)
 				handleClBuildProgram(e->err_code, kprogs[i], device);
+			free(kprogs);
 			e->detail = "clCompileProgram";
 			return NULL;
 		}
@@ -206,7 +208,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 }
 
 // creates actual kernel instances from staging data and stores it in the staged queue
-void instantiateKernels(cl_context context, QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e)
+void instantiateKernels(QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e)
 {
 	assert(staging && kprog && staged && e);
 	for(int i = 0; i < staged->stage_cnt; ++i)
@@ -251,7 +253,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 			continue;
 		}
 		// for each argument of the current kernel
-		for(int j = 0; j < arg_cnt; ++j)
+		for(cl_uint j = 0; j < arg_cnt; ++j)
 		{
 			int arg_idx = staging->kern_stg[i].arg_idxs[j];
 			char const* arg_name = staging->arg_names[arg_idx];
@@ -365,7 +367,7 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 	for(int i = staging->input_img_cnt; i < staging->img_arg_cnt; ++i)
 	{
 		ArgStaging* curr_arg = &staging->img_arg_stg[i];
-		uint16_t* size = staged->img_sizes[i].d;
+		size_t* size = staged->img_sizes[i].d;
 		cl_image_desc desc = {
 			.image_type = curr_arg->type,
 			.image_width = size[0],
@@ -392,14 +394,16 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 
 		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, NULL, &e->err_code);
 		if(e->err_code)
+		{
 			e->detail = "clCreateImage";
-		
-		return max_out_sz;
+			return 0;
+		}
 	}
+	return max_out_sz;
 }
 
 //TODO: add support for returning a list of host readable buffers
-void setKernelArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e)
+void setKernelArgs(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
 	//for each stage
 	for(int i = 0; i < staged->stage_cnt; ++i)
@@ -469,36 +473,103 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 // converts format of data to char array compatible read,
 // data must point to a 32-bit aligned array. if it was malloc'd, it is aligned
 // returns channel count since it's often needed after this and is already called here
-uint8_t readImageAsCharArr(char* data, StagedQ* staged, uint16_t idx)
+uint8_t readImageAsCharArr(char* data, StagedQ const* staged, uint16_t idx)
 {
-	uint8_t channel_cnt = getChannelCount(staged->format.image_channel_order);
-	size_t length = arg->size[0] * arg->size[1] * arg->size[2] * channel_cnt;
-	switch (arg->format.image_channel_data_type)
+	cl_image_format format;
+	cl_uint err = clGetImageInfo(staged->img_args[idx], CL_IMAGE_FORMAT, sizeof(format), &format, NULL);
+	if(err)	// Should never happen but just in case
 	{
-	case CL_UNORM_INT8:
-	case CL_UNSIGNED_INT8:
-	case CL_SNORM_INT8:
-	case CL_SIGNED_INT8:
+		handleClError(err, "clGetImageInfo->CL_IMAGE_FORMAT");
+		perror("How did you get here?");
+		return 0;
+	}
+
+	uint8_t channel_cnt = getChannelCount(format.image_channel_order);
+	size_t const* size = staged->img_sizes[idx].d;
+	size_t pix_len = size[0] * size[1] * size[2];
+	// the packed channel types don't have their processing length multiplied by the channel count
+	// instead they process on a per pixel basis since their channel widths aren't uniform/cross byte bounds
+	size_t ch_len = pix_len * channel_cnt;
+	uint32_t pixel;
+	
+	switch(format.image_channel_data_type)
+	{
+	case CLBP_UNORM_INT8:
+	case CLBP_UNSIGNED_INT8:
+	case CLBP_SNORM_INT8:
+	case CLBP_SIGNED_INT8:
 		break;	// no change, data is already 1 byte per channel
-	case CL_UNORM_INT16:
-	case CL_UNSIGNED_INT16:
-	case CL_SNORM_INT16:
-	case CL_SIGNED_INT16:
-	case CL_HALF_FLOAT:
-		for(size_t i = 0; i < length; ++i)
-			data[i] = ((int16_t*)data)[i] >> 8;	// assume msb is most important to preserve
+	case CLBP_UNORM_INT16:
+	case CLBP_UNSIGNED_INT16:
+	case CLBP_SNORM_INT16:
+	case CLBP_SIGNED_INT16:
+	case CLBP_HALF_FLOAT:
+		for(size_t i = 0; i < ch_len; ++i)
+			data[i] = ((int16_t*)data)[i] >> 8;		// assume msb is most important to preserve
 		break;
-	case CL_SIGNED_INT32:
-	case CL_UNSIGNED_INT32:
-	case CL_FLOAT:
-		for(size_t i = 0; i < length; ++i)
+	case CLBP_UNSIGNED_INT32:
+	case CLBP_SIGNED_INT32:
+	case CLBP_FLOAT:
+		for(size_t i = 0; i < ch_len; ++i)
 			data[i] = ((int32_t*)data)[i] >> 24;	// assume msb is most important to preserve
 		break;
-	case CL_UNORM_SHORT_565:
-
-	case CL_UNORM_SHORT_555:
-	case CL_UNORM_INT_101010:
-	case CL_UNORM_INT_101010_2:
+	case CLBP_UNORM_SHORT_565:
+		// since conversion will expand the array, must work backward to avoid overwriting data
+		for(size_t j = ch_len, i = pix_len - 1; i < pix_len; --i)
+		{
+			pixel = ((uint16_t*)data)[i];
+			data[--j] = pixel << 3;				//blue
+			data[--j] = (pixel >> 3) & 0xFC;	//green
+			data[--j] = (pixel >> 8) & 0xF8;	//red
+		}
+		break;
+	case CLBP_UNORM_SHORT_555:
+		// since conversion will expand the array, must work backward to avoid overwriting data
+		for(size_t j = ch_len, i = pix_len - 1; i < pix_len; --i)
+		{
+			pixel = ((uint16_t*)data)[i];
+			if(channel_cnt == 4)
+				data[--j] = (pixel >> 8) | 0x7F;	//full alpha if set, half if unset
+			data[--j] = pixel << 3;				//blue
+			data[--j] = (pixel >> 2) & 0xF8;	//green
+			data[--j] = (pixel >> 7) & 0xF8;	//red
+		}
+		break;
+	case CLBP_UNORM_INT_101010:
+		for(size_t j = 0, i = 0; i < pix_len; ++i)
+		{
+			pixel = ((uint32_t*)data)[i];
+			data[j++] = pixel >> 22;	//red
+			data[j++] = pixel >> 12;	//green
+			data[j++] = pixel >> 2;		//blue
+			if(channel_cnt == 4)
+				data[j++] = (pixel >> 24) | 0x6F;	//full alpha if both set, 1/4th if both unset
+		}
+		break;
+	case CLBP_UNORM_INT_101010_2:
+		for(size_t j = 0, i = 0; i < pix_len; ++i)
+		{
+			pixel = ((uint32_t*)data)[i];
+			data[j++] = pixel >> 24;	//red
+			data[j++] = pixel >> 14;	//green
+			data[j++] = pixel >> 4;		//blue
+			data[j++] = (pixel << 6) | 0x6F;	//full alpha if both set, 1/4th if both unset
+		}
+		break;
+	}
+	//signed types need to be offset to be semi-human understandable visually
+	if(isChannelTypeSigned(format.image_channel_data_type))
+	{
+		if(format.image_channel_data_type == CL_FLOAT || format.image_channel_data_type == CL_HALF_FLOAT)
+		{	// true floats need extra processing to convert the biased exponent to logical order
+			for(size_t i = 0; i < ch_len; ++i)
+				data[i] = (data[i] < 0) ? -data[i] : data[i] | 0x80;
+		}
+		else
+		{
+			for(size_t i = 0; i < ch_len; ++i)
+				data[i] += 128;	//toggle top bit
+		}
 	}
 	return channel_cnt;
 }

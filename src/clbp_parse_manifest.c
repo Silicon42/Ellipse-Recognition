@@ -3,7 +3,7 @@
 #include "cl_boilerplate.h"
 #include "clbp_utils.h"
 
-clbp_Error parseRangeData(char** arg_name_list, int last_arg_index, RangeData* ret, toml_table_t* size_tbl)
+clbp_Error parseRangeData(char const** arg_name_list, int last_arg_index, RangeData* ret, toml_table_t* size_tbl)
 {
 	if(!size_tbl)	// size wasn't specified, fallback to default
 	{
@@ -43,7 +43,7 @@ clbp_Error parseRangeData(char** arg_name_list, int last_arg_index, RangeData* r
 	return (clbp_Error){0};
 }
 
-clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg, int last_arg_index, toml_table_t* args, char* arg_name)
+clbp_Error validateNstoreArgConfig(char const** arg_name_list, ArgStaging* img_arg_stg, int last_arg_index, toml_table_t* args, char* arg_name)
 {
 	toml_table_t* arg_conf = toml_table_table(args, arg_name);
 	if(!arg_conf)
@@ -57,25 +57,26 @@ clbp_Error validateNstoreArgConfig(char** arg_name_list, ArgStaging* img_arg_stg
 
 	toml_value_t ch_type_toml = toml_table_string(arg_conf, "channel_type");
 	enum clChannelType ch_type = CLBP_INVALID_CHANNEL_TYPE;
-	if(ch_type_toml.u.s[0] != '\0');
+	if(ch_type_toml.u.s[0] != '\0')
 		ch_type = getStringIndex(channelTypes, ch_type_toml.u.s) + CLBP_OFFSET_CHANNEL_TYPE;
 
 	if(ch_type >= CLBP_INVALID_CHANNEL_TYPE || ch_type < CLBP_OFFSET_CHANNEL_TYPE)
 		return (clbp_Error){.err_code = CLBP_MF_INVALID_CHANNEL_TYPE, .detail = arg_name};
 
-	enum clChannelOrder ch_order = isChannelTypeRestricedOrder(ch_type);
+	
 	// infer order from channel count
-	if(!ch_order)
-	{
-		toml_value_t ch_cnt = toml_table_int(arg_conf, "channel_count");
-		// clamp channel count to 1 thru 4
-		if(ch_cnt.u.i < 1)
-			ch_cnt.u.i = 1;
-		else if(ch_cnt.u.i > 4)
-			ch_cnt.u.i = 4;
-		
-		ch_order = getOrderFromChannelCnt(ch_cnt.u.i);
-	}
+	toml_value_t ch_cnt = toml_table_int(arg_conf, "channel_count");
+	// clamp channel count to 1 thru 4 if not packed, 3 if packed and not 101010_2, and 4 if 101010_2
+	uint8_t min_channels = 1;
+	if(isChannelTypePacked(ch_type))
+		min_channels = 3 + (ch_type == CLBP_UNORM_INT_101010_2);
+	
+	if(ch_cnt.u.i < min_channels)
+		ch_cnt.u.i = min_channels;
+	else if(ch_cnt.u.i > 4)
+		ch_cnt.u.i = 4;
+	
+	enum clChannelOrder ch_order = getOrderFromChannelCnt(ch_cnt.u.i);
 
 	new_arg->format = (cl_image_format){.image_channel_data_type = ch_type, .image_channel_order = ch_order};
 
@@ -145,7 +146,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "HCInputArgs");
 	if(hardcoded_args_arr)
 	{	// if the hardcoded args array exists, it must be a string array
-		if(!hardcoded_args_arr->type != 's')
+		if(hardcoded_args_arr->type != 's')
 		{
 			e->err_code = CLBP_MF_INVALID_HC_ARGS_ARRAY;
 			return;
@@ -174,7 +175,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		toml_value_t name = toml_array_string(hardcoded_args_arr, i);
 		if(name.u.s[0] == '\0')
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_NAME, .detail = (char*)i};
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_NAME, .detail = NULL + i};
 			return;
 		}
 		staging->arg_names[i] = name.u.s;
@@ -205,7 +206,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		toml_value_t tval = toml_table_string(stage, "name");
 		if(!tval.u.s[0])	// with the change to toml-c.h, should be safe just to check for empty string
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = (char*)i};
+			*e = (clbp_Error){.err_code = CLBP_MF_MISSING_STAGE_NAME, .detail = NULL + i};
 			return;
 		}
 
@@ -219,7 +220,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		toml_array_t* stage_args = toml_table_array(stage, "args");
 		if(!stage_args || stage_args->kind != 'v' || stage_args->type != 's')
 		{
-			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = (char*)i};
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGE_ARGS_ARRAY, .detail = NULL + i};
 			return;
 		}
 		int args_cnt = stage_args->nitem;
@@ -246,7 +247,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 					last_arg_idx = arg_idx;
 					//instantiate a corresponding arg on the arg staging array
 
-					*e = validateNstoreArgConfig(staging->arg_names, staging->img_arg_stg, last_arg_idx, args_table, arg_name);
+					*e = validateNstoreArgConfig((char const**)staging->arg_names, staging->img_arg_stg, last_arg_idx, args_table, arg_name);
 					if(e->err_code != CLBP_OK)
 						return;
 				}

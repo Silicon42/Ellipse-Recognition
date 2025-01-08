@@ -25,7 +25,7 @@ char isMatchingChannelType(const char* metadata, cl_channel_type type);
 // if the channel type has a restricted order, returns the order that best fits normal types
 //inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const type);
 // returns the difference in number of channels provided vs requested,
-inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order);
+char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order);
 
 //cl_channel_type getTypeFromMetadata(const char* metadata);
 
@@ -49,6 +49,8 @@ char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret);
 uint8_t getChannelCount(cl_channel_order order);
 //uint8_t getChannelWidth(char metadata_type);
 
+char isChannelTypePacked(cl_channel_type const type);
+char isChannelTypeSigned(cl_channel_type const type);
 
 // this only issues warnings to the user since they could easily have misnamed it
 // and it isn't required data unlike on writes that need new textures

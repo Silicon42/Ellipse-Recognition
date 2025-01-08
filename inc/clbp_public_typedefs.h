@@ -112,6 +112,7 @@ typedef struct {
 	size_t max_out_size;
 } ArgTracker;
 */
+//TODO: maybe convert parallel arrays to single array of structs containing both objects? might be problematic for shared functionality
 // info actually used in enqueueing kernels
 typedef struct {
 	// counts duplicated from QStaging so that it may safely have its contents freed and go out of scope

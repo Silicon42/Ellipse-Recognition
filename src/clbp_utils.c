@@ -1,5 +1,6 @@
 #include "clbp_utils.h"
 #include "clbp_error_handling.h"
+#include "cl_error_handlers.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -153,7 +154,7 @@ inline enum clChannelOrder isChannelTypeRestrictedOrder(enum clChannelType const
 }*/
 
 // returns the difference in number of channels provided vs requested,
-inline char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
+char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
 {
 	return getChannelCount(order) - (ch_cnt_data - '0');
 }
@@ -172,7 +173,7 @@ char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
 	in[2] = ref->d[2];
 	int32_t out[3];
 
-	int32_t const* param = range->param;
+	int16_t const* param = range->param;
 	// modes that don't use the reference don't need to check it.
 	switch(range->mode)
 	{
@@ -359,16 +360,26 @@ uint8_t getPixelSize(cl_image_format format)
 {
 	switch(format.image_channel_data_type)
 	{
-	case CL_UNORM_SHORT_565:
+	case CLBP_UNORM_SHORT_565:
 		return 3;	// the in-place conversion to 8-bit values will expand it from 2 bytes to 3
-	case CL_UNORM_SHORT_555:
+	case CLBP_UNORM_SHORT_555:
 		return 3 + (format.image_channel_order != CL_RGB);	// 3 channel expands to 3 bytes, 4 channel expands to 4
-	case CL_UNORM_INT_101010:
-	case CL_UNORM_INT_101010_2:
+	case CLBP_UNORM_INT_101010:
+	case CLBP_UNORM_INT_101010_2:
 		return 4;
 	}
 	
 	return (getChannelCount(format.image_channel_order) * get4ChannelWidths(format.image_channel_data_type)) >> 2;
+}
+
+char isChannelTypePacked(cl_channel_type const type)
+{	// bit vector where each bit index corresponds to that channel type being a packed type
+	return (0b10000000001110000 >> (type - CLBP_OFFSET_CHANNEL_TYPE)) & 1;
+}
+
+char isChannelTypeSigned(cl_channel_type const type)
+{	// bit vector where each bit index corresponds to that channel type being a signed type
+	return (0b00110001110000011 >> (type - CLBP_OFFSET_CHANNEL_TYPE)) & 1;
 }
 /*
 uint8_t getChannelWidth(char metadata_type)
