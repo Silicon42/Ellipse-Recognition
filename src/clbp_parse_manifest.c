@@ -2,6 +2,7 @@
 #include "clbp_parse_manifest.h"
 #include "cl_boilerplate.h"
 #include "clbp_utils.h"
+#include <assert.h>
 
 clbp_Error parseRangeData(char const** arg_name_list, int last_arg_index, RangeData* ret, toml_table_t* size_tbl)
 {

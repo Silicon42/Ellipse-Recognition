@@ -1,4 +1,4 @@
-#include "toml-c.h"
+#include "toml.h"
 #include "clbp_public_typedefs.h"
 
 toml_table_t* parseManifestFile(char* fname, clbp_Error* e);
