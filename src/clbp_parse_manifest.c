@@ -136,12 +136,12 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 
 	// get arg table
 	toml_table_t* args_table = toml_table_table(root_tbl, "Args");
-	if(!args_table || !args_table->nkval)
+	if(!args_table || !args_table->ntab)
 	{
 		e->err_code = CLBP_MF_INVALID_ARGS_TABLE;
 		return;
 	}
-	int max_defined_args = args_table->nkval;
+	int max_defined_args = args_table->ntab;
 
 	// get hardcoded args array (typically inputs defined in the source code)
 	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "HCInputArgs");

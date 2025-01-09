@@ -120,15 +120,26 @@ void printBuildLog(cl_program program, cl_device_id device)
 	cl_int cl_error;
 
 	// Find size of log and print to std output
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-	char* program_log = (char*) malloc(log_size+1);
-	cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, program_log, NULL);
+	cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
 	if(cl_error)
-		printClError(cl_error);
-	
-	program_log[log_size] = '\0';
-	fputs((const char*)program_log, stderr);
-	free(program_log);
+		handleClError(cl_error, "clGetProgramBuildInfo->logsize");
+	printf("log_size: %zu\n", log_size);
+	if(log_size > UINT32_MAX)
+		log_size = UINT32_MAX;
+	char* program_log = (char*) malloc(log_size);
+	if(program_log)
+	{
+		program_log[0] = '\0';
+		cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, program_log, NULL);
+		if(cl_error)
+			handleClError(cl_error, "clGetProgramBuildInfo->build log");
+		
+		//program_log[log_size] = '\0';
+		fputs((const char*)program_log, stderr);
+		free(program_log);
+	}
+	else
+		perror("Failed to allocate log ");
 }
 
 void handleClBuildProgram(cl_int cl_error, cl_program program, cl_device_id device)

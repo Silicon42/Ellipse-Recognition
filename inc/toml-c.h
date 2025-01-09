@@ -5,6 +5,9 @@ Fixes/Changes
  size directly on struct, fixes leak from not freeing and shrinks size of struct
 + errbufsz should be size_t, which is unsigned since it is only ever used for
  limiting snprintf length
+
+//FIXME: VVV my use of strings is actually a memory leak which is why this didn't cause a problem,
+// I might just implement my own TOML parser though that has minimal allocation and does most operations in place
 + added a fallback empty string for if reading a string value fails to prevent
  possible null dereferences, this prevents having to add a null dereference check
  for anyone who doesn't check that the read succeeded for whatever reason and

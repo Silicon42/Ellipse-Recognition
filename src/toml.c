@@ -1912,7 +1912,7 @@ int toml_value_string(toml_unparsed_t src, char **ret, int *len) {
 toml_value_t toml_array_string(const toml_array_t *arr, int idx) {
 	toml_value_t ret;
 	memset(&ret, 0, sizeof(ret));
-	ret.ok = (toml_value_string(toml_array_unparsed(arr, idx), &ret.u.s, &ret.u.sl) == 0);
+	ret.ok = (toml_value_string(toml_array_unparsed(arr, idx), &ret.u.s, &ret.sl) == 0);
 	return ret;
 }
 
@@ -1955,7 +1955,9 @@ toml_value_t toml_table_string(const toml_table_t *tbl, const char *key) {
 	memset(&ret, 0, sizeof(ret));
 	toml_unparsed_t raw = toml_table_unparsed(tbl, key);
 	if (raw)
-		ret.ok = (toml_value_string(raw, &ret.u.s, &ret.u.sl) == 0);
+		ret.ok = (toml_value_string(raw, &ret.u.s, &ret.sl) == 0);
+	if(!ret.ok)
+		ret.u.s = "";	//prevent potential null dereferences by having a pointer to a valid empty string
 	return ret;
 }
 

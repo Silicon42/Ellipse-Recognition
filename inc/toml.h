@@ -65,10 +65,10 @@ struct toml_keyval_t {
 // value is guaranteed to be correct UTF-8.
 struct toml_value_t {
 	bool ok; // Was this value present?
+	int              sl;  // string length, excluding NULL.
 	union {
 		toml_timestamp_t *ts; // datetime; must be freed after use.
 		char             *s;  // string value; must be freed after use
-		int              sl;  // string length, excluding NULL.
 		bool             b;   // bool value
 		int64_t          i;   // int value
 		double           d;   // double value

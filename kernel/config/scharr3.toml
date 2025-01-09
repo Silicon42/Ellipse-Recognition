@@ -1,9 +1,0 @@
-args = [
-	"input",
-	""
-]
-
-[range]
-ref_arg = ""
-mode = ""
-params = []
