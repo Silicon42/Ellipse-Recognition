@@ -33,7 +33,7 @@ int addUniqueString(char** list, int max_entries, char* str)
 	for(i = 0; (i < max_entries) && list[i]; ++i)
 	{
 		// if there's an exact match, it's already in the list and we can return early.
-		if(!strncmp(list[i], str, strlen(str)))
+		if(!strncmp(list[i], str, strlen(str)+1))
 			return i;
 	}
 	
@@ -53,7 +53,7 @@ int getStringIndex(char const** list, char const* str)
 	while(list[i])
 	{
 		// if there's an exact match, it's in the list and we can return its index
-		if(!strncmp(list[i], str, strlen(str)))
+		if(!strncmp(list[i], str, strlen(str)+1))
 			return i;
 
 		++i;
@@ -82,10 +82,10 @@ void allocStagedQArrays(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	staged->img_arg_cnt = staging->img_arg_cnt;
 	staged->stage_cnt = staging->stage_cnt;
 
-	staged->img_args = malloc(staging->img_arg_cnt * sizeof(cl_mem));
-	if(!staged->img_args)
+	staged->ranges = malloc(staging->stage_cnt * sizeof(Size3D));
+	if(!staged->ranges)
 	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"};
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "ranges array"};
 		return;
 	}
 
@@ -93,6 +93,13 @@ void allocStagedQArrays(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	if(!staged->img_sizes)
 	{
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_sizes array"};
+		return;
+	}
+
+	staged->img_args = malloc(staging->img_arg_cnt * sizeof(cl_mem));
+	if(!staged->img_args)
+	{
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"};
 		return;
 	}
 
@@ -112,7 +119,8 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	Size3D* sizes;
 	
 	sizes = staged->img_sizes;
-	puts("Calculating image argument sizes.");
+	//TODO: slightly inaccurate message but might eventually be true if I can figure out how to move input size reading to here
+	printf("Calculating %i image argument sizes... ", staged->img_arg_cnt);
 	for(int i = staging->input_img_cnt; i < staged->img_arg_cnt; ++i)
 	{
 		curr_range = &staging->img_arg_stg[i].size;
@@ -124,9 +132,10 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 			return;
 		}
 	}
+	puts("Done.");
 
 	sizes = staged->ranges;
-	puts("Calculating NDRanges.");
+	printf("Calculating %i NDRanges... ", staged->stage_cnt);
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
 		curr_range = &staging->kern_stg[i].range;
@@ -138,6 +147,7 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 			return;
 		}
 	}
+	puts("Done.");
 }
 
 // handles using staging data to selectively open kernel program source files and compile and link them into a single program binary
@@ -156,6 +166,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	}
 
 	// Read kernel program source file and place content into buffer
+	printf("Compiling %i kernel programs.\n", staging->kernel_cnt);
 	for(int i = 0; i < staging->kernel_cnt; ++i)
 	{
 		//TODO: add binary caching/loading, needs to check existence of binary and last modified timestamp of source
@@ -193,7 +204,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 		}
 	}
 
-	puts("Linking...\n");
+	fputs("Linking... ", stdout);
 	cl_program linked_prog = clLinkProgram(context, 1, &device, args, staging->kernel_cnt, kprogs, NULL, NULL, &e->err_code);
 	if(e->err_code)
 	{
@@ -203,6 +214,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 			e->detail = "clLinkProgram";
 			return NULL;
 	}
+	puts("Done.");
 	//TODO: add release of individual kernel programs
 	return linked_prog;
 }
@@ -242,7 +254,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 		char const* kprog_name = staging->kprog_names[staging->kern_stg[i].kernel_idx];
 		cl_uint arg_cnt;
 		cl_uint err;
-		printf("%i:	%s\n", i, kprog_name);
+		printf("(%i) %s\n", i, kprog_name);
 		err = clGetKernelInfo(curr_kern, CL_KERNEL_NUM_ARGS, sizeof(arg_cnt), &arg_cnt, NULL);
 		staging->kern_stg[i].arg_cnt = arg_cnt;
 		if(err)
@@ -257,7 +269,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 		{
 			int arg_idx = staging->kern_stg[i].arg_idxs[j];
 			char const* arg_name = staging->arg_names[arg_idx];
-			printf("	%i:	%s", j, arg_name);
+			printf("	[%i] %s", j, arg_name);
 			ArgStaging* curr_arg = &staging->img_arg_stg[arg_idx];
 			cl_kernel_arg_access_qualifier access_qual;
 			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(access_qual), &access_qual, NULL);
@@ -305,7 +317,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 				continue;
 			}
 
-			puts(arg_metadata);//TODO: remove this debugging line once you know what all the types actually return
+			printf(" %s", arg_metadata);	//TODO: remove this debugging line once you know what all the types actually return
 			enum clMemType mem_type = getStringIndex(memTypes, arg_metadata) + CLBP_OFFSET_MEMTYPE;
 			if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_OFFSET_MEMTYPE)
 			{
@@ -317,7 +329,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 			if(mem_type != curr_arg->type)
 			{
 				fprintf(stderr, "WARNING: argument type mismatch\n"
-				"	provided %s, requested %s.\n", arg_metadata, memTypes[curr_arg->type - CLBP_OFFSET_MEMTYPE]);
+				"	provided %s, requested %i.\n", arg_metadata, curr_arg->type - CLBP_OFFSET_MEMTYPE);//memTypes[
 				continue;
 			}
 			// else, no warning, verified!

@@ -111,6 +111,8 @@ int main(int argc, char *argv[])
 
 	// allocate output buffer
 	char* out_data = (char*)malloc(max_out_sz);
+	if(!out_data)
+		handleClBoilerplateError((clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "output buffer"});
 
 	puts("\n");
 

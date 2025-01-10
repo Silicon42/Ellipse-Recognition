@@ -23,10 +23,10 @@ char const* channelTypes[] = {
 
 char const* memTypes[] = {
 	"BUFFER",
-	"IMAGE2D",
-	"IMAGE3D",
+	"image2d_t",
+	"image3d_t",
 	"IMAGE2D_ARRAY",
-	"IMAGE1D",
+	"image1d_t",
 	"IMAGE1D_ARRAY",
 	"IMAGE1D_BUFFER",
 	"PIPE",

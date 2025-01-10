@@ -21,9 +21,9 @@ enum rangeMode {
 	COLUMN,	// REL on x axis, EXACT on y and z
 };
 
-extern char const* channelTypes[CLBP_INVALID_CHANNEL_TYPE+1];
+extern char const* channelTypes[CLBP_INVALID_CHANNEL_TYPE+1 - CLBP_OFFSET_CHANNEL_TYPE];
 
-extern char const* memTypes[CLBP_INVALID_MEM_TYPE+1];
+extern char const* memTypes[CLBP_INVALID_MEM_TYPE+1 - CLBP_OFFSET_MEMTYPE];
 
 typedef struct {
 	size_t d[3];
