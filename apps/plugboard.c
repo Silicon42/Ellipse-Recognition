@@ -67,7 +67,9 @@ int main(int argc, char *argv[])
 
 	//at this point, the arg list and kernel list are finalized and we know how many there will be
 	StagedQ staged;
-	allocStagedQArrays(&staging, &staged, &e);
+	e.err_code = allocStagedQArrays(&staging, &staged);
+	if(e.err_code)
+		e.detail = "Staged queue array allocation";
 	handleClBoilerplateError(e);
 
 	// instantiate hard-coded args, this gives us the base image sizes that things are calculated relative to

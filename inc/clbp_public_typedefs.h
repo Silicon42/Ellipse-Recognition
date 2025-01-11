@@ -10,13 +10,13 @@
 #include "clbp_error_handling.h"
 
 enum rangeMode {
-	CLBP_RM_ADD_SUB = 0,// expand/contract range and output relative to input
+	CLBP_RM_ADD_SUB = 0,// add/subtract range relative to input
 	CLBP_RM_MULTIPLY,	// multiplies each component by corresponding param
 	CLBP_RM_DIVIDE,		// divides each component by corresponding param
 	CLBP_RM_EXACT,		// set range/size to param
-	CLBP_RM_ROW,		// CLBP_RM_ADD_SUB on y axis, CLBP_RM_EXACT on x and z
-	CLBP_RM_COLUMN,		// CLBP_RM_ADD_SUB on x axis, CLBP_RM_EXACT on y and z
-	CLBP_RM_DIAGONAL,	// exact on [0], contraction(- only, + no useful effect) relative to length of diagonal on [1]*, relative on [2], used for hough_lines
+	CLBP_RM_ROW,		// add/subtract on y axis, exact on x and z
+	CLBP_RM_COLUMN,		// add/subtract on x axis, exact on y and z
+	CLBP_RM_DIAGONAL,	// exact on [0], contraction(- only, + no useful effect) relative to length of diagonal on [1]*, add/subtract on [2], used for hough_lines
 //	PAD,	// pad to multiple of work group dimensions
 //	SINGLE,	// meant for primarily serial workloads, [0] == false -> 1 hardware workgroup, [0] == true -> single work item
 	CLBP_INVALID_MODE

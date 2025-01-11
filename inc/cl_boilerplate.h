@@ -27,7 +27,7 @@ int addUniqueString(char** list, int max_entries, char* str);
 int getStringIndex(char const** list, char const* str);
 
 // Initializes a StagedQ object's arrays and counts
-void allocStagedQArrays(QStaging const* staging, StagedQ* staged, clbp_Error* e);
+cl_int allocStagedQArrays(QStaging const* staging, StagedQ* staged);
 
 // applies the relative calculations for all arg sizes starting from the first non-hardcoded input argument
 void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e);

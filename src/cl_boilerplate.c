@@ -77,38 +77,27 @@ int strDiffPos(char const* lhs, char const* rhs)
 */
 
 // Initializes a StagedQ object's arrays and counts
-void allocStagedQArrays(QStaging const* staging, StagedQ* staged, clbp_Error* e)
+cl_int allocStagedQArrays(QStaging const* staging, StagedQ* staged)
 {
 	staged->img_arg_cnt = staging->img_arg_cnt;
 	staged->stage_cnt = staging->stage_cnt;
 
-	staged->ranges = malloc(staging->stage_cnt * sizeof(Size3D));
-	if(!staged->ranges)
-	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "ranges array"};
-		return;
-	}
+	size_t size3d_byte_cnt = (staged->img_arg_cnt + staged->stage_cnt) * sizeof(Size3D);
+	staged->img_sizes = malloc(size3d_byte_cnt);
+	staged->ranges = staged->img_sizes + staged->img_arg_cnt;
 
-	staged->img_sizes = malloc(staging->img_arg_cnt * sizeof(Size3D));
-	if(!staged->img_sizes)
-	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_sizes array"};
-		return;
-	}
+	size_t cl_ptr_byte_cnt = (staged->img_arg_cnt + staging->kernel_cnt) * sizeof(void*);
+	staged->img_args = malloc(cl_ptr_byte_cnt);
+	staged->kernels = staged->img_args + staged->img_arg_cnt;
 
-	staged->img_args = malloc(staging->img_arg_cnt * sizeof(cl_mem));
-	if(!staged->img_args)
+	// check for failed allocation and free if it was partially allocated
+	if(!staged->img_sizes || !staged->img_args)
 	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "img_args array"};
-		return;
+		free(staged->img_sizes);
+		free(staged->img_args);
+		return CLBP_OUT_OF_MEMORY;
 	}
-
-	staged->kernels = malloc(staging->kernel_cnt * sizeof(cl_kernel));
-	if(!staged->kernels)
-	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_program array"};
-		return;
-	}
+	return CLBP_OK;
 }
 
 // applies the relative calculations for all arg sizes starting from the first non-hardcoded input argument
@@ -627,15 +616,13 @@ void freeQStagingArrays(QStaging* staging)
 		//TODO: if you add kprog_names copying the names would need to be freed here
 	}
 	free(staging->kern_stg);
-	free(staging->kprog_names);
-	//TODO: if you add arg_names copying the names would need to be freed here
-	free(staging->arg_names);
 	free(staging->img_arg_stg);
+	//TODO: if you add arg_names copying the names would need to be freed here
+	free(staging->kprog_names);
 }
 
 void freeStagedQArrays(StagedQ* staged)
 {
-	free(staged->ranges);
 	free(staged->img_sizes);
 	//TODO: see if these items can be released earlier so that they all automatically get fully released when the
 	// command queue gets released
@@ -645,12 +632,11 @@ void freeStagedQArrays(StagedQ* staged)
 		err = clReleaseMemObject(staged->img_args[i]);
 		handleClError(err, "clReleaseMemObject");
 	}
-	free(staged->img_args);
 
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
 		err = clReleaseKernel(staged->kernels[i]);
 		handleClError(err, "clReleaseKernel");
 	}
-	free(staged->kernels);
+	free(staged->img_args);
 }

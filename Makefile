@@ -64,6 +64,7 @@ all: $(OBJECTS) $(APP_OBJECTS)
 # VScode Makefile tools is stupid and doesn't allow manually adding targets, instead it only allows
 #  explicitly specified targets so these are dummy rules for the applications.
 ellipse_recognition:
+plugboard:
 diagnostics:
 gen_color_LUT:
 scharr_cpu:

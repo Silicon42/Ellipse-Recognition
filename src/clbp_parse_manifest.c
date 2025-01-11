@@ -126,20 +126,8 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		*e = (clbp_Error){.err_code = CLBP_MF_INVALID_STAGES_ARRAY};
 		return;
 	}
-	int stage_cnt = stage_list->nitem;
-	staging->kprog_names = calloc(stage_cnt + 1, sizeof(char*));
-	if(!staging->kprog_names)
-	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "kernel program names array"};
-		return;
-	}
-	staging->kern_stg = calloc(stage_cnt, sizeof(KernStaging));
-	if(!staging->kern_stg)
-	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "KernStaging array"};
-		return;
-	}
-	staging->stage_cnt = stage_cnt;
+	uint16_t* stage_cnt = &staging->stage_cnt;
+	*stage_cnt = stage_list->nitem;
 
 	// get arg table
 	toml_table_t* args_table = toml_table_table(root_tbl, "Args");
@@ -148,7 +136,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		e->err_code = CLBP_MF_INVALID_ARGS_TABLE;
 		return;
 	}
-	int max_defined_args = args_table->ntab;
+	uint32_t max_defined_args = args_table->ntab;
 
 	// get hardcoded args array (typically inputs defined in the source code)
 	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "HCInputArgs");
@@ -164,16 +152,21 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		max_defined_args += hardcoded_args_arr->nitem;
 	}
 
-	staging->arg_names = calloc(max_defined_args + 1, sizeof(char*));
-	if(!staging->arg_names)
-	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "kernel arguments names array"};
-		return;
-	}
+	// calculate name count so we only have a singular allocation for the kernel and arg name strings (both are char pointer arrays)
+	uint32_t names_cnt = *stage_cnt + max_defined_args + 2;
+	staging->kprog_names = calloc(names_cnt, sizeof(char*));
+	staging->arg_names = staging->kprog_names + *stage_cnt + 1;
+	//TODO: check if I assumed the following elements were zeroed, if not, they can be malloc'd instead
+	staging->kern_stg = calloc(*stage_cnt, sizeof(KernStaging));
 	staging->img_arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
-	if(!staging->img_arg_stg)
+
+	// check if any of the allocations failed and if so release any allocated componenets
+	if(!staging->kprog_names || !staging->kern_stg || !staging->img_arg_stg)
 	{
-		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "ArgStaging array"};
+		free(staging->kern_stg);
+		free(staging->img_arg_stg);
+		free(staging->kprog_names);
+		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "Staging array allocation"};
 		return;
 	}
 
@@ -190,7 +183,7 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		// set the flag for the hardcoded arg to copy the contents of host memory to device memory
 		staging->img_arg_stg[i].flags = CL_MEM_COPY_HOST_PTR;
 	}
-	//TODO: check if it max_defined_args is still needed or if this can be set to the hardcoded args count
+	//TODO: check if it max_defined_args is still needed to be copied here or if this can be set to the hardcoded args count
 	//technically this is an upper limit but it can be stored here temporarily until we get the real count
 	//ADDENDUM: it's not but it would require a couple other changes to remove it so it stays for now
 	staging->img_arg_cnt = max_defined_args;
