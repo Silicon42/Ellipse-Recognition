@@ -34,7 +34,7 @@ cl_channel_order getOrderFromChannelCnt(uint8_t count);
 // get the minimum per pixel allocation size for reading output buffers to the host
 uint8_t getPixelSize(cl_image_format format);
 
-// in can be NULL if mode is EXACT or SINGLE
+// in can be NULL if mode is CLBP_RM_EXACT or SINGLE
 // This is a massive oversimplification since NDRanges aren't capped at 3, but
 // that's all I expect to ever need from this and it makes implementation much easier
 // plus it's the minimum required upper limit for non-custom device types in the spec

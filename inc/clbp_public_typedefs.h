@@ -10,16 +10,18 @@
 #include "clbp_error_handling.h"
 
 enum rangeMode {
+	CLBP_RM_ADD_SUB = 0,// expand/contract range and output relative to input
+	CLBP_RM_MULTIPLY,	// multiplies each component by corresponding param
+	CLBP_RM_DIVIDE,		// divides each component by corresponding param
+	CLBP_RM_EXACT,		// set range/size to param
+	CLBP_RM_ROW,		// CLBP_RM_ADD_SUB on y axis, CLBP_RM_EXACT on x and z
+	CLBP_RM_COLUMN,		// CLBP_RM_ADD_SUB on x axis, CLBP_RM_EXACT on y and z
+	CLBP_RM_DIAGONAL,	// exact on [0], contraction(- only, + no useful effect) relative to length of diagonal on [1]*, relative on [2], used for hough_lines
 //	PAD,	// pad to multiple of work group dimensions
-	EXACT,	// set range/size to param
 //	SINGLE,	// meant for primarily serial workloads, [0] == false -> 1 hardware workgroup, [0] == true -> single work item
-	REL,	// expand/contract range and output relative to input
-	DIAG,	// exact on [0], contraction(- only, + no useful effect) relative to length of diagonal on [1]*, relative on [2], used for hough_lines
-	DIVIDE,	// divides each component by corresponding param
-	MULT,	// multiplies each component by corresponding param
-	ROW,	// REL on y axis, EXACT on x and z
-	COLUMN,	// REL on x axis, EXACT on y and z
+	CLBP_INVALID_MODE
 };
+extern char const* modeNames[CLBP_INVALID_MODE+1];
 
 extern char const* channelTypes[CLBP_INVALID_CHANNEL_TYPE+1 - CLBP_OFFSET_CHANNEL_TYPE];
 

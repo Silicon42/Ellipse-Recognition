@@ -159,7 +159,7 @@ char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
 	return getChannelCount(order) - (ch_cnt_data - '0');
 }
 
-// in can be NULL if mode is EXACT or SINGLE
+// in can be NULL if mode is CLBP_RM_EXACT or SINGLE
 // This is a massive oversimplification since NDRanges aren't capped at 3, but
 // that's all I expect to ever need from this and it makes implementation much easier
 // plus it's the minimum required upper limit for non-custom device types in the spec
@@ -177,7 +177,7 @@ char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
 	// modes that don't use the reference don't need to check it.
 	switch(range->mode)
 	{
-	case EXACT:
+	case CLBP_RM_EXACT:
 		out[0] = param[0];
 		out[1] = param[1];
 		out[2] = param[2];
@@ -187,32 +187,32 @@ char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
 		out[1] = 1;
 		out[2] = 1;
 		break;
-*/	case REL:
+*/	case CLBP_RM_ADD_SUB:
 		out[0] = in[0] + param[0];
 		out[1] = in[1] + param[1];
 		out[2] = in[2] + param[2];
 		break;
-	case DIAG:
+	case CLBP_RM_DIAGONAL:
 		out[0] = param[0];
 		out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + param[1]) & -2;	//diagonal length truncated down to even
 		out[2] = in[2] + param[2];
 		break;
-	case DIVIDE:
+	case CLBP_RM_DIVIDE:
 		out[0] = in[0] / param[0];
 		out[1] = in[1] / param[1];
 		out[2] = in[2] / param[2];
 		break;
-	case MULT:
+	case CLBP_RM_MULTIPLY:
 		out[0] = in[0] * param[0];
 		out[1] = in[1] * param[1];
 		out[2] = in[2] * param[2];
 		break;
-	case ROW:
+	case CLBP_RM_ROW:
 		out[0] = param[0];
 		out[1] = in[1] + param[1];
 		out[2] = param[2];
 		break;
-	case COLUMN:
+	case CLBP_RM_COLUMN:
 		out[0] = in[0] + param[0];
 		out[1] = param[1];
 		out[2] = param[2];

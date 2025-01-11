@@ -1,5 +1,17 @@
 #include "clbp_public_typedefs.h"
 
+char const* modeNames[] = {
+	"ADD_SUB",
+	"MULTIPLY",
+	"DIVIDE"
+	"EXACT",
+	"CLBP_RM_ROW",
+	"CLBP_RM_COLUMN",
+	"DIAGONAL",
+	//
+	NULL
+};
+
 char const* channelTypes[] = {
 	"SNORM_INT8",
 	"SNORM_INT16",

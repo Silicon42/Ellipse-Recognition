@@ -6,41 +6,45 @@
 
 clbp_Error parseRangeData(QStaging* staging, RangeData* ret, toml_table_t* size_tbl)
 {
-	if(!size_tbl)	// size wasn't specified, fallback to default
-	{
-		*ret = (RangeData){
-			.param = {0,0,0},
-			.ref_idx = staging->img_arg_cnt,
-			.mode = REL
-		};
+	// default values are used when they are not specified or are otherwise blank or the table itself is omitted
+	*ret = (RangeData){
+		.ref_idx = staging->img_arg_cnt - 1,
+		.mode = CLBP_RM_ADD_SUB,
+		.param = {0,0,0}
+	};
+
+	if(!size_tbl)	// size/range wasn't specified, fallback to default
 		return (clbp_Error){0};
-	}
 
 	//read the name of the reference arg
 	toml_value_t val = toml_table_string(size_tbl, "ref_arg");
-	if(!val.u.s[0])	//string defaults to empty string if val.ok == false
-		ret->ref_idx = staging->img_arg_cnt;	// if missing or empty, default to previous arg
-	else
+	if(val.u.s[0])	//string defaults to empty string if val.ok == false
 	{
-		int ref_idx = getStringIndex(staging->arg_names, val.u.s);
+		int ref_idx = getStringIndex((char const**)staging->arg_names, val.u.s);
 		// if the string wasn't in the list, it might have been referenced out of order
 		// or mis-typed or completely missing, in any case we can't determine size from the given name
 		if(ref_idx < 0)
-			return (clbp_Error){.err_code = CLBP_MF_REF_ARG_NOT_YET_STAGED, .detail = val.u.s};
+			return (clbp_Error){.err_code = CLBP_MF_REF_ARG_NOT_YET_STAGED, .detail = val.u.s};	//FIXME: this could lead to segfault if freed while returning up the stack
 		
 		ret->ref_idx = ref_idx;
 	}
 
-	toml_array_t* params = toml_table_array(size_tbl, "params");
-	// assumes params start out as zero by default
-	if(params)
+	val = toml_table_string(size_tbl, "mode");
+	if(val.u.s[0])
 	{
-		ret->param[0] = 0;
-		ret->param[1] = 0;
-		ret->param[2] = 0;
+		int mode = getStringIndex(modeNames, val.u.s);
+		if(mode >= 0)
+			ret->mode = mode;
 	}
 
-	val = toml_table_string(size_tbl, "mode");
+	toml_array_t* params = toml_table_array(size_tbl, "params");
+	int dims = (params->keylen <= 3) ? params->keylen : 3;
+	// assumes params start out as zero by default
+	for(int i = 0; i < dims; ++i)
+	{
+		ret->param[i] = toml_array_int(params, i).u.i;
+	}
+
 	return (clbp_Error){0};
 }
 
@@ -90,7 +94,7 @@ clbp_Error validateNstoreArgConfig(QStaging* staging, toml_table_t* args, char* 
 	new_arg->type = mem_type;
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
-	return parseRangeData(staging &new_arg->size, size_tbl);
+	return parseRangeData(staging, &new_arg->size, size_tbl);
 }
 
 toml_table_t* parseManifestFile(char* fname, clbp_Error* e)
@@ -205,6 +209,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 	toml_array_t* stage_list = toml_table_array(root_tbl, "Stages");
 	toml_table_t* args_table = toml_table_table(root_tbl, "Args");
 
+	KernStaging* curr_stage;
 	// for each stage in the stage list
 	for(int i = 0; i < staging->stage_cnt; ++i)
 	{
@@ -218,8 +223,9 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 
 		// check if a kernel by that name already exists, if not, add it to the list of ones to build
 		// additionally set the kernel program reference index for the stage to the returned index of the match/new program name
+		curr_stage = &staging->kern_stg[i];
 		int kern_idx = addUniqueString(staging->kprog_names, staging->stage_cnt, tval.u.s);
-		staging->kern_stg[i].kernel_idx = kern_idx;
+		curr_stage->kernel_idx = kern_idx;
 		if(staging->kernel_cnt == kern_idx)	//check if this was a newly referenced kernel
 			++staging->kernel_cnt;
 		//FIXME: ^ something must eventually copy the string or you'll have a read after free for the toml strings
@@ -234,23 +240,24 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		}
 		int args_cnt = stage_args->nitem;
 
-		staging->kern_stg[i].arg_idxs = malloc(args_cnt * sizeof(uint16_t));
-		if(!staging->kern_stg[i].arg_idxs)
+		curr_stage->arg_idxs = malloc(args_cnt * sizeof(uint16_t));
+		if(!curr_stage->arg_idxs)
 		{
 			*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "stage's argument index array"};
 			return;
 		}
 
 		int stg_img_arg_cnt = toml_array_len(stage_args);
-
+		uint16_t* curr_arg_idx;
 		// iterate over args to find any new ones
 		for(int j = 0; j < stg_img_arg_cnt; ++j)
 		{
+			curr_arg_idx = &curr_stage->arg_idxs[j];
 			char* arg_name = toml_array_string(stage_args, j).u.s;	//guaranteed exists due to kind, and type checks above
 			if(arg_name[0])	// if not empty string
 			{
 				int arg_idx = addUniqueString(staging->arg_names, max_defined_args, arg_name);
-				staging->kern_stg[i].arg_idxs[j] = arg_idx;
+				*curr_arg_idx = arg_idx;
 				if(staging->img_arg_cnt == arg_idx)	//check if this was a newly referenced argument
 				{
 					//staging->img_arg_cnt = arg_idx + 1;
@@ -262,9 +269,10 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 				}
 			}
 			else	// empty string is a special case that always selects whatever was last added
-				staging->kern_stg[i].arg_idxs[j] = staging->img_arg_cnt - 1;
+				*curr_arg_idx = staging->img_arg_cnt - 1;
 		}
+
+		toml_table_t* range = toml_table_table(stage, "range");
+		parseRangeData(staging, &curr_stage->range, range);
 	}
-	//staging->img_arg_cnt = final_arg_idx + 1;
-	//staging->kernel_cnt = final_kern_idx + 1;
 }
