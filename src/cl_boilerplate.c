@@ -88,7 +88,7 @@ cl_int allocStagedQArrays(QStaging const* staging, StagedQ* staged)
 
 	size_t cl_ptr_byte_cnt = (staged->img_arg_cnt + staging->kernel_cnt) * sizeof(void*);
 	staged->img_args = malloc(cl_ptr_byte_cnt);
-	staged->kernels = staged->img_args + staged->img_arg_cnt;
+	staged->kernels = (void*)staged->img_args + staged->img_arg_cnt;
 
 	// check for failed allocation and free if it was partially allocated
 	if(!staged->img_sizes || !staged->img_args)

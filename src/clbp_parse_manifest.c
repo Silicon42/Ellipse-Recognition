@@ -38,11 +38,14 @@ clbp_Error parseRangeData(QStaging* staging, RangeData* ret, toml_table_t* size_
 	}
 
 	toml_array_t* params = toml_table_array(size_tbl, "params");
-	int dims = (params->keylen <= 3) ? params->keylen : 3;
-	// assumes params start out as zero by default
-	for(int i = 0; i < dims; ++i)
+	if(params)
 	{
-		ret->param[i] = toml_array_int(params, i).u.i;
+		int dims = (params->nitem <= 3) ? params->nitem : 3;
+		// assumes params start out as zero by default
+		for(int i = 0; i < dims; ++i)
+		{
+			ret->param[i] = toml_array_int(params, i).u.i;
+		}
 	}
 
 	return (clbp_Error){0};
@@ -90,11 +93,12 @@ clbp_Error validateNstoreArgConfig(QStaging* staging, toml_table_t* args, char* 
 	if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_OFFSET_MEMTYPE)
 		return (clbp_Error){.err_code = CLBP_MF_INVALID_ARG_TYPE, .detail = arg_name};
 	
-	printf("%i", mem_type);
 	new_arg->type = mem_type;
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
-	return parseRangeData(staging, &new_arg->size, size_tbl);
+	clbp_Error ret = parseRangeData(staging, &new_arg->size, size_tbl);
+	staging->img_arg_cnt++;
+	return ret;
 }
 
 toml_table_t* parseManifestFile(char* fname, clbp_Error* e)
@@ -102,9 +106,8 @@ toml_table_t* parseManifestFile(char* fname, clbp_Error* e)
 	assert(fname && e);
 	// Read in the manifest for what kernels should be used
 	char* manifest;
-	clbp_Error ret;
-	manifest = readFileToCstring(fname, &ret);
-	if(ret.err_code)
+	manifest = readFileToCstring(fname, e);
+	if(e->err_code)
 		return NULL;
 	
 	static char errbuf[256];	//TODO: ugly but probably fine, might be an issue with multiple instances but if they all error at the same time you have bigger issues
@@ -196,7 +199,7 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 	assert(root_tbl && staging && e);
 	int max_defined_args = staging->img_arg_cnt;
 	staging->kernel_cnt = 0;
-	staging->img_arg_cnt = staging->input_img_cnt - 1;
+	staging->img_arg_cnt = staging->input_img_cnt;
 
 	// assumes stage list and args table was already validated
 	toml_array_t* stage_list = toml_table_array(root_tbl, "Stages");
