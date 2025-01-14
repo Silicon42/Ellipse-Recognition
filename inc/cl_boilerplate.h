@@ -57,9 +57,10 @@ void setKernelArgs(QStaging const* staging, StagedQ* staged, clbp_Error* e);
 // takes a NULL terminated array of KernStaging pointers and an array of kernels and fills in the QStage array and argTracker array
 // according to their details
 //void prepQStages(cl_context context, const QStaging* staging, const cl_program kprog, QStage* stages, ArgTracker* at, clbp_Error* e);
-// creates a single channel cl_mem image from a file and attaches it to the tracked arg pointer provided
-// the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
-cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, Size3D* size, clbp_Error* e);
+
+// reads an image from file with the requested number of channels and attaches the data to the staging object
+// must have the format and type pre-populated with a suitable way to interpret the raw image data
+void inputImagesFromFiles(char const** fnames, QStaging* staging, clbp_Error* e);
 
 // converts format of data to char array compatible read,
 // data must point to a 32-bit aligned array. if it was malloc'd, it is aligned
@@ -67,7 +68,7 @@ cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format cons
 uint8_t readImageAsCharArr(char* data, StagedQ const* staged, uint16_t idx);
 
 //TODO: verify that this is the correct header to place this function in
-// Returned pointer must be freed when done using
+// Returned pointer must be freed when done using, no need to free on error
 char* readFileToCstring(char* fname, clbp_Error* e);
 
 void freeQStagingArrays(QStaging* staging);

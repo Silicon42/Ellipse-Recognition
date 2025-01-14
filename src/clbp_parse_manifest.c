@@ -57,7 +57,8 @@ clbp_Error validateNstoreArgConfig(QStaging* staging, toml_table_t* args, char* 
 	if(!arg_conf)
 		return (clbp_Error){.err_code = CLBP_MF_MISSING_ARG_ENTRY, .detail = arg_name};
 
-	ArgStaging* new_arg = &staging->img_arg_stg[staging->img_arg_cnt];
+	uint16_t* arg_cnt = &staging->img_arg_cnt;
+	ArgStaging* new_arg = &staging->img_arg_stg[*arg_cnt];
 
 	// parse if arg was manually set to host readable, defaults to false if not specified
 	toml_value_t is_host_readable = toml_table_bool(arg_conf, "is_host_readable");
@@ -96,8 +97,8 @@ clbp_Error validateNstoreArgConfig(QStaging* staging, toml_table_t* args, char* 
 	new_arg->type = mem_type;
 	
 	toml_table_t* size_tbl = toml_table_table(arg_conf, "size");
-	clbp_Error ret = parseRangeData(staging, &new_arg->size, size_tbl);
-	staging->img_arg_cnt++;
+	clbp_Error ret = parseRangeData(staging, &staging->arg_size_calcs[*arg_cnt], size_tbl);
+	++(*arg_cnt);
 	return ret;
 }
 
@@ -119,6 +120,7 @@ toml_table_t* parseManifestFile(char* fname, clbp_Error* e)
 	return root_tbl;
 }
 
+// expects staging->input_img_cnt to be set already to the expected value
 void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_Error* e)
 {
 	assert(root_tbl && staging && e);
@@ -139,35 +141,39 @@ void allocQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clbp_E
 		e->err_code = CLBP_MF_INVALID_ARGS_TABLE;
 		return;
 	}
-	uint32_t max_defined_args = args_table->ntab;
+	uint32_t max_defined_args = args_table->ntab + staging->input_img_cnt;
 
 	// get hardcoded args array (typically inputs defined in the source code)
 	toml_array_t* hardcoded_args_arr = toml_table_array(root_tbl, "HCInputArgs");
-	if(hardcoded_args_arr)
-	{	// if the hardcoded args array exists, it must be a string array
-		if(hardcoded_args_arr->type != 's')
+	// if we are expecting input images,
+	if(staging->input_img_cnt)
+	{	// the hardcoded args array must exist as a string array with the same number of entries as expected inputs
+		if(!hardcoded_args_arr || hardcoded_args_arr->type != 's' || hardcoded_args_arr->nitem != staging->input_img_cnt)
 		{
-			e->err_code = CLBP_MF_INVALID_HC_ARGS_ARRAY;
+			*e = (clbp_Error){.err_code = CLBP_MF_INVALID_HC_ARGS_ARRAY, .detail = NULL + staging->input_img_cnt};
 			return;
 		}
-		// if it was a string array, add the count to the max arg count such that space can be allocated for them
-		staging->input_img_cnt = hardcoded_args_arr->nitem;
-		max_defined_args += hardcoded_args_arr->nitem;
 	}
 
-	// calculate name count so we only have a singular allocation for the kernel and arg name strings (both are char pointer arrays)
-	uint32_t names_cnt = *stage_cnt + max_defined_args + 2;
-	staging->kprog_names = calloc(names_cnt, sizeof(char*));
+	// calculate name count so we only have a singular allocation for the kernel and arg name strings (both are char pointer arrays),
+	// also used for range_calcs and arg_size_calcs (both are Size3D arrays)
+	uint32_t names_cnt = *stage_cnt + max_defined_args;
+	staging->kprog_names = calloc(names_cnt + 2, sizeof(char*));	//NOTE: +2 for NULL pointer termination of 2 arrays
 	staging->arg_names = staging->kprog_names + *stage_cnt + 1;
+	staging->range_calcs = malloc(names_cnt * sizeof(Size3D));
+	staging->arg_size_calcs = &staging->range_calcs[*stage_cnt];
+	staging->input_imgs = calloc(staging->input_img_cnt, sizeof(char*));
 	//TODO: check if I assumed the following elements were zeroed, if not, they can be malloc'd instead
 	staging->kern_stg = calloc(*stage_cnt, sizeof(KernStaging));
 	staging->img_arg_stg = calloc(max_defined_args, sizeof(ArgStaging));
 
 	// check if any of the allocations failed and if so release any allocated componenets
-	if(!staging->kprog_names || !staging->kern_stg || !staging->img_arg_stg)
+	if(!staging->kprog_names || !staging->kern_stg || !staging->img_arg_stg || !staging->range_calcs || (staging->input_img_cnt && !staging->input_imgs))
 	{
+		free(staging->input_imgs);
 		free(staging->kern_stg);
 		free(staging->img_arg_stg);
+		free(staging->range_calcs);
 		free(staging->kprog_names);
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "Staging array allocation"};
 		return;
@@ -269,6 +275,6 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		}
 
 		toml_table_t* range = toml_table_table(stage, "range");
-		parseRangeData(staging, &curr_stage->range, range);
+		parseRangeData(staging, &staging->range_calcs[i], range);
 	}
 }

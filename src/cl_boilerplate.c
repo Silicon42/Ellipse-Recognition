@@ -103,39 +103,18 @@ cl_int allocStagedQArrays(QStaging const* staging, StagedQ* staged)
 // applies the relative calculations for all arg sizes starting from the first non-hardcoded input argument
 void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
-	RangeData const* curr_range;
-	Size3D const* ref_size;
-	Size3D* sizes;
-	
-	sizes = staged->img_sizes;
-	//TODO: slightly inaccurate message but might eventually be true if I can figure out how to move input size reading to here
+	Size3D* sizes = staged->img_sizes;
+
 	printf("Calculating %i image argument sizes... ", staged->img_arg_cnt);
-	for(int i = staging->input_img_cnt; i < staged->img_arg_cnt; ++i)
-	{
-		curr_range = &staging->img_arg_stg[i].size;
-		ref_size = &sizes[curr_range->ref_idx];
-		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
-		if(e->err_code)
-		{
-			e->detail = NULL + i;
-			return;
-		}
-	}
+	calcSizeByMode(sizes, staging->arg_size_calcs, sizes, staged->img_arg_cnt, e);
+	if(e->err_code)
+		return;
 	puts("Done.");
 
-	sizes = staged->ranges;
 	printf("Calculating %i NDRanges... ", staged->stage_cnt);
-	for(int i = 0; i < staged->stage_cnt; ++i)
-	{
-		curr_range = &staging->kern_stg[i].range;
-		ref_size = &sizes[curr_range->ref_idx];
-		e->err_code = calcSizeByMode(ref_size, curr_range, &sizes[i]);
-		if(e->err_code)
-		{
-			e->detail = NULL + i;
-			return;
-		}
-	}
+	calcSizeByMode(sizes, staging->range_calcs, staged->ranges, staged->stage_cnt, e);
+	if(e->err_code)
+		return;
 	puts("Done.");
 }
 
@@ -226,8 +205,6 @@ void instantiateKernels(QStaging const* staging, const cl_program kprog, StagedQ
 
 		staged->kernels[i] = kernel;
 	}
-
-	return;
 }
 
 // infers the access qualifiers of the image args as well as verifies that type data specified matches what the kernels expect of it
@@ -360,12 +337,11 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 // is pre-populated with the expected number of hard-coded input entries
 // such that it may add the first new entry at input_img_cnt
 // returns the max number of bytes needed for reading out of any of the host readable buffers
-//FIXME: currently doesn't take into account input args being read out for the return value
 size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
 	size_t max_out_sz = 0;
 	cl_mem* img_args = staged->img_args;
-	for(int i = staging->input_img_cnt; i < staging->img_arg_cnt; ++i)
+	for(int i = 0; i < staging->img_arg_cnt; ++i)
 	{
 		ArgStaging* curr_arg = &staging->img_arg_stg[i];
 		size_t* size = staged->img_sizes[i].d;
@@ -384,7 +360,6 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 
 		if(curr_arg->flags & (CL_MEM_HOST_READ_ONLY))
 		{	// calculate output size
-
 			size_t curr_size = getPixelSize(curr_arg->format);
 			curr_size *= (size_t)size[0] * size[1] * size[2];
 			if(max_out_sz < curr_size)
@@ -393,7 +368,7 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 		else// if(!(curr_arg->flags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR))) //I suspect these flags might qualify too
 			curr_arg->flags |= CL_MEM_HOST_NO_ACCESS;
 
-		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, NULL, &e->err_code);
+		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, (i < staging->input_img_cnt) ? staging->input_imgs[i] : NULL, &e->err_code);
 		if(e->err_code)
 		{
 			e->detail = "clCreateImage";
@@ -425,50 +400,33 @@ void setKernelArgs(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 	}
 }
 
-// creates a single channel cl_mem image from a file and attaches it to the tracked arg pointer provided
-// the tracked arg must have the format pre-populated with a suitable way to interpret the raw image data
-cl_mem imageFromFile(cl_context context, char const* fname, cl_image_format const* format, Size3D* size, clbp_Error* e)
+// reads an image from file with the requested number of channels and attaches the data to the staging object
+// must have the format and type pre-populated with a suitable way to interpret the raw image data
+void inputImagesFromFiles(char const** fnames, QStaging* staging, clbp_Error* e)
 {
-	int channels = getChannelCount(format->image_channel_order);
-	
-	// Read pixel data
-	int dims[3];
-	// the loading of the image has a malloc deep in it
-	uint8_t* data = stbi_load(fname, &dims[0], &dims[1], &dims[2], channels);
-	if(!data)
+	ArgStaging* curr_img;
+	int x, y, ch;
+
+	for(int i = 0; i < staging->input_img_cnt; ++i)
 	{
-		*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = "\nCouldn't open input image"};
-		return NULL;
+		curr_img = &staging->img_arg_stg[i];
+		int channels = getChannelCount(curr_img->format.image_channel_order);
+		
+		// Read pixel data
+		// the loading of the image has a malloc deep in it
+		staging->input_imgs[i] = stbi_load(fnames[i], &x, &y, &ch, channels);
+		if(!staging->input_imgs[i])
+		{
+			*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = "\nCouldn't open input image"};
+			return;
+		}
+
+		staging->arg_size_calcs[i] = (RangeData){.param = {x,y,1}, .mode = CLBP_RM_EXACT};
+
+		printf("loaded %s, %i*%i image with %i channel(s), using %i channel(s).\n", fnames[i], x, y, ch, channels);
+
+		curr_img->flags = CL_MEM_COPY_HOST_PTR;
 	}
-	
-	size->d[0] = dims[0];
-	size->d[1] = dims[1];
-	size->d[2] = 1;
-
-	printf("loaded %s, %i*%i image with %i channel(s), using %i channel(s).\n", fname, dims[0], dims[1], dims[2], channels);
-
-	cl_image_desc image_desc = {
-		.image_type = CL_MEM_OBJECT_IMAGE2D,
-		.image_width = dims[0],
-		.image_height = dims[1],
-		.image_depth = 1,
-		.image_array_size = 1,
-		.image_row_pitch = 0,
-		.image_slice_pitch = 0,
-		.num_mip_levels = 0,
-		.num_samples = 0,
-		.buffer = NULL
-	};
-
-	cl_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS;
-
-	// Create the input image object from the image file data
-	cl_mem img = clCreateImage(context, flags, format, &image_desc, data, &e->err_code);
-	free(data);
-	if(e->err_code)
-		e->detail = "clCreateImage";
-
-	return img;
 }
 
 // converts format of data to char array compatible read,
@@ -575,41 +533,47 @@ uint8_t readImageAsCharArr(char* data, StagedQ const* staged, uint16_t idx)
 	return channel_cnt;
 }
 
-// Returned pointer must be freed when done using
+// Returned pointer must be freed when done using, no need to free on error
 char* readFileToCstring(char* fname, clbp_Error* e)
 {
 	assert(fname && e);
 //	printf("Reading \"%s\"\n", fname);
 
-	FILE* k_src_handle = fopen(fname, "r");
-	if(k_src_handle == NULL)
+	FILE* file = fopen(fname, "r");
+	if(file == NULL)
 	{
 		*e = (clbp_Error){.err_code = CLBP_FILE_NOT_FOUND, .detail = fname};
 		return NULL;
 	}
 	// get rough file size and allocate string
-	fseek(k_src_handle, 0, SEEK_END);
-	long k_src_size = ftell(k_src_handle);
-	rewind(k_src_handle);
+	fseek(file, 0, SEEK_END);
+	long f_size = ftell(file);
+	rewind(file);
 
-	char* manifest = malloc(k_src_size + 1);	// +1 to have enough room to add null termination
-	if(!manifest)
+	char* contents = malloc(f_size + 1);	// +1 to have enough room to add null termination
+	if(!contents)
 	{
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = fname};
 		return NULL;
 	}
 
 	// contents may be smaller due to line endings being partially stripped on read
-	k_src_size = fread(manifest, sizeof(char), k_src_size, k_src_handle);
-	fclose(k_src_handle);
+	f_size = fread(contents, sizeof(char), f_size, file);
+	fclose(file);
 	// terminate the string properly
-	manifest[k_src_size] = '\0';
+	contents[f_size] = '\0';
 
-	return manifest;
+	return contents;
 }
 
 void freeQStagingArrays(QStaging* staging)
 {
+	for(int i = 0; i < staging->input_img_cnt; ++i)
+	{
+		free(staging->input_imgs[i]);
+	}
+	free(staging->input_imgs);
+
 	for(int i = 0; i < staging->stage_cnt; ++i)
 	{
 		free(staging->kern_stg[i].arg_idxs);

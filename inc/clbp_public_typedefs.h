@@ -47,14 +47,14 @@ typedef struct {
 // used to track fixed arg settings that stay constant between instances of a staged queue, regardless of image size
 typedef struct {
 	cl_mem_object_type type;// indicates what broad type of argument this should be
-	RangeData size;			// data on how to calculate the size_t[3] of the arg
+//	RangeData size;			// data on how to calculate the size_t[3] of the arg
 	cl_mem_flags flags;		// stores flag state to be assigned to eventual cl_mem object at creation, some from manifest, some from kernel arg queries
 	cl_image_format format;	// used for verifying compatible channel types, spacing and read/write operations
 } ArgStaging;	//TODO: since stbi only supports 8 bit depth the host readable flag forces 8 bit output which may cause calculation issues if buffer isn't last
 
 // user provided info of how to set up kernels in a queue and their arguments
 typedef struct {
-	RangeData range;		// data on how to calculate the NDRange
+//	RangeData range;		// data on how to calculate the NDRange
 	uint16_t kernel_idx;	// index of the kernel program name
 	uint16_t arg_cnt;		// cached count of how many arguments this kernel requests
 	uint16_t* arg_idxs;		// array containing indices for each arg to use, freed when using freeQStagingArrays()
@@ -65,10 +65,13 @@ typedef struct {
 	uint16_t stage_cnt;
 	uint16_t img_arg_cnt;
 	uint16_t input_img_cnt;
-	char** kprog_names;		// array of kernel program names that are used and must be compiled
-	KernStaging* kern_stg;	// kernel staging array listing all stages, their scheduling details, and their program indices
-	char** arg_names;		// array of kernel program argument names that get used for the stages
-	ArgStaging* img_arg_stg;// arg staging array listing details about type of arg, and size
+	uint8_t** input_imgs;		// array of hardcoded input images
+	char** kprog_names;			// array of kernel program names that are used and must be compiled
+	KernStaging* kern_stg;		// kernel staging array listing all stages, their scheduling details, and their program indices
+	RangeData* range_calcs;		// array of RangeData for each stage that specifies how to calculate the NDRange dimensions
+	char** arg_names;			// array of kernel program argument names that get used for the stages
+	ArgStaging* img_arg_stg;	// arg staging array listing details about type of arg
+	RangeData* arg_size_calcs;	// array of RangeData for each image arg that specifies how to calculate the image size
 } QStaging;
 /*
 // info used in assigning an arg to kernels, creating/reading buffers on the host, and deallocating mem objects

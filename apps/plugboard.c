@@ -25,7 +25,10 @@
 int main(int argc, char *argv[])
 {
 	(void)argc;
-	char* in_file = argv[1] ? argv[1] : INPUT_FNAME;
+	char const* in_file[] = {
+		argv[1] ? argv[1] : INPUT_FNAME,
+		NULL
+	};
 	cl_int clErr;
 
 	// Getting device, context, and command queue done first because if any of these fail, it's likely a higher priority issue
@@ -50,7 +53,7 @@ int main(int argc, char *argv[])
 	clbp_Error e = {.err_code = CLBP_OK};
 	toml_table_t* root_tbl = parseManifestFile("MANIFEST.toml", &e);
 	handleClBoilerplateError(e);
-	QStaging staging;
+	QStaging staging = {.input_img_cnt = 1};
 	allocQStagingArrays(root_tbl, &staging, &e);
 	handleClBoilerplateError(e);
 	populateQStagingArrays(root_tbl, &staging, &e);
@@ -73,13 +76,15 @@ int main(int argc, char *argv[])
 	handleClBoilerplateError(e);
 
 	// instantiate hard-coded args, this gives us the base image sizes that things are calculated relative to
-	cl_image_format img_format = {
-		.image_channel_order = CL_R,
-		.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
+	staging.img_arg_stg[0] = (ArgStaging){
+		.type = CL_MEM_OBJECT_IMAGE2D,
+		.format = {
+			.image_channel_order = CL_R,
+			.image_channel_data_type = CL_UNORM_INT8//CL_UNSIGNED_INT8
+		}
 	};
 
-	//TODO: see if the instantiation of the mem object can be moved to be at the same time as the others
-	staged.img_args[0] = imageFromFile(context, in_file, &img_format, &staged.img_sizes[0], &e);
+	inputImagesFromFiles(in_file, &staging, &e);
 	handleClBoilerplateError(e);
 
 	// calculate arg sizes and kernel ranges, this allows baking of image sizes and kernel ranges into kernels if desired

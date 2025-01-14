@@ -159,74 +159,87 @@ char ChannelOrderDiff(char ch_cnt_data, cl_channel_order order)
 	return getChannelCount(order) - (ch_cnt_data - '0');
 }
 
-// in can be NULL if mode is CLBP_RM_EXACT or SINGLE
 // This is a massive oversimplification since NDRanges aren't capped at 3, but
 // that's all I expect to ever need from this and it makes implementation much easier
 // plus it's the minimum required upper limit for non-custom device types in the spec
 // so it's the maximum reliably portable value
-char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret)
+void calcSizeByMode(Size3D const* ref_arr, RangeData const* range_arr, Size3D* dest_arr, int count, clbp_Error* e)
 {
-	// C promotion prevention
-	int32_t in[3];
-	in[0] = ref->d[0];
-	in[1] = ref->d[1];
-	in[2] = ref->d[2];
-	int32_t out[3];
+	Size3D const* ref_size;
+	RangeData const* curr_range;
+	int32_t in[3], out[3];
 
-	int16_t const* param = range->param;
-	// modes that don't use the reference don't need to check it.
-	switch(range->mode)
+	for(int i = 0; i < count; ++i)
 	{
-	case CLBP_RM_EXACT:
-		out[0] = param[0];
-		out[1] = param[1];
-		out[2] = param[2];
-		break;
-/*	case SINGLE:	//TODO: make this check the target device to find out how many threads to a hardware compute unit
-		out[0] = 1;
-		out[1] = 1;
-		out[2] = 1;
-		break;
-*/	case CLBP_RM_ADD_SUB:
-		out[0] = in[0] + param[0];
-		out[1] = in[1] + param[1];
-		out[2] = in[2] + param[2];
-		break;
-	case CLBP_RM_DIAGONAL:
-		out[0] = param[0];
-		out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + param[1]) & -2;	//diagonal length truncated down to even
-		out[2] = in[2] + param[2];
-		break;
-	case CLBP_RM_DIVIDE:
-		out[0] = in[0] / param[0];
-		out[1] = in[1] / param[1];
-		out[2] = in[2] / param[2];
-		break;
-	case CLBP_RM_MULTIPLY:
-		out[0] = in[0] * param[0];
-		out[1] = in[1] * param[1];
-		out[2] = in[2] * param[2];
-		break;
-	case CLBP_RM_ROW:
-		out[0] = param[0];
-		out[1] = in[1] + param[1];
-		out[2] = param[2];
-		break;
-	case CLBP_RM_COLUMN:
-		out[0] = in[0] + param[0];
-		out[1] = param[1];
-		out[2] = param[2];
-		break;
-	default:	// if you got here you probably forgot to finish implementing a mode
-		return CLBP_INVALID_RANGEMODE;
+		curr_range = &range_arr[i];
+		if(curr_range->mode != CLBP_RM_EXACT)
+		{
+			ref_size = &ref_arr[curr_range->ref_idx];
+			// C promotion prevention
+			in[0] = ref_size->d[0];
+			in[1] = ref_size->d[1];
+			in[2] = ref_size->d[2];
+		}
+
+		int16_t const* param = curr_range->param;
+		// modes that don't use the reference don't need to check it.
+		switch(curr_range->mode)
+		{
+		case CLBP_RM_EXACT:
+			out[0] = param[0];
+			out[1] = param[1];
+			out[2] = param[2];
+			break;
+	/*	case SINGLE:	//TODO: make this check the target device to find out how many threads to a hardware compute unit
+			out[0] = 1;
+			out[1] = 1;
+			out[2] = 1;
+			break;
+	*/	case CLBP_RM_ADD_SUB:
+			out[0] = in[0] + param[0];
+			out[1] = in[1] + param[1];
+			out[2] = in[2] + param[2];
+			break;
+		case CLBP_RM_DIAGONAL:
+			out[0] = param[0];
+			out[1] = ((int)sqrt(in[0]*in[0] + in[1]*in[1]) + param[1]) & -2;	//diagonal length truncated down to even
+			out[2] = in[2] + param[2];
+			break;
+		case CLBP_RM_DIVIDE:
+			out[0] = in[0] / param[0];
+			out[1] = in[1] / param[1];
+			out[2] = in[2] / param[2];
+			break;
+		case CLBP_RM_MULTIPLY:
+			out[0] = in[0] * param[0];
+			out[1] = in[1] * param[1];
+			out[2] = in[2] * param[2];
+			break;
+		case CLBP_RM_ROW:
+			out[0] = param[0];
+			out[1] = in[1] + param[1];
+			out[2] = param[2];
+			break;
+		case CLBP_RM_COLUMN:
+			out[0] = in[0] + param[0];
+			out[1] = param[1];
+			out[2] = param[2];
+			break;
+		default:	// if you got here you probably forgot to finish implementing a mode
+			*e = (clbp_Error){.err_code = CLBP_INVALID_RANGEMODE, .detail = NULL + i};
+			return;
+		}
+		// if any of the dimensions went non-positive, something about the configuration is wrong and must be aborted
+		for(int j = 0; j < 3; ++j)
+		{
+			if(out[j] <= 0)
+			{
+				*e = (clbp_Error){.err_code = CLBP_INVALID_SIZE3D, .detail = NULL + i};
+				return;
+			}
+			dest_arr[i].d[j] = out[j];
+		}
 	}
-	for(int i; i < 3; ++i)
-	{
-		if(out[i] <= 0)
-			return CLBP_INVALID_SIZE3D;
-		ret->d[i] = out[i];
-	}
-	return CLBP_OK;
 }
 /*
 char getDeviceRWType(cl_channel_type type)

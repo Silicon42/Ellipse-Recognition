@@ -34,12 +34,11 @@ cl_channel_order getOrderFromChannelCnt(uint8_t count);
 // get the minimum per pixel allocation size for reading output buffers to the host
 uint8_t getPixelSize(cl_image_format format);
 
-// in can be NULL if mode is CLBP_RM_EXACT or SINGLE
 // This is a massive oversimplification since NDRanges aren't capped at 3, but
 // that's all I expect to ever need from this and it makes implementation much easier
 // plus it's the minimum required upper limit for non-custom device types in the spec
 // so it's the maximum reliably portable value
-char calcSizeByMode(Size3D const* ref, RangeData const* range, Size3D* ret);
+void calcSizeByMode(Size3D const* ref_arr, RangeData const* range_arr, Size3D* dest_arr, int count, clbp_Error* e);
 
 //TODO: remove/replace these functions, they're no longer is useful for their original purpose and are only used in a print
 //char getDeviceRWType(cl_channel_type type);

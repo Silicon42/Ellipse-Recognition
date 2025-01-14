@@ -16,6 +16,9 @@
 *.obj
 *.elf
 
+# intermediate assembly files
+*.s
+
 # Linker output
 *.ilk
 *.map
