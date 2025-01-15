@@ -15,4 +15,4 @@ HCInputArgs = [
 # user configurable entries, instantiated as needed for specified stages
 # Used for handling creation and checking of argument validity
 [Args]
-output = {type = 'image2d_t', channel_type = 'SIGNED_INT8', channel_count = 4, is_host_readable = true, size = {ref_arg = 'input', mode = '', params = []}}
+output = {type = 'image2d_t', channel_type = 'UNSIGNED_INT8', channel_count = 4, is_host_readable = true, size = {ref_arg = 'input', mode = '', params = []}}

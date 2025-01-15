@@ -18,9 +18,9 @@
 //TODO: consider adding "Magic Kernel Sharp" to preserve higher edge resolution
 // as detailed here: https://johncostella.com/edgedetect/
 
-// [0] In	fc1_src_image: 1 channel greyscale on x component (UNORM)
+// [0] In	fu1_src_image: 1 channel greyscale on x component (UNORM)
 // [1] Out	uc2_grad: 2 channels, angle + gradient magnitude
-__kernel void scharr3_char(read_only image2d_t fc1_src_image, write_only image2d_t uc2_grad)
+__kernel void scharr3_char(read_only image2d_t fu1_src_image, write_only image2d_t uc2_grad)
 {
 	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	// Determine work item coordinate
@@ -32,17 +32,17 @@ __kernel void scharr3_char(read_only image2d_t fc1_src_image, write_only image2d
 
 //TODO: check if the ordering of these reads effects performance or if the compiler is smart enough that it doesn't matter
 	// calculate intermediate differences from raw pixels
-	diag  = read_imagef(fc1_src_image, samp, coords + 1).x;
-	diag -= read_imagef(fc1_src_image, samp, coords - 1).x;
-	grad.x  = read_imagef(fc1_src_image, samp, coords + (int2)(1,0)).x;
-	grad.x -= read_imagef(fc1_src_image, samp, coords - (int2)(1,0)).x;
-	grad.y  = read_imagef(fc1_src_image, samp, coords + (int2)(0,1)).x;
-	grad.y -= read_imagef(fc1_src_image, samp, coords - (int2)(0,1)).x;
+	diag  = read_imagef(fu1_src_image, samp, coords + 1).x;
+	diag -= read_imagef(fu1_src_image, samp, coords - 1).x;
+	grad.x  = read_imagef(fu1_src_image, samp, coords + (int2)(1,0)).x;
+	grad.x -= read_imagef(fu1_src_image, samp, coords - (int2)(1,0)).x;
+	grad.y  = read_imagef(fu1_src_image, samp, coords + (int2)(0,1)).x;
+	grad.y -= read_imagef(fu1_src_image, samp, coords - (int2)(0,1)).x;
 	grad = fma(grad, 3.44680851f, diag);
 
 	// recycle diag for the other diagonal difference
-	diag  = read_imagef(fc1_src_image, samp, coords + (int2)(1,-1)).x;
-	diag -= read_imagef(fc1_src_image, samp, coords - (int2)(1,-1)).x;
+	diag  = read_imagef(fu1_src_image, samp, coords + (int2)(1,-1)).x;
+	diag -= read_imagef(fu1_src_image, samp, coords - (int2)(1,-1)).x;
 	grad += (float2)(diag,-diag);
 
 	float f_ang, f_mag;

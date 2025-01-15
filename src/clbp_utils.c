@@ -172,7 +172,11 @@ void calcSizeByMode(Size3D const* ref_arr, RangeData const* range_arr, Size3D* d
 	for(int i = 0; i < count; ++i)
 	{
 		curr_range = &range_arr[i];
-		if(curr_range->mode != CLBP_RM_EXACT)
+
+		// safe to leave out if CLBP_RM_EXACT mode ranges are always set to a valid dummy ref_idx, ie 0.
+		// mostly matters for hardcoded args, shouldn't matter for stages in manifest since unless they're the very first,
+		// they can't reference out of range
+	//	if(curr_range->mode != CLBP_RM_EXACT)
 		{
 			ref_size = &ref_arr[curr_range->ref_idx];
 			// C promotion prevention

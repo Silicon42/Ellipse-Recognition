@@ -86,9 +86,9 @@ cl_int allocStagedQArrays(QStaging const* staging, StagedQ* staged)
 	staged->img_sizes = malloc(size3d_byte_cnt);
 	staged->ranges = staged->img_sizes + staged->img_arg_cnt;
 
-	size_t cl_ptr_byte_cnt = (staged->img_arg_cnt + staging->kernel_cnt) * sizeof(void*);
+	size_t cl_ptr_byte_cnt = (staged->img_arg_cnt + staging->kernel_cnt) * sizeof(cl_mem);
 	staged->img_args = malloc(cl_ptr_byte_cnt);
-	staged->kernels = (void*)staged->img_args + staged->img_arg_cnt;
+	staged->kernels = (cl_kernel*)staged->img_args + staged->img_arg_cnt;
 
 	// check for failed allocation and free if it was partially allocated
 	if(!staged->img_sizes || !staged->img_args)
@@ -210,9 +210,10 @@ void instantiateKernels(QStaging const* staging, const cl_program kprog, StagedQ
 // infers the access qualifiers of the image args as well as verifies that type data specified matches what the kernels expect of it
 // meant to be run once after kernels have been instantiated for at least 1 staged queue, additional staged queues don't
 // require re-runs of inferArgAccessAndVerifyFormats() since data extracted from the kernel instance args shouldn't change
+//TODO: many of the warnings would interupt the printing of the argument info, see what can be done to tidy up so that they print after the line is done
 void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 {
-	printf("[Verifying kernel args]\n");
+	printf("[Verifying kernel args]");
 	// for each stage
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
@@ -220,14 +221,13 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 		char const* kprog_name = staging->kprog_names[staging->kern_stg[i].kernel_idx];
 		cl_uint arg_cnt;
 		cl_uint err;
-		printf("(%i) %s\n", i, kprog_name);
+		printf("\n(%i) %s", i, kprog_name);
 		err = clGetKernelInfo(curr_kern, CL_KERNEL_NUM_ARGS, sizeof(arg_cnt), &arg_cnt, NULL);
 		staging->kern_stg[i].arg_cnt = arg_cnt;
 		if(err)
 		{
 			handleClError(err, "clGetKernelInfo");
-			perror("WARNING: couldn't get CL_KERNEL_NUM_ARGS\n"
-			"	Skipping argument access qualifier inferencing and format verification.\n");
+			fputs("\nWARNING: couldn't get CL_KERNEL_NUM_ARGS. Skipping argument access qualifier inferencing and format verification.", stderr);
 			continue;
 		}
 		// for each argument of the current kernel
@@ -235,15 +235,17 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 		{
 			int arg_idx = staging->kern_stg[i].arg_idxs[j];
 			char const* arg_name = staging->arg_names[arg_idx];
-			printf("	[%i] %s", j, arg_name);
 			ArgStaging* curr_arg = &staging->img_arg_stg[arg_idx];
+			printf("\n	[%i] (%s) %s of channel type %s x %i ",
+				j, memTypes[curr_arg->type - CLBP_OFFSET_MEMTYPE], arg_name,
+				channelTypes[curr_arg->format.image_channel_data_type - CLBP_OFFSET_CHANNEL_TYPE],
+				getChannelCount(curr_arg->format.image_channel_order));
 			cl_kernel_arg_access_qualifier access_qual;
 			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(access_qual), &access_qual, NULL);
 			if(err)
 			{
 				handleClError(err, "clGetKernelArgInfo");
-				perror("WARNING: couldn't get CL_KERNEL_ARG_ACCESS_QUALIFIER\n"
-				"	Skipping argument access qualifier inferencing.\n");
+				fputs("\nWARNING: couldn't get CL_KERNEL_ARG_ACCESS_QUALIFIER. Skipping argument access qualifier inferencing.", stderr);
 			}
 			else
 			{
@@ -256,7 +258,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 					// check for read before write, if none of these flags are set, nothing* could have written to it before this read occured
 					// *except writing to it from the same kernel but that's undefined behavior and not portable and harder to check so I'm not checking that
 					if(!(*curr_flags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_WRITE_ONLY)))
-						perror("WARNING: reading arg before writing to it.\n");
+						fputs("\nWARNING: reading arg before writing to it.", stderr);
 					*curr_flags |= CL_MEM_READ_ONLY;
 					break;
 				case CL_KERNEL_ARG_ACCESS_WRITE_ONLY:
@@ -267,69 +269,65 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 					break;
 			//	case CL_KERNEL_ARG_ACCESS_NONE:	//not an image or pipe, access qualifier doesn't apply
 				default:
-					perror("WARNING: non-image arg requested\n"
-					"	Currently no non-image support implemented.\n");
+					fputs("\nWARNING: non-image arg requested. Currently no non-image support implemented.", stderr);
 					continue;	//TODO: currently doesn't handle non-image types, this is just placeholder code that would probably break if executed
 				}
 			}
 
 			char arg_metadata[64];	// although only 4 entries are needed, reading the name will fail if there's not enough room for the whole name
-			err = clGetKernelArgInfo(curr_kern, i, CL_KERNEL_ARG_TYPE_NAME, sizeof(arg_metadata), arg_metadata, NULL);
+			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_TYPE_NAME, sizeof(arg_metadata), arg_metadata, NULL);
 			if(err)
 			{
 				handleClError(err, "clGetKernelArgInfo");
-				perror("WARNING: couldn't get CL_KERNEL_ARG_TYPE_NAME\n"
-				"	Couldn't verify arg type.\n");
+				fputs("\nWARNING: couldn't get CL_KERNEL_ARG_TYPE_NAME. Couldn't verify arg type.", stderr);
 				continue;
 			}
 
-			printf(" %s", arg_metadata);	//TODO: remove this debugging line once you know what all the types actually return
+			printf("-> (%s) ", arg_metadata);
 			enum clMemType mem_type = getStringIndex(memTypes, arg_metadata) + CLBP_OFFSET_MEMTYPE;
-			if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_OFFSET_MEMTYPE)
-			{
-				perror("WARNING: non-mem object arg requested\n"
-				"	Currently non-mem objects not supported.\n");
-				continue;
-			}
-
-			if(mem_type != curr_arg->type)
-			{
-				fprintf(stderr, "WARNING: argument type mismatch\n"
-				"	provided %s, requested %i.\n", arg_metadata, curr_arg->type - CLBP_OFFSET_MEMTYPE);//memTypes[
-				continue;
-			}
-			// else, no warning, verified!
 
 			// I attach type data in a similar style to Hungarian notation to the names so that the expected type backing of
 			// the image is stored with the kernel itself and can be interpreted here by querying the name.
 			// [0] == [f/h/u/i] the read/write type used with it, using a non matched cl_channel_type can lead to Undefined Behavior
 			// [1] == [for f/h: s/u/f, for u/i: c/s/i] hint for what range of values are expected, float:signed norm/unsigned norm/full range, int: char/short/integer
 			// [2] == [1/2/3/4] hint for how many channels it expects
-			err = clGetKernelArgInfo(curr_kern, i, CL_KERNEL_ARG_NAME, sizeof(arg_metadata), arg_metadata, NULL);
+			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_NAME, sizeof(arg_metadata), arg_metadata, NULL);
 			if(err)
 			{
 				handleClError(err, "clGetKernelArgInfo");
-				perror("WARNING: couldn't get CL_KERNEL_ARG_NAME\n"
-				"	Skipping image format verification.\n");
+				fputs("\nWARNING: couldn't get CL_KERNEL_ARG_NAME Skipping image format verification.", stderr);
+				continue;
+			}
+			printf("%s ", arg_metadata);
+
+			if(mem_type >= CLBP_INVALID_MEM_TYPE || mem_type < CLBP_OFFSET_MEMTYPE)
+			{
+				fputs("\nWARNING: non-mem object arg requested Currently non-mem objects not supported.", stderr);
 				continue;
 			}
 
+			if(mem_type != curr_arg->type)
+			{
+				fputs("\nWARNING: argument type mismatch.", stderr);
+				continue;
+			}
+			// else, no warning, verified!
 			char isValid = isArgMetadataValid(arg_metadata);
 			if(!isValid)
 			{
-				fprintf(stderr, "WARNING: invalid argument metadata: %s\n"
-				"	Skipping image format verification.\n", arg_metadata);
+				fputs("\nWARNING: invalid argument metadata. Skipping image format verification.", stderr);
 				continue;
 			}
 
 			if(!isMatchingChannelType(arg_metadata, curr_arg->format.image_channel_data_type))
-				fprintf(stderr, "WARNING: channel data type mismatch\n");	//TODO: add more info of the mismatch
+				fputs("\nWARNING: channel data type mismatch", stderr);
 
-			if(ChannelOrderDiff(arg_metadata[2], curr_arg->format.image_channel_order))
-				fprintf(stderr, "WARNING: channel count mismatch\n");	//TODO: add more info of the mismatch
+			if(ChannelOrderDiff(arg_metadata[2], curr_arg->format.image_channel_order) < 0)
+				fputs("\nWARNING: channel count mismatch", stderr);	//TODO: add more info of the mismatch
 				//NOTE: may need to add special processing for 3 channel items since those aren't required to be supported by the OpenCL spec
 		}
 	}
+	putchar('\n');
 }
 
 // fills in the ArgTracker according to the arg staging data in staging,
@@ -389,10 +387,11 @@ void setKernelArgs(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 		for(int j = 0; j < curr_kstaging->arg_cnt; ++j)
 		{
 			uint16_t arg_idx = curr_kstaging->arg_idxs[j];
-			e->err_code = clSetKernelArg(curr_kern, j, sizeof(cl_mem), staged->img_args[arg_idx]);
+			e->err_code = clSetKernelArg(curr_kern, j, sizeof(cl_mem), &staged->img_args[arg_idx]);
 			if(e->err_code)
 			{
-				fprintf(stderr, "@ stage %i (%s), arg %i (%s):", i, staging->kprog_names[curr_kstaging->kernel_idx], j, staging->arg_names[arg_idx]);
+				fprintf(stderr, "@ stage %i (%s), arg %i (%s): ",
+					i, staging->kprog_names[curr_kstaging->kernel_idx], j, staging->arg_names[arg_idx]);
 				e->detail = "clSetKernelArg";
 				return;
 			}
@@ -421,7 +420,7 @@ void inputImagesFromFiles(char const** fnames, QStaging* staging, clbp_Error* e)
 			return;
 		}
 
-		staging->arg_size_calcs[i] = (RangeData){.param = {x,y,1}, .mode = CLBP_RM_EXACT};
+		staging->arg_size_calcs[i] = (RangeData){.param = {x,y,1}, .mode = CLBP_RM_EXACT, .ref_idx = 0};
 
 		printf("loaded %s, %i*%i image with %i channel(s), using %i channel(s).\n", fnames[i], x, y, ch, channels);
 
