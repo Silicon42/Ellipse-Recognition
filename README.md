@@ -29,6 +29,7 @@ And thanks to Martin Tournoij for his fork of toml-c available here:
 https://github.com/arp242/toml-c .
 
 # TODO List
+* IMPORTANT: re-add capability to print image sizes and kernel sizes
 * Add type read/write type mismatch warning for OpenCL kernel compilation by 
 parsing raw input for mis-matched read/write calls
 * verify artificial vector bithacks actually provide a perf benefit
@@ -39,13 +40,9 @@ over single threading
 * add configuration hashing for auto-rebuild support (low priority)
 * add a second debug kernel compile list so they aren't all mixed together in
 the same list
-* (WIP)make the boilerplate fully data driven so that recompilation of the C portion
-only happens for serious changes to how the program launches/outputs data, also 
-would get rid of all the "unused variable" warnings
 * arc_segments needs to be partially rewritten to avoid thread divergence
 * everything needs to be gone over with a fine tooth comb because I'm a dummy and
 forgot the importance of using group shared memory when possible
-* (WIP)add support for re-using arguments for write_only parameters (colored_retrace_starts.cl)
 * add support for non-image type kernel arguments (serial_reduce/_lines.cl)
 * convert more cl types to debug friendly analogues 
 * remove dead code

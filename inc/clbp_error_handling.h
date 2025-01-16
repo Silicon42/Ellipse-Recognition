@@ -22,7 +22,7 @@ enum clbp_ErrCode{
 	CLBP_MF_INVALID_CHANNEL_TYPE,		// storage type specifier string didn't match a recognized type
 	CLBP_MF_INVALID_ARG_TYPE,			// arg type specifier string didn't match a recognized type
 	CLBP_MF_REF_ARG_NOT_YET_STAGED,		// a staged arg referenced an arg that was not staged before it, either it doesn't exist or
-
+	CLBP_MF_INVALID_RANGEMODE,			// mode specified in a size or range field didn't match the known modes
 };
 
 typedef struct {

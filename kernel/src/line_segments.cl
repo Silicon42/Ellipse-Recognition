@@ -9,15 +9,15 @@
 //TODO: verify if image type may not be ideal type for arguments
 
 kernel void line_segments(
-	read_only image1d_t iS2_start_coords,
 	read_only image2d_t uc1_cont_info,
+	read_only image1d_t is2_start_coords,
 	write_only image1d_t us1_line_counts,
-	write_only image2d_t iC2_line_data)
+	write_only image2d_t ic2_line_data)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	
 	// initialize variables of line segment tracing loop for first iteration
-	int2 coords = read_imagei(iS2_start_coords, index).lo;	// current pixel coordinates
+	int2 coords = read_imagei(is2_start_coords, index).lo;	// current pixel coordinates
 	if(!((union l_conv)coords).l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 	
@@ -79,7 +79,7 @@ kernel void line_segments(
 		// depending on which exit condition occured:
 		// 2*midpoint within 1 pixel of endpoint / within max length / didn't overrun a start or end
 		offset_end -= offsets_c[cont_idx];
-		write_imagei(iC2_line_data, base_coords, (int4)(convert_int2(offset_end), 0, -1));
+		write_imagei(ic2_line_data, base_coords, (int4)(convert_int2(offset_end), 0, -1));
 	} while(!to_end);
 
 	write_imageui(us1_line_counts, index, seg_count);

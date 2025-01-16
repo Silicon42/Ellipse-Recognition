@@ -1,6 +1,11 @@
 # Order to enqueue kernels in and what kernel config files to assign to each instance
 Stages = [
-{name = 'scharr3_char', args=['input', 'output'], range = {ref_arg = 'input'}},
+{name = 'scharr3_char', args = ['input', 'grad_xy']},#, range = {ref_arg = 'input'}
+{name = 'non_max_sup', args = ['grad_xy', 'grad_ang']},
+{name = 'link_edge_pixels', args = ['grad_ang', 'cont_data']},
+{name = 'find_segment_starts', args = ['grad_ang', 'cont_data', 'starts_cont']},
+{name = 'serial_reduce', args = ['starts_cont', 'start_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
+{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_cnts', 'line_data']}
 ]
 
 # hard-coded entries corresponding to program input
@@ -11,8 +16,16 @@ Stages = [
 HCInputArgs = [
 'input',
 ]
+
 # Master list of all kernel args by name used for OpenCL kernels listed in stages
 # user configurable entries, instantiated as needed for specified stages
 # Used for handling creation and checking of argument validity
 [Args]
-output = {type = 'image2d_t', channel_type = 'UNSIGNED_INT8', channel_count = 4, is_host_readable = true, size = {ref_arg = 'input', mode = '', params = []}}
+grad_xy = {type = 'image2d_t', channel_type = 'uint8', channel_count = 2}
+grad_ang = {type = 'image2d_t', channel_type = 'int8', channel_count = 1}
+cont_data = {type = 'image2d_t', channel_type = 'uint8', channel_count = 1}
+starts_cont = {type = 'image2d_t', channel_type = 'uint8', channel_count = 1}
+start_coords = {type = 'image1d_t', channel_type = 'int16', channel_count = 2, size = {mode = 'EXACT', params = [16384,1,1]}}
+line_cnts = {type = 'image1d_t', channel_type = 'uint16', channel_count = 1}
+line_data = {type = 'image2d_t', channel_type = 'int8', channel_count = 2, size = {ref_arg = 'starts_cont'}}
+#output = {type = 'image2d_t', channel_type = 'int8', channel_count = 4, is_host_readable = true, size = {ref_arg = 'input', mode = '', params = []}}

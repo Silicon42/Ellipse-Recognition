@@ -27,8 +27,8 @@
 //TODO: need to add an is_supported flag so that small segments that support other separately detected small segments don't get deleted
 // This might be decently involved to actually implement
 kernel void find_segment_starts(
+	read_only image2d_t ic1_grad_ang,
 	read_only image2d_t uc1_cont,
-	read_only image2d_t iC1_grad_ang,
 	write_only image2d_t uc1_starts_cont)
 {
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
@@ -73,11 +73,11 @@ kernel void find_segment_starts(
 		// else if it's not a mutual link, there was a fork and this is a start
 		if((adjacent_data ^ adjacent_idx) == 0xC)
 		{
-			grad_ang = read_imagei(iC1_grad_ang, coords).x;
+			grad_ang = read_imagei(ic1_grad_ang, coords).x;
 			if(grad_ang < 0)	// to qualify for a loop breaking start, the grad angle must be non-negative
 				break;	//pass on only continuation data, no start flag
 
-			grad_ang = read_imagei(iC1_grad_ang, adjacent_coords).x;
+			grad_ang = read_imagei(ic1_grad_ang, adjacent_coords).x;
 			if(grad_ang > 0)	// the gradient angle of the left neighbor must be negative
 				break;	//pass on only continuation data, no start flag
 		}

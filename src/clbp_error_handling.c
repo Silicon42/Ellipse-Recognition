@@ -20,7 +20,8 @@ static const char* clbp_error_strings[] = {
 	MANIFEST_ERROR"Requested arg \"%s\" but no such key was found under [Args].\n",
 	MANIFEST_ERROR"[Args] \"%s\" has invalid channel type.\n",
 	MANIFEST_ERROR"[Args] \"%s\" has invalid argument type.\n",
-	MANIFEST_ERROR"Referenced arg \"%s\" for size but it is not staged prior to this point.\n"
+	MANIFEST_ERROR"Referenced arg \"%s\" for size but it is not staged prior to this point.\n",
+	MANIFEST_ERROR"mode specifier \"%s\" is not a recognized range calculation mode.\n",
 };
 
 // if err_code not CLBP_OK, prints the error message with details injected and

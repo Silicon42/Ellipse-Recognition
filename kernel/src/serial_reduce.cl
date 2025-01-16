@@ -4,9 +4,9 @@
 
 __kernel void serial_reduce(
 	read_only image2d_t uc1_starts_cont,
-	write_only image1d_t iS2_start_coords)
+	write_only image1d_t is2_start_coords)
 {
-	ushort max_size = get_image_width(iS2_start_coords);	//TODO: this can probably be replaced optionally with a define
+	ushort max_size = get_image_width(is2_start_coords);	//TODO: this can probably be replaced optionally with a define
 	if(get_global_id(0))	// only thread 0 proccesses anything here
 		return;
 	
@@ -20,7 +20,7 @@ __kernel void serial_reduce(
 			uchar cont_data = read_imageui(uc1_starts_cont, coords).x;
 			if((cont_data & 0xE8) == 0x88)	// check validity and start flags present
 			{
-				write_imagei(iS2_start_coords, index, (int4)(coords, 0, -1));
+				write_imagei(is2_start_coords, index, (int4)(coords, 0, -1));
 				++index;
 				if(index == max_size)	// prevent possibly attempting to write past the end of the image, which can freeze the pipeline
 				{

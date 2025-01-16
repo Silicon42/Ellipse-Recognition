@@ -3,11 +3,11 @@
 // Alternate Canny function that expects chars instead of floats
 // [0] In	uc2_grad: 4 channel image of x and y gradient (INT16), angle (INT16),
 //				and gradient magnitude (INT16)
-// [1] Out	iC1_grad_ang: 1 channel signed 7-bit angle with 1 bit occupancy flag for
+// [1] Out	ic1_grad_ang: 1 channel signed 7-bit angle with 1 bit occupancy flag for
 //				pixels meeting the gradient threshold and passing non-max suppression
 //NOTE: Doesn't implement the hysteresis portion since that is inherently a very 
 // serial operation, blurring and gradient computation is assumed to be already applied
-__kernel void non_max_sup(read_only image2d_t uc2_grad, write_only image2d_t iC1_grad_ang)
+__kernel void non_max_sup(read_only image2d_t uc2_grad, write_only image2d_t ic1_grad_ang)
 {
 	// only 4 elements in offset table because topmost bit would determine addition/subtraction
 	// which doesn't matter because in order to check up gradient and down gradient, both are needed anyway
@@ -38,5 +38,5 @@ __kernel void non_max_sup(read_only image2d_t uc2_grad, write_only image2d_t iC1
 		return;
 
 	// set occupancy flag
-	write_imagei(iC1_grad_ang, coords, (char)grad.x | 1);
+	write_imagei(ic1_grad_ang, coords, (char)grad.x | 1);
 }

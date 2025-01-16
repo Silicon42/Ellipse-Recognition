@@ -3,6 +3,8 @@
 #include "cl_error_handlers.h"
 #include "stb_image.h"
 
+#define CLBP_MEM_RW	(CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY)
+
 // attempts to get the first available GPU or if none available CPU
 //TODO: actually implement multiple attempts to find a GPU, currently just takes the first device of the first platform
 cl_device_id getPreferredDevice()
@@ -217,6 +219,7 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 	// for each stage
 	for(int i = 0; i < staged->stage_cnt; ++i)
 	{
+		char is_last_stage = (i+1 == staged->stage_cnt);	// anything written by the last stage gets set to host readable
 		cl_kernel curr_kern = staged->kernels[i];
 		char const* kprog_name = staging->kprog_names[staging->kern_stg[i].kernel_idx];
 		cl_uint arg_cnt;
@@ -252,8 +255,9 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 				cl_mem_flags* curr_flags = &curr_arg->flags;
 				switch(access_qual)
 				{
-				//FIXME: not sure if this is correct, it might be that arguments that get written and read by different kernels
-				// need to be read/write instead of read only + write only, once I know for sure, I'll fix this or remove this note
+				// this can cause situations where mutually exclusive flags are set, however those get fixed in instantiateImgArgs()
+				// right before clCreateImage() is called and is much simpler to reason about if there is only a read flag and a write
+				// flag which can be checked at the end if they're both set and then be cleared
 				case CL_KERNEL_ARG_ACCESS_READ_ONLY:
 					// check for read before write, if none of these flags are set, nothing* could have written to it before this read occured
 					// *except writing to it from the same kernel but that's undefined behavior and not portable and harder to check so I'm not checking that
@@ -261,11 +265,12 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 						fputs("\nWARNING: reading arg before writing to it.", stderr);
 					*curr_flags |= CL_MEM_READ_ONLY;
 					break;
+				case CL_KERNEL_ARG_ACCESS_READ_WRITE:
+					*curr_flags |= CL_MEM_READ_ONLY;
 				case CL_KERNEL_ARG_ACCESS_WRITE_ONLY:
 					*curr_flags |= CL_MEM_WRITE_ONLY;
-					break;
-				case CL_KERNEL_ARG_ACCESS_READ_WRITE:
-					*curr_flags |= CL_MEM_READ_WRITE;
+					if(is_last_stage)
+						*curr_flags |= CL_MEM_HOST_READ_ONLY;
 					break;
 			//	case CL_KERNEL_ARG_ACCESS_NONE:	//not an image or pipe, access qualifier doesn't apply
 				default:
@@ -342,6 +347,7 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 	for(int i = 0; i < staging->img_arg_cnt; ++i)
 	{
 		ArgStaging* curr_arg = &staging->img_arg_stg[i];
+		cl_mem_flags flags = curr_arg->flags;
 		size_t* size = staged->img_sizes[i].d;
 		cl_image_desc desc = {
 			.image_type = curr_arg->type,
@@ -356,7 +362,12 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 			.buffer = NULL
 		};
 
-		if(curr_arg->flags & (CL_MEM_HOST_READ_ONLY))
+		// read only and write only flags are mutually exclusive so if they both occur,
+		// clear them to go back to default read/write behavior
+		if((flags & CLBP_MEM_RW) == CLBP_MEM_RW)
+			flags ^= CLBP_MEM_RW;
+
+		if(flags & (CL_MEM_HOST_READ_ONLY))
 		{	// calculate output size
 			size_t curr_size = getPixelSize(curr_arg->format);
 			curr_size *= (size_t)size[0] * size[1] * size[2];
@@ -364,9 +375,9 @@ size_t instantiateImgArgs(cl_context context, QStaging const* staging, StagedQ* 
 				max_out_sz = curr_size;
 		}
 		else// if(!(curr_arg->flags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR))) //I suspect these flags might qualify too
-			curr_arg->flags |= CL_MEM_HOST_NO_ACCESS;
+			flags |= CL_MEM_HOST_NO_ACCESS;
 
-		img_args[i] = clCreateImage(context, curr_arg->flags, &curr_arg->format, &desc, (i < staging->input_img_cnt) ? staging->input_imgs[i] : NULL, &e->err_code);
+		img_args[i] = clCreateImage(context, flags, &curr_arg->format, &desc, (i < staging->input_img_cnt) ? staging->input_imgs[i] : NULL, &e->err_code);
 		if(e->err_code)
 		{
 			e->detail = "clCreateImage";

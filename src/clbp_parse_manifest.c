@@ -33,8 +33,10 @@ clbp_Error parseRangeData(QStaging* staging, RangeData* ret, toml_table_t* size_
 	if(val.u.s[0])
 	{
 		int mode = getStringIndex(modeNames, val.u.s);
-		if(mode >= 0)
-			ret->mode = mode;
+		if(mode < 0)
+			return (clbp_Error){.err_code = CLBP_MF_INVALID_RANGEMODE, .detail = val.u.s};	//FIXME: this could lead to segfault if freed while returning up the stack
+
+		ret->mode = mode;
 	}
 
 	toml_array_t* params = toml_table_array(size_tbl, "params");
@@ -275,6 +277,8 @@ void populateQStagingArrays(const toml_table_t* root_tbl, QStaging* staging, clb
 		}
 
 		toml_table_t* range = toml_table_table(stage, "range");
-		parseRangeData(staging, &staging->range_calcs[i], range);
+		*e = parseRangeData(staging, &staging->range_calcs[i], range);
+		if(e->err_code)
+			return;
 	}
 }

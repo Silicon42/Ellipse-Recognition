@@ -116,7 +116,7 @@ int handleClGetDeviceIDs(cl_int cl_error)
 
 void printBuildLog(cl_program program, cl_device_id device)
 {
-	size_t log_size;
+	size_t log_size = 0;
 	cl_int cl_error;
 
 	// Find size of log and print to std output
@@ -124,8 +124,13 @@ void printBuildLog(cl_program program, cl_device_id device)
 	if(cl_error)
 		handleClError(cl_error, "clGetProgramBuildInfo->logsize");
 	printf("log_size: %zu\n", log_size);
-	if(log_size > UINT32_MAX)
-		log_size = UINT32_MAX;
+
+	if(!log_size)
+	{
+		fputs("Might be multiple definition of functions/variables?\n", stderr);
+		return;
+	}
+
 	char* program_log = (char*) malloc(log_size);
 	if(program_log)
 	{
@@ -139,7 +144,7 @@ void printBuildLog(cl_program program, cl_device_id device)
 		free(program_log);
 	}
 	else
-		perror("Failed to allocate log ");
+		fputs("Failed to allocate log.\n", stderr);
 }
 
 void handleClBuildProgram(cl_int cl_error, cl_program program, cl_device_id device)

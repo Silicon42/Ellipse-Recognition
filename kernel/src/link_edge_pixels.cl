@@ -2,19 +2,19 @@
 #include "link_macros.cl"
 
 __kernel void link_edge_pixels(
-	read_only image2d_t iC1_grad_ang,
+	read_only image2d_t ic1_grad_ang,
 	write_only image2d_t uc1_cont)
 {
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
-	char grad_ang = read_imagei(iC1_grad_ang, coords).x;
+	char grad_ang = read_imagei(ic1_grad_ang, coords).x;
 	// if gradient angle == 0, it wasn't set in canny_short because even 0 should have the occupancy flag set,
 	// therefore this work item isn't on an edge and can exit early, vast majority exits here
 	if(!grad_ang)
 		return;
 
 	union l_conv neighbors;
-	neighbors.c = read_neighbors_cw(iC1_grad_ang, coords);
+	neighbors.c = read_neighbors_cw(ic1_grad_ang, coords);
 
 	// reject orphan edge pixels here, technically intersection rejection also creates some more but I don't have a good way
 	// to do that in find_segment_starts.cl without adding an additional output argument and it's not super important, just

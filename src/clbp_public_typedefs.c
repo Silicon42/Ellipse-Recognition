@@ -3,7 +3,7 @@
 char const* modeNames[] = {
 	"ADD_SUB",
 	"MULTIPLY",
-	"DIVIDE"
+	"DIVIDE",
 	"EXACT",
 	"CLBP_RM_ROW",
 	"CLBP_RM_COLUMN",
@@ -13,23 +13,23 @@ char const* modeNames[] = {
 };
 
 char const* channelTypes[] = {
-	"SNORM_INT8",
-	"SNORM_INT16",
-	"UNORM_INT8",
-	"UNORM_INT16",
-	"UNORM_SHORT_565",
-	"UNORM_SHORT_555",
-	"UNORM_INT_101010",
-	"SIGNED_INT8",
-	"SIGNED_INT16",
-	"SIGNED_INT32",
-	"UNSIGNED_INT8",
-	"UNSIGNED_INT16",
-	"UNSIGNED_INT32",
-	"HALF_FLOAT",
-	"FLOAT",
+	"snorm8",
+	"snorm16",
+	"unorm8",
+	"unorm16",
+	"unorm5-6-5",
+	"unorm5-5-5",
+	"unorm10-10-10",
+	"int8",
+	"int16",
+	"int32",
+	"uint8",
+	"uint16",
+	"uint32",
+	"half",
+	"float",
 	"",	// RESERVED/UNKOWN
-	"UNORM_INT_101010_2",
+	"unorm10-10-10-2",
 	NULL	// End of spec defined types, others may exist
 };
 
