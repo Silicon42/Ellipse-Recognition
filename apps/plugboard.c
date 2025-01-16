@@ -8,8 +8,9 @@
 #include "clbp_parse_manifest.h"
 
 #define KERNEL_DIR "kernel/"
-#define KERNEL_SRC_DIR	KERNEL_DIR"src/"
+#define KERNEL_SRC_DIR	KERNEL_DIR"kern_src/"
 #define KERNEL_INC_DIR	KERNEL_DIR"inc/"
+#define KERNEL_INC_SRC_DIR	KERNEL_DIR"inc_src/"
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
