@@ -5,7 +5,7 @@
 #include "cast_helpers.cl"
 
 kernel void colored_retrace_starts(
-	read_only image1d_t iS2_start_info,
+	read_only image1d_t is2_start_info,
 	write_only image2d_t uc4_trace_image)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
@@ -13,7 +13,7 @@ kernel void colored_retrace_starts(
 
 	// initialize variables of arcs segment tracing loop for first iteration
 	union l_conv coords;
-	coords.i = read_imagei(iS2_start_info, index).lo;
+	coords.i = read_imagei(is2_start_info, index).lo;
 	//only populated items in the array need to be processed
 	if(!coords.l)
 		return;

@@ -20,7 +20,9 @@
 
 // [0] In	fu1_src_image: 1 channel greyscale on x component (UNORM)
 // [1] Out	uc2_grad: 2 channels, angle + gradient magnitude
-__kernel void scharr3_char(read_only image2d_t fu1_src_image, write_only image2d_t uc2_grad)
+__kernel void scharr3_char(
+	read_only image2d_t fu1_src_image,
+	write_only image2d_t uc2_grad)
 {
 	const sampler_t samp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	// Determine work item coordinate

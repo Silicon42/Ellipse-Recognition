@@ -32,14 +32,13 @@ __kernel void link_edge_pixels(
 	if(!is_diff_small_mask)
 		return;
 
-	// any instance where there are more than 2 similarly angled pixels adjacent to a pixel after thinning could result in a
-	// branch starting and since it can't be determined at this level which will be taken
 	uchar cont_data = 0;
 
 	if(popcount(is_diff_small_mask) == 8)	// only one continuation
 	{
 		char index = 7 - (clz(is_diff_small_mask) >> 3);
-		// determine if this is a right or left continuation based on if the difference
+		// determine if this is a right or left continuation based on if the difference between the continuation direction index
+		// and the angle of the current pixel is positive or negative
 		cont_data = (grad_ang - (index << 5) < 0) ? index | HAS_R_CONT : (index << L_CONT_IDX_SHIFT) | HAS_L_CONT;
 	}
 	else

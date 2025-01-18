@@ -13,7 +13,9 @@
 
 // [0] In	uc1_src_image: 1 channel greyscale on x component (UINT8)
 // [1] Out	uc2_grad: 2 channel image of x and y gradient (INT8)
-__kernel void robertsX_char(read_only image2d_t uc1_src_image, write_only image2d_t uc2_grad)
+__kernel void robertsX_char(
+	read_only image2d_t uc1_src_image,
+	write_only image2d_t uc2_grad)
 {
 	// Determine work item coordinate
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
