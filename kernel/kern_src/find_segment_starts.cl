@@ -12,9 +12,10 @@
 
 //FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
 #include "cast_helpers.cl"
-#include "neighbor_utils.cl"
-#include "offsets_LUT.cl"
+//#include "offsets_i_LUT.cl"
 #include "link_macros.cl"
+//FIXME: replace temp fix for multiple definition by adding proper support for included sources
+constant const int2 offsets_i[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
 
 //NOTE: returned values are in the form 0bSE0lriii where 
 // "S" is the start indicator flag,
@@ -44,7 +45,7 @@ kernel void find_segment_starts(
 	if(cont_data & HAS_R_CONT)	// if valid right continuation
 	{
 		adjacent_idx = cont_data & R_CONT_IDX_MASK;
-		adjacent_coords = coords + offsets[adjacent_idx];
+		adjacent_coords = coords + offsets_i[adjacent_idx];
 		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x;
 		// right continuation's left continuation is not mutual,
 		// i.e. a joining y-junction where the current pixel is not part of the through connection,
@@ -66,7 +67,7 @@ kernel void find_segment_starts(
 	case HAS_BOTH_CONT:	// both sides have a continuation
 		adjacent_idx = cont_data >> L_CONT_IDX_SHIFT;
 		cont_data &= 0x1F;	// only right continuation and left support flag will ever be written to output regardless of path taken from this point
-		adjacent_coords = coords + offsets[adjacent_idx];
+		adjacent_coords = coords + offsets_i[adjacent_idx];
 		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x & 0xF;
 		// if the left continuation is a mutual link, it is likely not a start but needs more logic.
 		// the one exception is if it qualifies for a loop breaking start,

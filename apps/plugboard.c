@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 	for(int i = 0; i < staged.stage_cnt; ++i)
 	{
 		size_t* range = staged.ranges[i].d;
-		printf("Enqueueing ??? with range %zu*%zu*%zu.\n", /*staging.kprog_names[i],*/ range[0], range[1], range[2]);
+		//printf("Enqueueing ??? with range %zu*%zu*%zu.\n", /*staging.kprog_names[i],*/ range[0], range[1], range[2]);
 		clErr = clEnqueueNDRangeKernel(queue, staged.kernels[i], 2, NULL, range, NULL, 0, NULL, NULL);
 		handleClError(clErr, "clEnqueueNDRangeKernel");
 	}

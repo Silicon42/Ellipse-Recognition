@@ -224,7 +224,9 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 		char const* kprog_name = staging->kprog_names[staging->kern_stg[i].kernel_idx];
 		cl_uint arg_cnt;
 		cl_uint err;
-		printf("\n(%i) %s", i, kprog_name);
+		size_t* curr_range = staged->ranges[i].d;
+		printf("\n[%i] {%lli,%lli,%lli}	%s ",
+			i, curr_range[0], curr_range[1], curr_range[2], kprog_name);
 		err = clGetKernelInfo(curr_kern, CL_KERNEL_NUM_ARGS, sizeof(arg_cnt), &arg_cnt, NULL);
 		staging->kern_stg[i].arg_cnt = arg_cnt;
 		if(err)
@@ -239,10 +241,10 @@ void inferArgAccessAndVerifyFormats(QStaging* staging, StagedQ const* staged)
 			int arg_idx = staging->kern_stg[i].arg_idxs[j];
 			char const* arg_name = staging->arg_names[arg_idx];
 			ArgStaging* curr_arg = &staging->img_arg_stg[arg_idx];
-			printf("\n	[%i] (%s) %s of channel type %s x %i ",
-				j, memTypes[curr_arg->type - CLBP_OFFSET_MEMTYPE], arg_name,
-				channelTypes[curr_arg->format.image_channel_data_type - CLBP_OFFSET_CHANNEL_TYPE],
-				getChannelCount(curr_arg->format.image_channel_order));
+			size_t* curr_size = staged->img_sizes[arg_idx].d;
+			printf("\n    [%i] (%s)	(%s x %i)	{%lli,%lli,%lli}	%s	", j,
+				memTypes[curr_arg->type - CLBP_OFFSET_MEMTYPE], channelTypes[curr_arg->format.image_channel_data_type - CLBP_OFFSET_CHANNEL_TYPE],
+				getChannelCount(curr_arg->format.image_channel_order), curr_size[0], curr_size[1], curr_size[2], arg_name);
 			cl_kernel_arg_access_qualifier access_qual;
 			err = clGetKernelArgInfo(curr_kern, j, CL_KERNEL_ARG_ACCESS_QUALIFIER, sizeof(access_qual), &access_qual, NULL);
 			if(err)

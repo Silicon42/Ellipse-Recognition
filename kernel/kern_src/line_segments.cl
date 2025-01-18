@@ -11,8 +11,8 @@
 kernel void line_segments(
 	read_only image2d_t uc1_cont_info,
 	read_only image1d_t is2_start_coords,
-	write_only image1d_t us1_line_counts,
-	write_only image2d_t ic2_line_data)
+	write_only image2d_t ic2_line_data,
+	write_only image1d_t us1_line_counts)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	

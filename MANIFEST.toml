@@ -5,7 +5,8 @@ Stages = [
 {name = 'link_edge_pixels', args = ['grad_ang', 'cont_data']},
 {name = 'find_segment_starts', args = ['grad_ang', 'cont_data', 'starts_cont']},
 {name = 'serial_reduce', args = ['starts_cont', 'start_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
-{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_cnts', 'line_data']}
+{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts']},#, range = {ref_arg = 'start_coords'}},
+{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'seg_in_arc', 'ellipse_foci'], range = {ref_arg = 'start_coords'}}
 ]
 
 # hard-coded entries corresponding to program input
@@ -26,6 +27,7 @@ grad_ang = {type = 'image2d_t', channel_type = 'int8', channel_count = 1}
 cont_data = {type = 'image2d_t', channel_type = 'uint8', channel_count = 1}
 starts_cont = {type = 'image2d_t', channel_type = 'uint8', channel_count = 1}
 start_coords = {type = 'image1d_t', channel_type = 'int16', channel_count = 2, size = {mode = 'EXACT', params = [16384,1,1]}}
-line_cnts = {type = 'image1d_t', channel_type = 'uint16', channel_count = 1}
 line_data = {type = 'image2d_t', channel_type = 'int8', channel_count = 2, size = {ref_arg = 'starts_cont'}}
-#output = {type = 'image2d_t', channel_type = 'int8', channel_count = 4, is_host_readable = true, size = {ref_arg = 'input', mode = '', params = []}}
+line_cnts = {type = 'image1d_t', channel_type = 'uint16', channel_count = 1, size = {ref_arg = 'start_coords'}}
+seg_in_arc = {type = 'image2d_t', channel_type = 'uint16', channel_count = 1}#, size = {ref_arg = 'start_coords'}}
+ellipse_foci = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {ref_arg = 'starts_cont'}}
