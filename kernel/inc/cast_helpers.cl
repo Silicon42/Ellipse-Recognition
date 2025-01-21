@@ -43,6 +43,7 @@ union s_conv{
 	char2 c;
 	uchar2 uc;
 	char ca[2];
+	uchar uca[2];
 };
 
 #endif//CAST_HELPERS_CL
