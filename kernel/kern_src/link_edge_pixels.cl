@@ -73,8 +73,10 @@ __kernel void link_edge_pixels(
 	union s_conv indices;
 	uchar * index = indices.uca;
 	long adj_small_mask;
-	char adj_small_pcnt;
-	switch(popcount(is_diff_small_mask.l))
+	char adj_small_pcnt, small_pcnt = popcount(is_diff_small_mask.l);
+	if(all(coords == (int2)(430, 161)))
+		printf("%v8hhx	%i\n", is_diff_small_mask.uc, small_pcnt);
+	switch(small_pcnt)
 	{
 	case 8:		// only 1 continuation
 		index[0] = ctz(is_diff_small_mask.l) >> 3;
@@ -84,22 +86,27 @@ __kernel void link_edge_pixels(
 		write_imageui(uc1_cont, coords, (int)cont_data);
 		return;
 	default:	// more than 2 continuations...
-		adj_small_mask = 0xFF00FF00FF00FF && is_diff_small_mask.l;
+		adj_small_mask = 0xFF00FF00FF00FF & is_diff_small_mask.l;
 		// priority for continuations is given to face adjacent pixels
 		adj_small_pcnt = popcount(adj_small_mask);
 		if(adj_small_pcnt == 8)	// but only 1 face adjacent
 		{
-			index[0] = ctz(adj_small_mask) >> 3;	// priority to face adjacent
+			uchar adj_idx = ctz(adj_small_mask) >> 3;	// priority to face adjacent
 			//TODO: priority to non-adjacent to face adjacent
-			index[1] = select_min_corner(diff.uc.odd);	// select 
+			// select the 2 corners not adjacent to the face adjacent one
+			indices.uc = ((uchar2)(3, 5) + adj_idx) & (uchar)7;
+			// replace whichever has a larger difference with the face adjacent one
+			index[index[1] > index[0]] = adj_idx;
 			break;
 		}
 		else	// either 2+ face adjacent or 3+ corner adjacent
 		{
 			if(adj_small_pcnt >= 16)	// 2+ face adjacent
 				is_diff_small_mask.l = adj_small_mask;	// can safely ignore non-face-adjacent pixels
+	if(all(coords == (int2)(430, 161)))
+		printf("%v8hhx	%i\n", is_diff_small_mask.uc, adj_small_pcnt);
 			if(adj_small_pcnt != 16)	// 3+ or 0(3+ corner adjacent) face adjacent, select min 2 from remaining
-			{
+			{	// get the indices of the 2 neighbors closest in angle to the current pixel
 				diff.l |= ~is_diff_small_mask.l;
 				indices = select_min_2(diff.uca);
 			}
@@ -108,10 +115,6 @@ __kernel void link_edge_pixels(
 	case 16:	// only 2 continuations
 		index[0] = ctz(is_diff_small_mask.l) >> 3;
 		index[1] = 7 - (clz(is_diff_small_mask.l) >> 3);
-		// get the indices of the 2 neighbors closest in angle to the current pixel
-	//	union l_conv to_compare;
-	//	to_compare.l = diff.l | ~is_diff_small_mask;
-	//	union s_conv index2 = select_min_2(to_compare.uca);
 	}
 	// we then need the average angle between those indices +90 degrees to use as reference
 	// in order for this to be treated correctly across the over/underflow boundary this must
