@@ -107,17 +107,43 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 {
 	Size3D* sizes = staged->img_sizes;
 
-	printf("Calculating %i image argument sizes... ", staged->img_arg_cnt);
+	printf("Calculating %i image argument sizes...\n", staged->img_arg_cnt);
 	calcSizeByMode(sizes, staging->arg_size_calcs, sizes, staged->img_arg_cnt, e);
 	if(e->err_code)
 		return;
-	puts("Done.");
 
-	printf("Calculating %i NDRanges... ", staged->stage_cnt);
+	// verify that image sizes match their types, if not emit a warning
+	for(int i = 0; i < staged->img_arg_cnt; ++i)
+	{
+		size_t* dims = staged->img_sizes[i].d;
+		char is_size_suspect = dims[0] <= 1;
+		switch(staging->img_arg_stg[i].type)
+		{
+		case CL_MEM_OBJECT_IMAGE1D:
+			is_size_suspect |= dims[1] > 1 || dims[2] > 1;
+			break;
+		case CL_MEM_OBJECT_IMAGE2D:
+			is_size_suspect |= dims[1] <= 1 || dims[2] > 1;
+			break;
+		case CL_MEM_OBJECT_IMAGE3D:
+			is_size_suspect |= dims[1] <= 1 || dims[2] <= 1;
+			break;
+		}
+
+		if(is_size_suspect)
+		{
+			char const * typename = memTypes[staging->img_arg_stg[i].type - CLBP_OFFSET_MEMTYPE];
+			fprintf(stderr, "WARNING: arg %s (%s) instantiated with size {%lli,%lli,%lli}, "
+				"resulting dimensions suggest it might be using the wrong reference arg or type.\n", staging->arg_names[i], typename, dims[0], dims[1], dims[2]);
+		}
+	}
+	puts("Done.\n");
+
+	printf("Calculating %i NDRanges...\n", staged->stage_cnt);
 	calcSizeByMode(sizes, staging->range_calcs, staged->ranges, staged->stage_cnt, e);
 	if(e->err_code)
 		return;
-	puts("Done.");
+	puts("Done.\n");
 }
 
 // handles using staging data to selectively open kernel program source files and compile and link them into a single program binary

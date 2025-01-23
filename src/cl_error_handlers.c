@@ -9,7 +9,7 @@ const char* clErrStr[] ={
 /* -2*/ "CL_DEVICE_NOT_AVAILABLE",
 /* -3*/ "CL_COMPILER_NOT_AVAILABLE",
 /* -4*/ "CL_MEM_OBJECT_ALLOCATION_FAILURE",
-/* -5*/ "CL_OUT_OF_RESOURCES",
+/* -5*/ "CL_OUT_OF_RESOURCES: If you got this on something that doesn't request resources, it might be due to an out of bounds write attempt in a kernel.",
 /* -6*/ "CL_OUT_OF_HOST_MEMORY",
 /* -7*/ "CL_PROFILING_INFO_NOT_AVAILABLE",
 /* -8*/ "CL_MEM_COPY_OVERLAP",

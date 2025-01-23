@@ -28,7 +28,7 @@ __kernel void edge_thinning(
 	if((neighbors.s & 0x0101) == 0x0101)	// both neighbors must be occupied to be elligible for thinning
 	{
 		diffs = abs(neighbors.c - grad_ang);
-		if(all(diffs < (uchar)32))	// both relevant neighbors must have a similar direction
+		if(all(diffs < (uchar)64))	// both relevant neighbors must have a similar direction
 			write_imagei(ic1_thinned, coords, 0);
 
 		//	return;	// current pixel is removed in thinning, skip writing out

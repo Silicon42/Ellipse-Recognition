@@ -128,11 +128,12 @@ int main(int argc, char *argv[])
 	//------- START OF MAIN LOOP -------//
 	//TODO: this eventually should be a camera feed driven loop
 
+	puts("Enqueueing kernels:");
 	// enqueue kernels to the command queue
 	for(int i = 0; i < staged.stage_cnt; ++i)
 	{
 		size_t* range = staged.ranges[i].d;
-		//printf("Enqueueing ??? with range %zu*%zu*%zu.\n", /*staging.kprog_names[i],*/ range[0], range[1], range[2]);
+		printf(" [%i]", i);
 		clErr = clEnqueueNDRangeKernel(queue, staged.kernels[i], 2, NULL, range, NULL, 0, NULL, NULL);
 		handleClError(clErr, "clEnqueueNDRangeKernel");
 	}
