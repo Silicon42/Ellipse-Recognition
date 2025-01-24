@@ -13,6 +13,7 @@ Stages = [
 #	{name = 'colored_retrace_starts', args = ['start_coords', 'retrace'], range = {ref_arg = 'start_coords'}},
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'seg_in_arc', 'ellipse_foci'], range = {ref_arg = 'start_coords'}},
 	{name = 'foci_debug', args = ['line_data', 'seg_in_arc', 'ellipse_foci', 'retrace']},
+#	{name = 'lost_seg_debug', args = ['retrace', 'starts_cont', 'retrace']},
 ]
 
 # hard-coded entries corresponding to program input

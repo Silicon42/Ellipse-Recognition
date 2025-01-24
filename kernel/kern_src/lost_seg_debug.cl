@@ -1,11 +1,12 @@
-kernel void lost_seg_debug(read_only image2d_t uc4_retrace, read_only image2d_t uc4_retrace_starts, read_only image2d_t uc1_cont_data, write_only image2d_t uc4_out)
+// debugging kernel for figuring out which segments are actually being processed and which are being lost
+
+kernel void lost_seg_debug(
+	read_only image2d_t uc4_retrace,
+	read_only image2d_t uc1_cont_data,
+	write_only image2d_t uc4_out)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	// color from retrace_starts image gets highest priority
-	uint4 color = read_imageui(uc4_retrace_starts, coords);
-	// retrace gets 2nd priority
-	if(!color.w)
-		color = read_imageui(uc4_retrace, coords);
+	uint4 color = read_imageui(uc4_retrace, coords);
 	// any other remaining pixels got rejected or unintentionally lost and are decided based on the results of cont_data
 	if(!color.w)
 	{

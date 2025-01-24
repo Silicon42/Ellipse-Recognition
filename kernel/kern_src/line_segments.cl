@@ -33,7 +33,6 @@ kernel void line_segments(
 	// is 1/4 size because only half the length must be recorded for finding the midpoint
 	// and half of that is already accumulated in offset_x2_mid at any given time
 	uchar path_hist[32];
-	//struct line_AB_tracking lines = {0};
 	char2 offset_x2_mid, offset_end = 0;
 	int2 base_coords = coords;
 	ushort seg_count = 0;
@@ -46,7 +45,7 @@ kernel void line_segments(
 		offset_x2_mid = offset_end = offsets_c[cont_idx];
 		path_hist[0] = cont_idx;
 		++seg_count;
-		//TODO: once the duplicate processing bugs are fixed, remove this
+		//TODO: once the duplicate processing bugs are fixed, remove this (currently fixed but future changes might break again)
 		/*if(seg_count > 255)
 		{
 			printf("seg_count over\n");
@@ -67,9 +66,29 @@ kernel void line_segments(
 
 			coords += offsets[cont_idx];
 			offset_x2_mid += offsets_c[path_hist[(len >> 1) & 0x1F]];
-			// if 2* the midpoint is further than 1 pixel from the endpoint OR length exceed maximum allowed
-			if(mag2_2d_c(offset_end - offset_x2_mid) > 4 || len >= 127)
+			// if 2* the midpoint is further than 1 pixel from the endpoint (2px^2 == 4) OR length exceed maximum allowed
+			//count of applied offsets is 1 higher than len so need to exit at 126 with changes below
+			if(len > 126)
 				break;
+			if(mag2_2d_c(offset_end - offset_x2_mid) > 4)
+			{	//FIXME: This is a temporary fix to better smooth the segment transitions,
+				// a proper fix would involve only writing out the midpoint segment,
+				// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
+			//	printf("%i	%i,	%i	%i\n", offset_x2_mid.x, offset_x2_mid.y, offset_x2_mid.x >> 1, offset_x2_mid.y >> 1);
+				offset_x2_mid >>= 1;
+				int2 offset_mid = convert_int2(offset_x2_mid);
+				if(!(offset_mid.x || offset_mid.y))	// not sure this is actually possible but it doesn't hurt for now
+				{
+					printf(" midpoint 0 ");
+					break;
+				}
+				++seg_count;
+				//printf("%i %i \n", base_coords.x, base_coords.y);
+				write_imagei(ic2_line_data, base_coords, (int4)(offset_mid, 0, -1));
+				base_coords += offset_mid;
+				offset_end -= offset_x2_mid;
+				break;
+			}
 
 			//addition to offset_mid delayed to keep narrower distance threshold range, may or may not be ideal solution
 			if(len < 64)
@@ -79,8 +98,17 @@ kernel void line_segments(
 		// depending on which exit condition occured:
 		// 2*midpoint within 1 pixel of endpoint / within max length / didn't overrun a start or end
 		offset_end -= offsets_c[cont_idx];
-		write_imagei(ic2_line_data, base_coords, (int4)(convert_int2(offset_end), 0, -1));
+		if(offset_end.x || offset_end.y)	//FIXME: this check shouldn't be neccessary
+			write_imagei(ic2_line_data, base_coords, (int4)(convert_int2(offset_end), 0, -1));
+		else
+		{
+		//	printf("%i %i \n", base_coords.x, base_coords.y);
+			--seg_count;
+		}
+
 	} while(!to_end);
+	
+	//printf("%i\n", index);
 
 	write_imageui(us1_line_counts, index, seg_count);
 }

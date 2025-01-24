@@ -94,6 +94,7 @@ kernel void arc_builder(
 	int2 total_offset, curr_seg, prev_seg;
 	private int2 points[4];
 	curr_seg = read_imagei(ic2_line_data, base_coords).lo;
+	
 	total_offset = 0;
 	private int cross_prods[4];
 	private int8 diffs8;

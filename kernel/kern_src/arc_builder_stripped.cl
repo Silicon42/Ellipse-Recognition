@@ -3,15 +3,15 @@
 #include "math_helpers.cl"
 
 kernel void arc_builder_stripped(
-	read_only image1d_t iS2_start_coords,
+	read_only image1d_t is2_start_coords,
 	read_only image1d_t us1_line_counts,
-	read_only image2d_t iC2_line_data,
+	read_only image2d_t ic2_line_data,
 	write_only image2d_t us1_seg_in_arc)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 	if(!index)
 		printf("arc_builder\n");
-	int2 base_coords = read_imagei(iS2_start_coords, index).lo;	// current pixel coordinates
+	int2 base_coords = read_imagei(is2_start_coords, index).lo;	// current pixel coordinates
 	if(!((union l_conv)base_coords).l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 
@@ -20,7 +20,7 @@ kernel void arc_builder_stripped(
 		return;
 		
 	int2 total_offset, curr_seg, prev_seg;
-	curr_seg = read_imagei(iC2_line_data, base_coords).lo;
+	curr_seg = read_imagei(ic2_line_data, base_coords).lo;
 	total_offset = 0;
 	char reset = 0;
 	ushort seg_cnt = 1;
@@ -48,7 +48,7 @@ kernel void arc_builder_stripped(
 		}
 		prev_seg = curr_seg;
 		total_offset += curr_seg;
-		curr_seg = read_imagei(iC2_line_data, base_coords + total_offset).lo;
+		curr_seg = read_imagei(ic2_line_data, base_coords + total_offset).lo;
 
 		// angle difference between segments A and B must be acute (no sharp corners), ie positive dot product
 		int dir_dot = dot_2d_i(prev_seg, curr_seg);
