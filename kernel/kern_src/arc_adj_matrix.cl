@@ -2,8 +2,8 @@
 #include "math_helpers.cl"
 
 kernel void arc_adj_matrix(
-	read_only image2d_t iC2_line_data,
-	read_only image2d_t iS2_line_coords,
+	read_only image2d_t ic2_line_data,
+	read_only image2d_t is2_arc_candidate_coords,
 	read_only image1d_t us1_length,
 	write_only image2d_t us4_sparse_adj_matrix)
 {
@@ -14,8 +14,8 @@ kernel void arc_adj_matrix(
 	if(((indices.y << 8) | indices.x) > max_index)
 		return;
 
-	int2 A_start = read_imagei(iS2_line_coords, indices).lo;
-	int2 A_end_offset = read_imagei(iC2_line_data, A_start).lo;
+	int2 A_start = read_imagei(is2_arc_candidate_coords, indices).lo;
+	int2 A_end_offset = read_imagei(ic2_line_data, A_start).lo;
 	int2 A_end = A_start + A_end_offset;
 	uint worst_dist2 = mag2_2d_i(A_end_offset);
 	
@@ -31,7 +31,7 @@ kernel void arc_adj_matrix(
 	for(uint i = 0; i <= max_index; ++i)
 	{
 		// check which location to evaluate for adjacency
-		B_start = read_imagei(iS2_line_coords, SPLIT_INDEX(i)).lo;
+		B_start = read_imagei(is2_arc_candidate_coords, SPLIT_INDEX(i)).lo;
 
 		A_to_B = B_start - A_end;	// vector from end of segment A to start of segment B
 		dist2 = mag2_2d_i(A_to_B);
@@ -47,7 +47,7 @@ kernel void arc_adj_matrix(
 		if(dot_2d_i(A_end_offset, A_to_B) < 0)
 			continue;
 
-		B_end_offset = read_imagei(iC2_line_data, B_start).lo;
+		B_end_offset = read_imagei(ic2_line_data, B_start).lo;
 
 		// angle between segments A and B must be acute, ie positive dot product
 		if(dot_2d_i(A_end_offset, B_end_offset) <= 0)
