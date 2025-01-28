@@ -81,7 +81,7 @@ kernel void arc_builder(
 	read_only image2d_t ic2_line_data,
 	read_only image1d_t us1_line_counts,
 	write_only image2d_t us1_seg_in_arc,
-	write_only image2d_t ff4_ellipse_foci)
+	write_only image2d_t ff4_ellipse_foci)	//TODO: ff4_ellipse_foci is only used for debugging, remove it eventually
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 

@@ -5,11 +5,13 @@
 #include "cast_helpers.cl"
 
 __kernel void serial_reduce_arc_seeds(
+	read_only image2d_t ic2_line_data,
 	read_only image2d_t us1_seg_in_arc,
+	write_only image1d_t ic4_tangents,
 //	write_only image1d_t us1_length,	//is actually length -1 to not possibly overflow
-	write_only image1d_t is2_arc_coords)
+	write_only image1d_t is4_arc_coords)
 {
-	ushort max_size = get_image_width(is2_arc_coords);	//TODO: this can probably be replaced optionally with a define
+	ushort max_size = get_image_width(is4_arc_coords);	//TODO: this can probably be replaced optionally with a define
 	if(get_global_id(0))	// only thread 0 proccesses anything here
 		return;
 	
@@ -23,7 +25,18 @@ __kernel void serial_reduce_arc_seeds(
 			uchar seg_cnt = read_imageui(us1_seg_in_arc, coords).x;
 			if(seg_cnt >= 4)
 			{
-				write_imagei(is2_arc_coords, index, (int4)(coords, 0, -1));
+				int4 tangents;
+				tangents.hi = tangents.lo = read_imagei(ic2_line_data, coords).lo;
+				int2 end_coords = coords + tangents.hi;
+				//traverse chain of line segment offsets to accumulate the ending coordinates and find the last segment values
+				for(int i = 1; i < seg_cnt; ++i)
+				{
+					tangents.hi = read_imagei(ic2_line_data, end_coords).lo;
+					end_coords += tangents.hi;
+				}
+
+				write_imagei(ic4_tangents, index, tangents);
+				write_imagei(is4_arc_coords, index, (int4)(coords, end_coords));
 				++index;
 				if(index == max_size)	// prevent possibly attempting to write past the end of the image, which can freeze the pipeline
 				{
