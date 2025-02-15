@@ -2,8 +2,8 @@
 #include "math_helpers.cl"
 
 kernel void arc_seg_adj_matrix(
-	read_only image2d_t ic2_line_data,
-	read_only image2d_t us1_seg_in_arc,
+//	read_only image2d_t ic2_line_data,
+//	read_only image2d_t us1_seg_in_arc,
 	read_only image1d_t ic4_tangents,
 	read_only image1d_t is4_arc_candidate_coords,
 	write_only image1d_t us4_sparse_adj_matrix)
@@ -15,39 +15,41 @@ kernel void arc_seg_adj_matrix(
 	if(!any(A_arc_coords == 0))
 		return;
 
+	int4 A_tangents = read_imagei(ic4_tangents, index);
 	int2 A_end_offset = A_arc_coords.hi - A_arc_coords.lo;
 	uint worst_dist2 = mag2_2d_i(A_end_offset);
 	
 	uchar num_candidates[2] = {0};
-	ushort candidates[3] = {-1, -1, -1};
-	uint candidate_dist2[3] = {-1, -1, -1};
+	ushort candidates[2] = {-1, -1};
+	uint candidate_dist2[2] = {-1, -1};
 	uchar worst = 0;
-	uchar is_ccw;
-	int4 B_arc_coords;
-	int2 A_to_B, B_end_offset;
-	uint dist2;
 
 	//TODO: revisit these checks once you understand the Candy's Theorem constraint, should be more efficient
 	for(uint i = 0; ; ++i)
 	{
 		// check which location to evaluate for adjacency
-		B_arc_coords = read_imagei(is4_arc_candidate_coords, index);
+		int4 B_arc_coords = read_imagei(is4_arc_candidate_coords, i);
 
-		A_to_B = B_arc_coords.lo - A_arc_coords.hi;	// vector from end of segment A to start of segment B
-		dist2 = mag2_2d_i(A_to_B);
+		// only process valid entries
+		if(!any(B_arc_coords == 0))
+			break;
+
+		int2 A_to_B = B_arc_coords.lo - A_arc_coords.hi;	// vector from end of arc A to start of arc B
+		uint dist2 = mag2_2d_i(A_to_B);
 		// if it's at or above the max search radius away from the end,
 		// skip it, it's not likely part of the same ellipse,
 		// also prevents it from including itself
 		if(dist2 >= worst_dist2)
 			continue;
-
-		// if start of segment B isn't forward of the end of segment A,
+		
+		// if start of arc B isn't within the tangent of the end of arc A,
 		// A_to_B will have a component against the direction of A_end_offset
 		// so dot product will be negative, indicating it should be skipped
 		if(dot_2d_i(A_end_offset, A_to_B) < 0)
 			continue;
 
-		B_end_offset = B_arc_coords.hi - B_arc_coords.lo;
+		int4 B_tangents = read_imagei(ic4_tangents, i);
+		int2 B_end_offset = B_arc_coords.hi - B_arc_coords.lo;
 
 		// angle between segments A and B must be acute, ie positive dot product
 		if(dot_2d_i(A_end_offset, B_end_offset) <= 0)
@@ -61,7 +63,7 @@ kernel void arc_seg_adj_matrix(
 
 		// could add a B chord len search region check here for better symmetry but it would be mostly redundant
 		
-		is_ccw = dir <= 0;
+		uchar is_ccw = dir <= 0;
 		is_both = dir == 0;
 		// all checks passed, save candidate
 		//TODO: this might be done better with vector selection
