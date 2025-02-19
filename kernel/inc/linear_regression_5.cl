@@ -57,3 +57,41 @@ void cholesky_inv_sym_5(float A[15])
 				A[TRI_INDEX(k,j)] += A[TRI_INDEX(i,j)] * A[TRI_INDEX(k,i)];
 
 }
+
+// Takes a packed, 14 coefficient representing the self-transpose-product of the
+// input points, in A[0-3, 8-15], and solves for the least squares fit of conic
+// in linear form.
+// The process to do so first, expands it to packed symmetric form, initializes 
+// the b output vector,
+void solveConic(float A[15], float b[5])
+{
+	// expand b coefficients
+	b[0] = A[10];
+	b[1] = A[11];
+	b[2] = A[0];
+	b[3] = A[2];
+	b[4] = A[1];
+
+	// copy duplicate A coefficients into position
+	A[8] = A[14];
+	A[10] = A[4];
+	A[11] = A[6];
+
+	cholesky_inv_sym_5(A);
+
+	// (L^-1)^T(D(L^-1 * b))
+
+	// b = L^-1 * b
+	for(int i = 4; i > 0; --i)
+		for(int j = i-1; j >= 0; --i)
+			b[i] += A[TRI_INDEX(i,j)] * b[j];
+
+	// b = D * b
+	for(int i = 4; i >= 0; --i)
+		b[i] *= A[TRI_INDEX(i,i)];
+	
+	// b = (L^-1)^T * b
+	for(int i = 0; i < 4; ++i)
+		for(int j = i+1; j < 5; ++j)
+			b[i] += A[TRI_INDEX(j,i)] * b[j];
+}
