@@ -13,12 +13,13 @@ kernel void foci_debug(
 	//arbitrary color to distinguish nearby arcs from each other
 	uint4 color = (uint4)(scatter_colorize(coords.x * coords.y), 1000);
 	int4 foci;
+
 	if(seg_cnt < 4)
 		color /= 3;
 	else
 	{
 		//draw lines between the start of the arc and the associated foci
-		foci = convert_int4_sat_rte(read_imagef(ff4_ellipse_foci, coords));
+		foci = convert_int4(convert_short4_sat_rte(read_imagef(ff4_ellipse_foci, coords)));
 		draw_line(coords, foci.lo, color + 64, uc4_out_image);
 		draw_line(coords, foci.hi, color + 64, uc4_out_image);
 	}

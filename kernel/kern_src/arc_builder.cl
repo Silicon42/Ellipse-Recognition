@@ -16,6 +16,9 @@ constant const char order[8] = {0,1,2,3,0,2,1,3};
 // if the conic through 5 points would not be an ellipse, returns NaN
 float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
 {	//TODO: see how to mitigate rounding errors better
+//if(all(diffs[0]==(int2)(75,-27)))
+//	printf("%i	%i	%i	%i\n", cross_prods[0],cross_prods[1],cross_prods[2],cross_prods[3]);
+//	printf("%v2i	%v2i	%v2i	%v2i\n", diffs[0],diffs[1],diffs[2],diffs[3]);
 	float4 foci;
 	float2 ca, ed, rs, temp_f2;
 	float b, temp_f, inv_2t, ac_diff;
@@ -32,38 +35,51 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 
 	ca = u * convert_float2(diffs[0] * diffs[2]) + v * convert_float2(diffs[1] * diffs[3]);
 	temp_i2 = diffs[0] * diffs[2].yx;
-	b = u * (float)(temp_i2.x + temp_i2.y);
+	b = -u * (float)(temp_i2.x + temp_i2.y);
 	temp_i2 = diffs[1] * diffs[3].yx;
-	b += v * (float)(temp_i2.x + temp_i2.y);
-
+	b -= v * (float)(temp_i2.x + temp_i2.y);
+//ca = (float2)(-40,-33);
+//b=-24;
 	inv_2t = (4 * ca.x * ca.y - b * b);
+if(all(diffs[0]==(int2)(75,-27)))
+printf("%e", inv_2t);
 	//only bother computing foci for ellipse candidates, not parabolas or hyperbolas
 	if(inv_2t <= 0)
 		return NAN;
 	
-	b = -b;
 	inv_2t = 1 / inv_2t;
 
 	ed = u * (cross_prods[0] * convert_float2(diffs[2]) + cross_prods[2] * convert_float2(diffs[0]))\
 		+v * (cross_prods[1] * convert_float2(diffs[3]) + cross_prods[3] * convert_float2(diffs[1]));
-	ed.x = -ed.x;
+if(all(diffs[0]==(int2)(75,-27)))
+printf("%v2e", ca);
+//ed=(float2)(168);
+	char negate = all(ca < 0) ? -1:1;	// this is to prevent the temp_f value from going negative because the square root can't handle that
+	b *= negate;
+	ed *= (float2)(-negate, negate);
+	ca *= negate;
+//if(negate < 0)
+//	printf("n");
 
 	rs = b * ed;			//b[e, d]
-	temp_f = rs.x * ed.y;	//bed
+	temp_f = -rs.x * ed.y;	//-bde
 	temp_f2 = ca * ed.yx;	//[cd, ae]
 	rs -= 2 * temp_f2;		//b[e, d] - 2[cd, ae]
 	ac_diff = ca.y - ca.x;	//a-c
 
-	temp_f = 2 * (temp_f - dot_2d_f(temp_f2, ed.yx));	//2(bed - ae^2 - cd^2)
-	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (float2)(ac_diff, -ac_diff)));
+	temp_f = 2 * (temp_f + dot_2d_f(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
+	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (float2)(-ac_diff, ac_diff)));
+if(any(isnan(temp_f2)))
+	printf("X");
 
 	// due to sqrt of complex value, x and y components are either same sign if b > 0 or opposite sign if b < 0
-	if(b < 0)
+	if(b > 0)
 		temp_f2.y *= -1;
 
 	foci.lo = rs - temp_f2;
 	foci.hi = rs + temp_f2;
 	foci *= inv_2t;
+//printf("%v4f ]\n", foci);
 	
 	return convert_float4(foci);
 }
@@ -103,10 +119,26 @@ kernel void arc_builder(
 	read_only image1d_t us1_line_counts,
 	write_only image2d_t us1_seg_in_arc,
 	write_only image2d_t ff4_ellipse_foci,	//TODO: ff4_ellipse_foci is only used for debugging, remove it eventually
-	write_only image2d_t ff4_pseudo_reduce)	//contains the 12 unique coefficients that the self transpose product produces as part of calculating pseudo inverse
+	write_only image2d_t ff4_pseudo_coeffs)	//contains the 12 unique coefficients that the self transpose product produces as part of calculating pseudo inverse
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
-
+/*
+if(index)
+	return;
+int2 points[4] = {(int2)(-2,4),(int2)(5,7),(int2)(8,5),(int2)(10,1)};
+int2 diffs[4];
+int cross[4];
+diffs[0] = points[0]-points[3];
+diffs[1] = points[1]-points[0];
+diffs[2] = points[2]-points[1];
+diffs[3] = points[3]-points[2];
+cross[0] = cross_2d_i(points[0], points[3]);
+cross[1] = cross_2d_i(points[1], points[0]);
+cross[2] = cross_2d_i(points[2], points[1]);
+cross[3] = cross_2d_i(points[3], points[2]);
+ellipse_from_hist(diffs, cross);
+return;
+*/
 	// get count of line segments in this chain of processing
 	int remaining_segs = read_imageui(us1_line_counts, index).x;
 
@@ -117,7 +149,7 @@ kernel void arc_builder(
 	// get starting pixel coordinates
 	int2 base_coords = read_imagei(is2_start_coords, index).lo;
 
-	ulong4 coeffs[3];	// accumulator for the 12 unique coeffs of the self-transpose-product matrix
+	ulong4 coeffs[4];	// accumulator for the 12 unique coeffs of the self-transpose-product matrix
 	int2 total_offset, curr_coords, curr_seg, prev_seg;
 	curr_coords = base_coords;
 	private int2 points[4];	// relative points to last reset used in the 
@@ -145,10 +177,10 @@ kernel void arc_builder(
 		case 1:	// logical reset, last read segment can't be part of the same elliptical arc
 			write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
 			// write coefficients out to buffer
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4, base_coords.y), convert_float4(coeffs[0]));
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(coeffs[1]));
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(coeffs[2]));
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(coeffs[3]));
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4, base_coords.y), convert_float4(coeffs[0]));
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(coeffs[1]));
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(coeffs[2]));
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(coeffs[3]));
 
 			//if it was long enough to calculate an ellipse, write out the foci
 			if(seg_cnt >= 4)
@@ -180,10 +212,10 @@ kernel void arc_builder(
 			write_imageui(us1_seg_in_arc, base_coords, 1);
 			// write the single segment coefficients scaled by 1/2 so as to not bias solutions toward single segments
 			// other low segment counts may still cause biased weighting but not nearly as bad as single segments
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4, base_coords.y), convert_float4(base_coeffs[0])/2);
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(base_coeffs[1])/2);
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(base_coeffs[2])/2);
-			write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(base_coeffs[2])/2);
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4, base_coords.y), convert_float4(base_coeffs[0])/2);
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(base_coeffs[1])/2);
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(base_coeffs[2])/2);
+			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(base_coeffs[2])/2);
 			
 			base_coords = new_base_coords;	// advance base coords by first segment
 			total_offset -= first_point;
@@ -306,13 +338,15 @@ kernel void arc_builder(
 		// this must stay at the end b/c some situations need to be able to skip it
 		++seg_cnt;
 	}
+//	if(all(base_coords==(int2)(490,590)))
+//		printf("%v2i	%v2i	%v2i	%v2i\n", points[0],points[1],points[2],points[3]);
 
 	//flush last arc
 	write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
-	write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4, base_coords.y), convert_float4(coeffs[0]));
-	write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(coeffs[1]));
-	write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(coeffs[2]));
-	write_imagef(ff4_pseudo_reduce, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(coeffs[3]));
+	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4, base_coords.y), convert_float4(coeffs[0]));
+	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(coeffs[1]));
+	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(coeffs[2]));
+	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(coeffs[3]));
 
 	//if it was long enough to calculate an ellipse, write out the foci
 	if(seg_cnt >= 4)

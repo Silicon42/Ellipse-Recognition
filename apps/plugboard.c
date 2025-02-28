@@ -15,7 +15,7 @@
 #define OUTPUT_NAME "images/output"
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 // Intel CPUs seem to not calculate atan2pi() correctly if -cl-fast-relaxed-math is set and collapse to only either +/- 0.5
-#define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_INC_DIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant -cl-fast-relaxed-math"
+#define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_INC_DIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant"// -cl-fast-relaxed-math"
 //#define MAX_KERNELS 32
 //#define MAX_STAGES 32
 //#define MAX_ARGS 200
