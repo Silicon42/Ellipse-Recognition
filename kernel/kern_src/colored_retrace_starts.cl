@@ -1,7 +1,7 @@
 // redraws the initial starts after colored_retrace since some may have gotten
 // overwritten by the end pixel of other threads, should be scheduled based on 
 // dims of start_info input
-#include "colorizer.cl"
+//#include "colorizer.cl"
 #include "cast_helpers.cl"
 
 kernel void colored_retrace_starts(
@@ -9,7 +9,7 @@ kernel void colored_retrace_starts(
 	write_only image2d_t uc4_trace_image)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
-	uint3 base_color = scatter_colorize(index);
+	uint3 base_color = -1;//scatter_colorize(index);
 
 	// initialize variables of arcs segment tracing loop for first iteration
 	union l_conv coords;

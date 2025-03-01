@@ -29,6 +29,8 @@ kernel void foci_debug(
 		int2 prev_coords = coords;
 		coords += read_imagei(ic2_line_data, coords).lo;
 		draw_line(coords, prev_coords, color, uc4_out_image);
+		if(any(prev_coords < 0))// get_image_dim(uc4_out_image)))
+		printf("lolwut");
 		write_imageui(uc4_out_image, prev_coords, -1);
 	}
 

@@ -14,6 +14,7 @@ constant const char order[8] = {0,1,2,3,0,2,1,3};
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
 // if the conic through 5 points would not be an ellipse, returns NaN
+#pragma OPENCL FP_CONTRACT OFF
 float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
 {	//TODO: see how to mitigate rounding errors better
 //if(all(diffs[0]==(int2)(75,-27)))
@@ -40,9 +41,9 @@ float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_pr
 	b -= v * (float)(temp_i2.x + temp_i2.y);
 //ca = (float2)(-40,-33);
 //b=-24;
-	inv_2t = (4 * ca.x * ca.y - b * b);
+	inv_2t = 4 * ca.x * ca.y - b * b;
 if(all(diffs[0]==(int2)(75,-27)))
-printf("%e", inv_2t);
+printf("%A	", inv_2t);
 	//only bother computing foci for ellipse candidates, not parabolas or hyperbolas
 	if(inv_2t <= 0)
 		return NAN;
@@ -52,7 +53,7 @@ printf("%e", inv_2t);
 	ed = u * (cross_prods[0] * convert_float2(diffs[2]) + cross_prods[2] * convert_float2(diffs[0]))\
 		+v * (cross_prods[1] * convert_float2(diffs[3]) + cross_prods[3] * convert_float2(diffs[1]));
 if(all(diffs[0]==(int2)(75,-27)))
-printf("%v2e", ca);
+printf("%v2A	", ca);
 //ed=(float2)(168);
 	char negate = all(ca < 0) ? -1:1;	// this is to prevent the temp_f value from going negative because the square root can't handle that
 	b *= negate;
@@ -83,6 +84,7 @@ if(any(isnan(temp_f2)))
 	
 	return convert_float4(foci);
 }
+#pragma OPENCL FP_CONTRACT DEFAULT
 
 // adds the coefficient components as calculated for this point to the square matrix
 // done in long int math to prevent precision loss, safe from overflow as long as
