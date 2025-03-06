@@ -1,5 +1,10 @@
 
 #include "samplers.cl"
+
+// only 4 elements in offset table because topmost bit would determine addition/subtraction
+// which doesn't matter because in order to check up gradient and down gradient, both are needed anyway
+constant const int2 offsets[4] = {(int2)(1,0),(int2)1,(int2)(0,1),(int2)(-1,1)};
+
 // Alternate Canny function that expects chars instead of floats
 // [0] In	uc2_grad: 4 channel image of x and y gradient (INT16), angle (INT16),
 //				and gradient magnitude (INT16)
@@ -11,14 +16,10 @@ __kernel void non_max_sup(
 	read_only image2d_t uc2_grad,
 	write_only image2d_t ic1_grad_ang)
 {
-	// only 4 elements in offset table because topmost bit would determine addition/subtraction
-	// which doesn't matter because in order to check up gradient and down gradient, both are needed anyway
-	const int2 offsets[4] = {(int2)(1,0),(int2)1,(int2)(0,1),(int2)(-1,1)};
-
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
 	const uint2 grad = read_imageui(uc2_grad, coords).lo;
 
-	// if the strength of the gradient wasn't recorded, it didn't meet the minimum threshold, no further processing needed
+	// if the magnitude of the gradient wasn't recorded, it didn't meet the minimum threshold, no further processing needed
 	if(!grad.y)
 		return;
 
@@ -31,9 +32,9 @@ __kernel void non_max_sup(
 
 	// verify that angle of the pixels read is within +/- 45 degrees,
 	// this allows for processing of thin lines and sharp corners correctly
-	char2 is_angle_similar = -1;//abs((char)grad.x - convert_char2(along.even)) < (char)32;
+	//char2 is_angle_similar = -1;//abs((char)grad.x - convert_char2(along.even)) < (char)32;
 	// mask magnitudes conditionally by if they were close in angle
-	uint2 validated_mag = along.odd & convert_uint2(is_angle_similar);
+	uint2 validated_mag = along.odd;// & convert_uint2(is_angle_similar);
 	if(any(validated_mag > grad.y))	// non-max suppression
 		return;
 	if(any(validated_mag == grad.y) && ((coords.x ^ coords.y) & 1))	// constant gradient edge case mitigation, typically only in artificial images

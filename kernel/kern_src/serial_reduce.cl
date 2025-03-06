@@ -18,7 +18,7 @@ __kernel void serial_reduce(
 		for(coords.x = 0; coords.x < bounds.x; ++coords.x)
 		{
 			uchar cont_data = read_imageui(uc1_starts_cont, coords).x;
-			if((cont_data & 0xE8) == 0x88)	// check validity and start flags present
+			if((cont_data & 0xE8) == 0xE8)	// check validity and start flags present
 			{
 				write_imagei(is2_start_coords, index, (int4)(coords, 0, -1));
 				++index;

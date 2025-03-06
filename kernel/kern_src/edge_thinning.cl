@@ -14,9 +14,9 @@ __kernel void edge_thinning(
 	
 	// directions get reveresed on the 2nd edge thinning by changing the lookup table, there might be a better way to do this
 #ifdef SECOND_THINNING
-	const int2 offsets[] = {(int2)(1,0), (int2)(0,1), (int2)(-1,0), (int2)(0,-1), (int2)(1,0)};
+	constant const int2 offsets[] = {(int2)(1,0), (int2)(0,1), (int2)(-1,0), (int2)(0,-1), (int2)(1,0)};
 #else
-	const int2 offsets[] = {(int2)(-1,0), (int2)(0,-1), (int2)(1,0), (int2)(0,1), (int2)(-1,0)};
+	constant const int2 offsets[] = {(int2)(-1,0), (int2)(0,-1), (int2)(1,0), (int2)(0,1), (int2)(-1,0)};
 #endif//SECOND_THINNING
 
 	int dir_idx = (uchar)grad_ang >> 6;	// which quadrant the gradient falls into

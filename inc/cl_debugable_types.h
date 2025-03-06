@@ -2,7 +2,6 @@
 #define CL_DEBUGABLE_TYPES_H
 // enum and bitfield equivalents for the cl.h defined types so they can actually be debugged
 //NOTE: not all types are represented here this is WIP
-#define CLBP_OFFSET_CHANNEL_ORDER	0x10B0
 #define CLBP_OFFSET_CHANNEL_TYPE	0x10D0
 enum clChannelType {
 	CLBP_SNORM_INT8			= 0x10D0,
@@ -36,30 +35,31 @@ enum clMemType {
 	CLBP_IMAGE1D_ARRAY	= 0x10F5,
 	CLBP_PIPE			= 0x10F6,
 	CLBP_IMAGE1D_BUFFER	= 0x10F7,
-	//RESERVED/UNKNOWN	= 0x10F8 thru 0x10FF
+//	RESERVED/UNKNOWN	= 0x10F8 thru 0x10FF
 	CLBP_INVALID_MEM_TYPE
 };
 
-enum clChannelOrder {
-	CLBP_R			= 0x10B0,
-	CLBP_A			= 0x10B1,
-	CLBP_RG			= 0x10B2,
-	CLBP_RA			= 0x10B3,
-	CLBP_RGB		= 0x10B4,
-	CLBP_RGBA		= 0x10B5,
-	CLBP_BGRA		= 0x10B6,
-	CLBP_ARGB		= 0x10B7,
-	CLBP_INTENSITY	= 0x10B8,
-	CLBP_LUMINANCE	= 0x10B9,
-	CLBP_Rx			= 0x10BA,
-	CLBP_RGx		= 0x10BB,
-	CLBP_RGBx		= 0x10BC,
-	CLBP_DEPTH		= 0x10BD,
-	CLBP_sRGB		= 0x10BF,
-	CLBP_sRGBx		= 0x10C0,
-	CLBP_sRGBA		= 0x10C1,
-	CLBP_sBGRA		= 0x10C2,
-	CLBP_ABGR		= 0x10C3,
+#define CLBP_OFFSET_CHANNEL_ORDER	0x10B0
+enum clChannelOrder {			// is min support	| clamped color alpha channel behavior
+	CLBP_R			= 0x10B0,	// all, R&W			| 1
+	CLBP_A			= 0x10B1,	// n				| 0
+	CLBP_RG			= 0x10B2,	// 2.x				| 1
+	CLBP_RA			= 0x10B3,	// n				| 0
+	CLBP_RGB		= 0x10B4,	// n				| 1
+	CLBP_RGBA		= 0x10B5,	// all, R&W			| 0
+	CLBP_BGRA		= 0x10B6,	// all, unorm8		| 0
+	CLBP_ARGB		= 0x10B7,	// n				| 0
+	CLBP_INTENSITY	= 0x10B8,	// n				| 0
+	CLBP_LUMINANCE	= 0x10B9,	// n				| 1
+	CLBP_Rx			= 0x10BA,	// n				| 0
+	CLBP_RGx		= 0x10BB,	// n				| 0
+	CLBP_RGBx		= 0x10BC,	// n				| 0
+	CLBP_DEPTH		= 0x10BD,	// 2.x				| ?
+	CLBP_sRGB		= 0x10BF,	// n				| 1?
+	CLBP_sRGBx		= 0x10C0,	// n				| 0?
+	CLBP_sRGBA		= 0x10C1,	// 2.x, unorm8		| 0?
+	CLBP_sBGRA		= 0x10C2,	// n				| 0?
+	CLBP_ABGR		= 0x10C3,	// n				| 0?
 //RESERVED/UNKNOWN	= 0x10C4 thru 0x10CF
 	CLBP_INVALID_CHANNEL_ORDER
 };

@@ -12,18 +12,17 @@
 
 //FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
 #include "cast_helpers.cl"
-//#include "offsets_i_LUT.cl"
+#include "offsets_LUT.cl"
 #include "link_macros.cl"
 //FIXME: replace temp fix for multiple definition by adding proper support for included sources
-constant const int2 offsets_i[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
+//constant const int2 offsets[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
 
-//NOTE: returned values are in the form 0bSE0lriii where 
+//NOTE: returned values are in the form 0bS000Errr where 
 // "S" is the start indicator flag,
-//TODO: v swap this flag's sense so that overruns into unwritten pixels aren't possible
-// "E" is end adjacent indicator flag, ie. cont_data still valid but next pixel coord won't be, doesn't handle start being next
-// "l" is the left support indicator flag,
-// "r" is occupancy/right continuation indicator flag, and
-// "i" is the 3-bit direction index
+// "E" is not end adjacent indicator flag
+//   ie. next pixel cont_data not valid to read as part of current chain,
+//   handles Y-junctions and ends of chain, doesn't handle start being next
+// "r" is the 3-bit direction index
 
 //TODO: need to add an is_supported flag so that small segments that support other separately detected small segments don't get deleted
 // This might be decently involved to actually implement
@@ -36,61 +35,45 @@ kernel void find_segment_starts(
 
 	uchar cont_data = read_imageui(uc1_cont, coords).x;
 
-	char grad_ang;
-	uchar adjacent_data, adjacent_idx;
-	int2 adjacent_coords;
-	uchar is_end_adjacent = 0;	//also used for early rejection of unconnected 2-pixel segments
+	// if no valid right continuation, cannot be start or have valid cont data, so vast majority returns early
+	if(!(cont_data & HAS_R_CONT))
+		return;
+	
+	// else there is a valid right continuation
 
+	// read next pixel in the chain (right continuation) to verify this is a true/mutual connection
+	uchar r_cont_idx = cont_data & R_CONT_IDX_MASK;
+	int2 adjacent_coords = coords + offsets[r_cont_idx];
+	uchar adjacent_data = read_imageui(uc1_cont, adjacent_coords).x;
 	// y-junction prevention, stops multiple edges that would join to process a shared region
-	if(cont_data & HAS_R_CONT)	// if valid right continuation
-	{
-		adjacent_idx = cont_data & R_CONT_IDX_MASK;
-		adjacent_coords = coords + offsets_i[adjacent_idx];
-		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x;
-		// right continuation's left continuation is not mutual,
-		// i.e. a joining y-junction where the current pixel is not part of the through connection,
-		// then set is_end_adjacent flag to force an edge processing stop
-		//NOTE: right continuation's left continuation is implicitly populated by fact that this cell exists
-		is_end_adjacent = (adjacent_data & (HAS_BOTH_CONT)) != HAS_BOTH_CONT || (((adjacent_data >> L_CONT_IDX_SHIFT) ^ adjacent_idx) != 4);
-	}
+	// also detects if next pixel is a normal end pixel, a pixel is end adjacent if either:
+	// 1) the right continuation's left continuation is not mutual,
+	//     i.e. a joining y-junction where the current pixel is not part of the through connection,
+	// 2) or the next pixel in the chain (right continuation) has no right continuation itself
+	uchar is_r_mutual = ((adjacent_data >> L_CONT_IDX_SHIFT) ^ r_cont_idx) == 0b1100;
+	uchar isnt_end_adjacent = is_r_mutual ? (adjacent_data & HAS_R_CONT) : 0;
 
-	switch(cont_data & HAS_BOTH_CONT)
+	// end adjacent pixels aren't allowed to be starts, this discards single and 2 pixel edge chains from being processed
+	// since they also don't have valid continuation data, nothing needs to be written for them
+	if(!isnt_end_adjacent)
+		return;
+
+	uchar out_data = r_cont_idx | isnt_end_adjacent;
+
+	// if a pixel has both continuations it can only become a start if it qualifies as a potential loop-breaking start
+	if(cont_data & HAS_L_CONT)
 	{
-	default:	// if cont_data has no left or right continuation flag, it was 
-				// not an edge and therefore has no continuation flags set,
-		return;	// therefore this work item can exit early, vast majority exits here
-		//TODO: might have better perf if this is moved earlier as a separate if
-		// or if it would be a standard right end, there is no need to keep the pixel so it can also be handled by the default case
-	/*case HAS_L_CONT:
-		cont_data &= HAS_L_CONT;
-		break;*/
-	case HAS_BOTH_CONT:	// both sides have a continuation
-		adjacent_idx = cont_data >> L_CONT_IDX_SHIFT;
-		cont_data &= 0x1F;	// only right continuation and left support flag will ever be written to output regardless of path taken from this point
-		adjacent_coords = coords + offsets_i[adjacent_idx];
-		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x & 0xF;
-		// if the left continuation is a mutual link, it is likely not a start but needs more logic.
-		// the one exception is if it qualifies for a loop breaking start,
-		// else if it's not a mutual link, there was a fork and this is a start
-		if((adjacent_data ^ adjacent_idx) == 0xC)
+		// to qualify for a loop breaking start, the grad angle must be non-negative...
+		char grad_ang = read_imagei(ic1_grad_ang, coords).x;
+		if(grad_ang >= 0)
 		{
-			grad_ang = read_imagei(ic1_grad_ang, coords).x;
-			if(grad_ang < 0)	// to qualify for a loop breaking start, the grad angle must be non-negative
-				break;	//pass on only continuation data, no start flag
-
+			// and the gradient angle of the right neighbor must be negative
 			grad_ang = read_imagei(ic1_grad_ang, adjacent_coords).x;
-			if(grad_ang > 0)	// the gradient angle of the left neighbor must be negative
-				break;	//pass on only continuation data, no start flag
+			out_data |= (grad_ang < 0) ? IS_START : 0;
 		}
-		// fall-through to add start flag
-	case HAS_R_CONT:
-		// if it starts and ends on the same pixel or an adjacent pixel,
-		// it's not usable data and shouldn't be marked as a start
-		if(is_end_adjacent)
-			break;
-		
-		cont_data |= IS_START;
 	}
+	else
+		out_data |= IS_START;
 
-	write_imageui(uc1_starts_cont, coords, cont_data | (is_end_adjacent << END_ADJ_SHIFT));
+	write_imageui(uc1_starts_cont, coords, out_data);
 }

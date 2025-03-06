@@ -46,3 +46,6 @@ forgot the importance of using group shared memory when possible
 * add support for non-image type kernel arguments (serial_reduce/_lines.cl)
 * convert more cl types to debug friendly analogues 
 * remove dead code
+* add capability to specify clamped border type with warning if appropriate order
+not available, currently defaults to whatever has the correct channel count and
+is on the OpenCL 2.x minimum full profile support list

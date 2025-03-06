@@ -366,7 +366,7 @@ uint8_t get4ChannelWidths(cl_channel_type type)
 }
 
 cl_channel_order getOrderFromChannelCnt(uint8_t count)
-{
+{	//offset into enum table for channel order, NOTE: some may not be supported on given hardware
 	uint8_t const ch_order_off[] = {0, 2, 4, 5};	//{CL_R, CL_RG, CL_RGB, CL_RGBA}
 	--count;
 	return count < 4 ? (cl_channel_order)CLBP_OFFSET_CHANNEL_ORDER + ch_order_off[count] : 0;
