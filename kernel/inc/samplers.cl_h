@@ -1,7 +1,7 @@
 
-#ifndef SAMPLERS_CL
-#define SAMPLERS_CL
+#ifndef SAMPLERS_CL_H
+#define SAMPLERS_CL_H
 
 //const sampler_t edge_clamp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 extern constant const sampler_t clamped;// = (CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST);
-#endif//SAMPLERS_CL
+#endif//SAMPLERS_CL_H

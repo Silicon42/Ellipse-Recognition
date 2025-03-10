@@ -1,5 +1,5 @@
-#ifndef BRESENHAM_LINE_CL
-#define BRESENHAM_LINE_CL
+#ifndef BRESENHAM_LINE_CL_H
+#define BRESENHAM_LINE_CL_H
 
 #include "cast_helpers.cl_h"
 
@@ -50,4 +50,4 @@ void draw_line(int2 a, int2 b, uint4 color, write_only image2d_t uc4_out_image)
 	}
 }
 
-#endif//BRESENHAM_LINE_CL
+#endif//BRESENHAM_LINE_CL_H

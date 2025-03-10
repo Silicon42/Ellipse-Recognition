@@ -1,5 +1,5 @@
-#ifndef NEIGHBOR_UTILS_CL
-#define NEIGHBOR_UTILS_CL
+#ifndef NEIGHBOR_UTILS_CL_H
+#define NEIGHBOR_UTILS_CL_H
 
 #include "samplers.cl_h"
 #include "cast_helpers.cl_h"
@@ -66,4 +66,4 @@ inline union s_conv select_min_2(const uchar* comp)
 	return sel_min;
 }
 
-#endif//NEIGHBOR_UTILS_CL
+#endif//NEIGHBOR_UTILS_CL_H

@@ -1,5 +1,5 @@
-#ifndef MATH_HELPERS_CL
-#define MATH_HELPERS_CL
+#ifndef MATH_HELPERS_CL_H
+#define MATH_HELPERS_CL_H
 
 // returns the square of the distance of an int2 vector, doesn't protect against overflow
 /*inline uint length2(int2 vec)
@@ -57,4 +57,4 @@ inline int2 perp_2d_i(int2 a)
 	return (int2)(-a.y, a.x);
 }
 
-#endif//MATH_HELPERS_CL
+#endif//MATH_HELPERS_CL_H

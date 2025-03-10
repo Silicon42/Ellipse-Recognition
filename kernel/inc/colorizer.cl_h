@@ -1,5 +1,5 @@
-#ifndef COLORIZER_CL
-#define COLORIZER_CL
+#ifndef COLORIZER_CL_H
+#define COLORIZER_CL_H
 
 constant const uchar intensity[1024] = {
 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 
@@ -73,4 +73,4 @@ uint3 scatter_colorize(int index)
 	return (uint3)(intensity[index & 0x3FF],intensity[(index+341) & 0x3FF],intensity[(index-341) & 0x3FF]);
 }
 
-#endif//COLORIZER_CL
+#endif//COLORIZER_CL_H

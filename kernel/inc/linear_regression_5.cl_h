@@ -1,3 +1,6 @@
+#ifndef LINEAR_REGRESSION_5_CL_H
+#define LINEAR_REGRESSION_5_CL_H
+
 #define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
 
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
@@ -95,3 +98,5 @@ void solveConic(float A[15], float b[5])
 		for(int j = i+1; j < 5; ++j)
 			b[i] += A[TRI_INDEX(j,i)] * b[j];
 }
+
+#endif//LINEAR_REGRESSION_5_CL_H
