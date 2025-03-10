@@ -6,11 +6,12 @@ __kernel void link_edge_pixels(
 	write_only image2d_t uc1_cont)
 {
 	const int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	if(all(coords==0))
+/*	if(all(coords==0))
 	{
-		printf("%v4i",read_imagei(ic1_grad_ang,clamped, (int2)(-1,204)));
+		printf("%X	", clamped);
+		printf("%v4i",read_imagei(ic1_grad_ang, clamped, (int2)(-1,204)));
 	}
-	char grad_ang = read_imagei(ic1_grad_ang, coords).x;
+*/	char grad_ang = read_imagei(ic1_grad_ang, coords).x;
 	// if gradient angle == 0, it wasn't set in canny_short because even 0 should have the occupancy flag set,
 	// therefore this work item isn't on an edge and can exit early, vast majority exits here
 	if(!grad_ang)

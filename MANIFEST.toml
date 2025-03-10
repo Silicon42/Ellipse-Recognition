@@ -5,7 +5,7 @@ Stages = [
 	{name = 'edge_thinning', args = ['grad_ang', 'grad_ang']},
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 	{name = 'link_edge_pixels', args = ['grad_ang', 'cont_data']},
-#	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
+	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'find_segment_starts', args = ['grad_ang', 'cont_data', 'starts_cont']},
 #	{name = 'serial_reduce', args = ['starts_cont', 'start_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
 #	{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts']},#, range = {ref_arg = 'start_coords'}},

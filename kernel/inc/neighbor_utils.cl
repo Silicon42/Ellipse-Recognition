@@ -1,7 +1,7 @@
 #ifndef NEIGHBOR_UTILS_CL
 #define NEIGHBOR_UTILS_CL
 
-#include "samplers.cl"
+#include "samplers1.cl"
 #include "cast_helpers.cl"
 
 inline char8 read_neighbors_ccw(read_only image2d_t ic1_edge_image, const int2 coords)
