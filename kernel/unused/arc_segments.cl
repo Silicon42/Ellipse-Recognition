@@ -1,5 +1,5 @@
-#include "cast_helpers.cl"
-#include "arc_data.cl"
+#include "cast_helpers.cl_h"
+#include "arc_data.cl_h"
 #define ACCEL_THRESH 20.f
 //NOTE: all memory accesses to the 2D texture are basically random on a work item level and have minimal 2D locality within the
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an

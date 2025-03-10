@@ -1,8 +1,8 @@
 #ifndef ARC_DATA_CL
 #define ARC_DATA_CL
 
-#include "offsets_LUT.cl"
-#include "math_helpers.cl"
+#include "offsets_LUT.cl_h"
+#include "math_helpers.cl_h"
 
 #define IS_NOT_END		0x01
 #define IS_CW			0x02

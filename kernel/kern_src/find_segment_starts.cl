@@ -11,9 +11,9 @@
 // 2nd(or more) pass
 
 //FIXME: it seems there is some rare corner case where an edge segment won't have a start, revisit this when I have more insight
-#include "cast_helpers.cl"
-#include "offsets_LUT.cl"
-#include "link_macros.cl"
+#include "cast_helpers.cl_h"
+#include "offsets_LUT.cl_h"
+#include "link_macros.cl_h"
 //FIXME: replace temp fix for multiple definition by adding proper support for included sources
 //constant const int2 offsets[] = {(int2)(1,0),1,(int2)(0,1),(int2)(-1,1),(int2)(-1,0),-1,(int2)(0,-1),(int2)(1,-1)};
 

@@ -1,8 +1,8 @@
 #ifndef PATH_STRUCT_DEFS_CL
 #define PATH_STRUCT_DEFS_CL
 
-#include "offsets_LUT.cl"
-#include "math_helpers.cl"
+#include "offsets_LUT.cl_h"
+#include "math_helpers.cl_h"
 
 //TODO: actually define this as a bitfield
 /*

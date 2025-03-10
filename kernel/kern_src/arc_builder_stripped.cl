@@ -1,6 +1,6 @@
 //stripped down version of arc builder that doesn't do any ellipse calculation, just the logical checks
-#include "cast_helpers.cl"
-#include "math_helpers.cl"
+#include "cast_helpers.cl_h"
+#include "math_helpers.cl_h"
 
 kernel void arc_builder_stripped(
 	read_only image1d_t is2_start_coords,

@@ -1,5 +1,5 @@
-#include "bresenham_line.cl"
-#include "colorizer.cl"
+#include "bresenham_line.cl_h"
+#include "colorizer.cl_h"
 
 kernel void arc_segments_debug(
 	read_only image2d_t iC2_line_data,

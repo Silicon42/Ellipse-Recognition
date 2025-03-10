@@ -1,6 +1,6 @@
 // splits flat lines into either cw, ccw, or neither/both based on connection to adjacent segments
-#include "cast_helpers.cl"
-#include "path_struct_defs.cl"
+#include "cast_helpers.cl_h"
+#include "path_struct_defs.cl_h"
 
 //NOTE: if performance is bad in this kernel it's probably from false cache invalidation
 // via writing to the same buffer as you're reading from, however even if this occurs,

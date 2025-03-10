@@ -1,5 +1,5 @@
-#include "neighbor_utils.cl"
-#include "link_macros.cl"
+#include "neighbor_utils.cl_h"
+#include "link_macros.cl_h"
 
 __kernel void link_edge_pixels(
 	read_only image2d_t ic1_grad_ang,

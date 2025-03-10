@@ -1,6 +1,6 @@
 // Thins diagonal edge results from canny in the direction of the gradient so that intersection rejection is more feasible
-#include "cast_helpers.cl"
-#include "samplers.cl"
+#include "cast_helpers.cl_h"
+#include "samplers.cl_h"
 
 __kernel void edge_thinning(
 	read_only image2d_t ic1_canny_image,

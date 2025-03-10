@@ -1,7 +1,7 @@
 #ifndef BRESENHAM_LINE_CL
 #define BRESENHAM_LINE_CL
 
-#include "cast_helpers.cl"
+#include "cast_helpers.cl_h"
 
 void draw_line(int2 a, int2 b, uint4 color, write_only image2d_t uc4_out_image)
 {

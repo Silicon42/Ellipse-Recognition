@@ -1,5 +1,5 @@
-#include "cast_helpers.cl"
-#include "math_helpers.cl"
+#include "cast_helpers.cl_h"
+#include "math_helpers.cl_h"
 
 kernel void arc_seg_adj_matrix(
 //	read_only image2d_t ic2_line_data,

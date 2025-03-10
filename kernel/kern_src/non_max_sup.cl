@@ -1,5 +1,5 @@
 
-#include "samplers.cl"
+#include "samplers.cl_h"
 
 // only 4 elements in offset table because topmost bit would determine addition/subtraction
 // which doesn't matter because in order to check up gradient and down gradient, both are needed anyway

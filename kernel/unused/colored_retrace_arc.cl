@@ -1,10 +1,10 @@
 // redraws the arc segments from the stored path accumulators with psuedo-random
 // colors to visualize the processing of individual work items, should be scheduled
 // based on dims of start_info input
-#include "colorizer.cl"
-#include "cast_helpers.cl"
-#include "bresenham_line.cl"
-#include "arc_data.cl"
+#include "colorizer.cl_h"
+#include "cast_helpers.cl_h"
+#include "bresenham_line.cl_h"
+#include "arc_data.cl_h"
 
 kernel void colored_retrace(
 	read_only image2d_t uc1_cont_info,

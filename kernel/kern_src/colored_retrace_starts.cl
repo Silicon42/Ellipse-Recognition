@@ -1,8 +1,8 @@
 // redraws the initial starts after colored_retrace since some may have gotten
 // overwritten by the end pixel of other threads, should be scheduled based on 
 // dims of start_info input
-//#include "colorizer.cl"
-#include "cast_helpers.cl"
+//#include "colorizer.cl_h"
+#include "cast_helpers.cl_h"
 
 kernel void colored_retrace_starts(
 	read_only image1d_t is2_start_info,

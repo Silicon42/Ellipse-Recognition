@@ -17,6 +17,16 @@ Stages = [
 #	{name = 'serial_reduce_arc_seeds', args = ['seg_in_arc', 'arc_candidates'], range = {mode = 'EXACT', params = [1,1,1]}}
 ]
 
+ExternSources = [
+#'bresenham_line',		# debug only
+#'colorizer',			# debug only
+#'linear_regression_5',	# once only
+#'math_helpers', 		# no overlap
+#'neighbor_utils',		# no overlap
+#'offsets_LUT',
+'samplers',
+]
+
 # hard-coded entries corresponding to program input
 # this is a list of names that are to be associated with the hard-coded host inputs
 # and are assumed to correspond to the first n entries of the ArgTracker where n is

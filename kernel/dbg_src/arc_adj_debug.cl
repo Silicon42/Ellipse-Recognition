@@ -1,7 +1,7 @@
 // draws lines from midpoint of selected arc to candidate matches
 
-#include "colorizer.cl"
-#include "bresenham_line.cl"
+#include "colorizer.cl_h"
+#include "bresenham_line.cl_h"
 
 kernel void arc_adj_debug(
 	read_only image2d_t iC2_line_data,

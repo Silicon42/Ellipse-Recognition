@@ -1,7 +1,7 @@
 #ifndef MIDPOINT_CIRCLE_CL
 #define MIDPOINT_CIRCLE_CL
 
-#include "math_helpers.cl"
+#include "math_helpers.cl_h"
 
 // uses midpoint circle algorithm to draw either a face or corner centric circle (nearest to true center)
 void draw_circle(float2 center, float r, write_only image2d_t ui4_output)

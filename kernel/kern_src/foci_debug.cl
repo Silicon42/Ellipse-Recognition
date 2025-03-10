@@ -1,5 +1,5 @@
-#include "bresenham_line.cl"
-#include "colorizer.cl"
+#include "bresenham_line.cl_h"
+#include "colorizer.cl_h"
 
 kernel void foci_debug(
 	read_only image2d_t ic2_line_data,

@@ -167,7 +167,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	{
 		//TODO: add binary caching/loading, needs to check existence of binary and last modified timestamp of source
 		//append src dir to name and attempt read, unfortunately not smart enough to know about header changes but it'll have to do
-		snprintf(fpath, sizeof(fpath)-1, "%s%s.cl", src_dir, staging->kprog_names[i]);
+		snprintf(fpath, sizeof(fpath)-1, "%s%s.cl_h", src_dir, staging->kprog_names[i]);
 		char* k_src = readFileToCstring(fpath, e);
 		if(e->err_code)
 		{

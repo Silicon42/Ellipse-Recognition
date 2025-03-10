@@ -1,7 +1,7 @@
-#include "cast_helpers.cl"
-#include "offsets_LUT.cl"
-#include "math_helpers.cl"
-#include "link_macros.cl"
+#include "cast_helpers.cl_h"
+#include "offsets_LUT.cl_h"
+#include "math_helpers.cl_h"
+#include "link_macros.cl_h"
 // we define line segments as having midpoints that when doubled, don't differ from the endpoint by more than 1 pixel
 //NOTE: all memory accesses to the 2D texture are basically random on a work item level and have minimal 2D locality within the
 // a single work item due to segments traversing the image and the majority may likely be cache misses, so they are kept to an

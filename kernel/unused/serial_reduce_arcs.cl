@@ -2,8 +2,8 @@
 // reduce very sparse 2D info to compact 1D
 // This might get replaced with a simple hash and retry on collision method later so that it's not a serial bottleneck
 //NOTE: must be scheduled as 1D using EXACT rangeMode with param {1,1,1}
-#include "cast_helpers.cl"
-#include "path_struct_defs.cl"
+#include "cast_helpers.cl_h"
+#include "path_struct_defs.cl_h"
 
 __kernel void serial_reduce_arcs(read_only image1d_t us2_start_coords, read_only image2d_t ui4_arc_segments, write_only image1d_t is2_start_coords)
 {

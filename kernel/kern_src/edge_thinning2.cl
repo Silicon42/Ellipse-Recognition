@@ -1,7 +1,7 @@
 // Thins diagonal edge results from canny in the direction of the gradient so that intersection rejection is more feasible
 // thins in opposite direction of edge_thinning.cl and should be scheduled after it
-#include "cast_helpers.cl"
-#include "samplers.cl"
+#include "cast_helpers.cl_h"
+#include "samplers.cl_h"
 
 
 __kernel void edge_thinning2(read_only image2d_t iC1_canny_image, write_only image2d_t iC1_thinned_image)

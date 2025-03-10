@@ -1,6 +1,6 @@
 // displays left and right link direction of input via a 3x bigger output image
-#include "link_macros.cl"
-//#include "offsets_LUT.cl"
+#include "link_macros.cl_h"
+//#include "offsets_LUT.cl_h"
 
 __kernel void link_debug(
 	read_only image2d_t uc1_cont,

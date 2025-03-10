@@ -2,7 +2,7 @@
 // This might get replaced with a simple hash and retry on collision method later so that it's not a serial bottleneck
 //NOTE: must be scheduled as 1D using EXACT rangeMode with param {1,1,1}
 //TODO: replace this kernel with a proper reduction once a working proof of concept is done
-#include "cast_helpers.cl"
+#include "cast_helpers.cl_h"
 
 __kernel void serial_reduce_arc_seeds(
 	read_only image2d_t ic2_line_data,

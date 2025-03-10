@@ -1,0 +1,1 @@
+constant const sampler_t clamped = (CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST);

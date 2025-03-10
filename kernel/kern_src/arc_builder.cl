@@ -1,5 +1,5 @@
-#include "cast_helpers.cl"
-#include "math_helpers.cl"
+#include "cast_helpers.cl_h"
+#include "math_helpers.cl_h"
 // fast contiguous segment elliptical arc classification
 
 //FIXME: move this to a separate file for repeated use then come back and convert floats to floats where possible

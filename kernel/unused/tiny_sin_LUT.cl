@@ -1,7 +1,7 @@
 #ifndef TINY_SIN_LUT_CL
 #define TINY_SIN_LUT_CL
 
-#include "cast_helpers.cl"
+#include "cast_helpers.cl_h"
 
 constant const float sin_LUT[] = {
 0.0f,			0.024541229f,	0.049067674f,	0.073564564f,

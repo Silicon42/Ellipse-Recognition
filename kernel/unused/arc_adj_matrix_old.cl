@@ -1,6 +1,6 @@
-//#include "cast_helpers.cl"
-#include "arc_data.cl"
-//#include "math_helpers.cl"
+//#include "cast_helpers.cl_h"
+#include "arc_data.cl_h"
+//#include "math_helpers.cl_h"
 #define MAX_CANDIDATES 2	// depending on how well this works this might get increased
 
 //TODO: fix this to work with the split arc list, currently hardcoded to work with the cw list only

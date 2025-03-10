@@ -1,6 +1,6 @@
 // Debugging kernel that mimics the processing of a single primary arc in the same way as arc_adj_matrix.cl
 // and highlights regions excluded by checks, un-highlighted region is the final search area
-#include "math_helpers.cl"
+#include "math_helpers.cl_h"
 
 #define POKE_COORDS (int2)(96,91)
 
