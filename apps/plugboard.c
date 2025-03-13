@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	// such as if there is only ever a single fixed size that is discovered at runtime
 	// tradeoff is it's worse for the memory footprint, but allows for minor optimization for the kernel program
 	//TODO: add support for individualized build args
-	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_DIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, &e);
+	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_DIR, KERNEL_SRC_SUBDIR, KERNEL_INC_SRC_SUBDIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, &e);
 	handleClBoilerplateError(e);
 
 	//at this point, the arg list and kernel list are finalized and we know how many there will be

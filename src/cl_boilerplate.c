@@ -25,6 +25,23 @@ cl_device_id getPreferredDevice()
 	return device;
 }
 
+// returns true if the last characters of str exactly match the suffix, used for checking file extension
+// length conventions of if it includes NULL terminator must match
+char isMatchingSuffix(const char* str, unsigned int str_len, const char* suffix, unsigned int suf_len)
+{
+	assert(str && suffix);
+
+	if(str_len < suf_len)
+		return 0;
+	
+	for(; suf_len > 0; --suf_len, --str_len)
+	{
+		if(str[str_len] != suffix[suf_len])
+			return 0;
+	}
+	return 1;
+}
+
 // adds the char* to the char* array if the contents are unique, the char* array
 // MUST have unused entries filled with null pointers with an additional null
 // pointer at list[max_entries]
@@ -151,24 +168,60 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 //TODO: add support for using pre-calculated ranges as defined constants
 cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* kern_dir, const char* src_subdir, const char* inc_src_subdir, QStaging* staging, const char* args, clbp_Error* e)
 {
-	assert(kern_dir && staging && e);
-	char fpath[1024];
+	assert(kern_dir && src_subdir && inc_src_subdir && staging && e);
+	char fpath[FILENAME_MAX];
 	//TODO: add whole program binary caching by checking existence of compiled + linked bin,
 	// and last modified dates match cached version for all sources in list
-	cl_program* kprogs = malloc(staging->kernel_cnt * sizeof(cl_program));
+
+	// get a count of how many "*.cl" files exist in the inc_src sub directory for cl_program allocation purposes
+	snprintf(fpath, sizeof(fpath)-1, "%s%s", kern_dir, inc_src_subdir);
+	int src_file_cnt = 0;
+	DIR* dir = opendir(fpath);
+	if(dir)	// if directory couldn't be opened, it's assumed to not exist and therefore no inc_src files to be compiled
+	{
+		while(1)
+		{
+			struct dirent* entry = readdir(dir);
+			if(!entry)
+				break;
+			if(isMatchingSuffix(entry->d_name, entry->d_namlen, ".cl", sizeof(".cl")-1))
+				++src_file_cnt;
+		}
+		closedir(dir);
+	}
+
+	src_file_cnt += staging->kernel_cnt;
+
+	cl_program* kprogs = malloc(src_file_cnt * sizeof(cl_program));
 	if(!kprogs)
 	{
 		*e = (clbp_Error){.err_code = CLBP_OUT_OF_MEMORY, .detail = "cl_program array"};
 		return NULL;
 	}
 
-	// Read kernel program source file and place content into buffer
-	printf("Compiling %i kernel programs.\n", staging->kernel_cnt);
-	for(int i = 0; i < staging->kernel_cnt; ++i)
+	// Read kernel program source files and inc_src files and compile them
+	dir = opendir(fpath);
+	printf("Compiling %i kernel programs (%i files).\n", staging->kernel_cnt, src_file_cnt);
+	for(int i = 0; i < src_file_cnt; ++i)
 	{
 		//TODO: add binary caching/loading, needs to check existence of binary and last modified timestamp of source
 		//append src dir to name and attempt read, unfortunately not smart enough to know about header changes but it'll have to do
-		snprintf(fpath, sizeof(fpath)-1, "%s%s%s.cl_h", kern_dir, src_subdir, staging->kprog_names[i]);
+		if(i < staging->kernel_cnt)
+			snprintf(fpath, sizeof(fpath)-1, "%s%s%s.cl", kern_dir, src_subdir, staging->kprog_names[i]);
+		else
+		{
+			struct dirent* entry;
+			while(1)
+			{
+				entry = readdir(dir);
+				if(isMatchingSuffix(entry->d_name, entry->d_namlen, ".cl", sizeof(".cl")-1))
+					break;
+			}
+			#pragma GCC diagnostic push
+			#pragma GCC diagnostic ignored "-Wformat-truncation"
+			snprintf(fpath, sizeof(fpath)-1, "%s%s%s", kern_dir, inc_src_subdir, entry->d_name);
+			#pragma GCC diagnostic pop
+		}
 		char* k_src = readFileToCstring(fpath, e);
 		if(e->err_code)
 		{
@@ -200,9 +253,10 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 			return NULL;
 		}
 	}
+	closedir(dir);
 
 	fputs("Linking... ", stdout);
-	cl_program linked_prog = clLinkProgram(context, 1, &device, args, staging->kernel_cnt, kprogs, NULL, NULL, &e->err_code);
+	cl_program linked_prog = clLinkProgram(context, 1, &device, args, src_file_cnt, kprogs, NULL, NULL, &e->err_code);
 	if(e->err_code)
 	{
 			free(kprogs);
