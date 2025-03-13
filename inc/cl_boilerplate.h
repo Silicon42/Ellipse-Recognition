@@ -34,7 +34,7 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e);
 
 // handles using staging data to selectively open kernel program source files and compile and link them into a single program binary
 //TODO: add support for using pre-calculated ranges as defined constants
-cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, clbp_Error* e);
+cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* kern_dir, const char* src_subdir, const char* inc_src_subdir, QStaging* staging, const char* args, clbp_Error* e);
 
 // creates actual kernel instances from staging data and stores it in the staged queue
 void instantiateKernels(QStaging const* staging, const cl_program kprog, StagedQ* staged, clbp_Error* e);

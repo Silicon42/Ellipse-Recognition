@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include "cl_boilerplate.h"
 #include "clbp_utils.h"
 #include "cl_error_handlers.h"
@@ -148,9 +149,9 @@ void calcRanges(QStaging const* staging, StagedQ* staged, clbp_Error* e)
 
 // handles using staging data to selectively open kernel program source files and compile and link them into a single program binary
 //TODO: add support for using pre-calculated ranges as defined constants
-cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* src_dir, QStaging* staging, const char* args, clbp_Error* e)
+cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, const char* kern_dir, const char* src_subdir, const char* inc_src_subdir, QStaging* staging, const char* args, clbp_Error* e)
 {
-	assert(src_dir && staging && e);
+	assert(kern_dir && staging && e);
 	char fpath[1024];
 	//TODO: add whole program binary caching by checking existence of compiled + linked bin,
 	// and last modified dates match cached version for all sources in list
@@ -167,7 +168,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	{
 		//TODO: add binary caching/loading, needs to check existence of binary and last modified timestamp of source
 		//append src dir to name and attempt read, unfortunately not smart enough to know about header changes but it'll have to do
-		snprintf(fpath, sizeof(fpath)-1, "%s%s.cl_h", src_dir, staging->kprog_names[i]);
+		snprintf(fpath, sizeof(fpath)-1, "%s%s%s.cl_h", kern_dir, src_subdir, staging->kprog_names[i]);
 		char* k_src = readFileToCstring(fpath, e);
 		if(e->err_code)
 		{

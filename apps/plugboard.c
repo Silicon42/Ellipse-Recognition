@@ -8,14 +8,14 @@
 #include "clbp_parse_manifest.h"
 
 #define KERNEL_DIR "kernel/"
-#define KERNEL_SRC_DIR	KERNEL_DIR"kern_src/"
-#define KERNEL_INC_DIR	KERNEL_DIR"inc/"
-#define KERNEL_INC_SRC_DIR	KERNEL_DIR"inc_src/"
+#define KERNEL_SRC_SUBDIR	"kern_src/"
+#define KERNEL_INC_SUBDIR	"inc/"
+#define KERNEL_INC_SRC_SUBDIR	"inc_src/"
 #define INPUT_FNAME "images/input.png"
 #define OUTPUT_NAME "images/output"
 // atan2pi() used in gradient direction calc uses infinities internally for horizonal calculations
 // Intel CPUs seem to not calculate atan2pi() correctly if -cl-fast-relaxed-math is set and collapse to only either +/- 0.5
-#define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_INC_DIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant"// -cl-fast-relaxed-math"
+#define KERNEL_GLOBAL_BUILD_ARGS "-I"KERNEL_DIR KERNEL_INC_SUBDIR" -Werror -g -cl-kernel-arg-info -cl-single-precision-constant"// -cl-fast-relaxed-math"
 //#define MAX_KERNELS 32
 //#define MAX_STAGES 32
 //#define MAX_ARGS 200
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	// such as if there is only ever a single fixed size that is discovered at runtime
 	// tradeoff is it's worse for the memory footprint, but allows for minor optimization for the kernel program
 	//TODO: add support for individualized build args
-	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_SRC_DIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, &e);
+	cl_program linked_prog = buildKernelProgsFromSource(context, device, KERNEL_DIR, &staging, KERNEL_GLOBAL_BUILD_ARGS, &e);
 	handleClBoilerplateError(e);
 
 	//at this point, the arg list and kernel list are finalized and we know how many there will be
