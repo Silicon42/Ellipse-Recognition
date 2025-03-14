@@ -28,7 +28,7 @@ kernel void colored_retrace_line(
 		end_offset = read_imagei(ic2_line_data, coords).lo;
 		if(!(end_offset.x || end_offset.y))
 		{
-			printf("illegal arc endpoint at (%i, %i)\n", coords);
+			printf("illegal segment end offset +(0,0) at (%i, %i)\n", coords);
 			write_imageui(uc4_trace_image, coords, (uint4)(-1, 0, 0, -1));
 			return;
 		}

@@ -1,6 +1,7 @@
 // reduce very sparse 2D info to compact 1D
 // This might get replaced with a simple hash and retry on collision method later so that it's not a serial bottleneck
 //NOTE: must be scheduled as 1D using EXACT rangeMode with param {1,1,1}
+#include "link_macros.cl_h"
 
 __kernel void serial_reduce(
 	read_only image2d_t uc1_starts_cont,
@@ -18,7 +19,7 @@ __kernel void serial_reduce(
 		for(coords.x = 0; coords.x < bounds.x; ++coords.x)
 		{
 			uchar cont_data = read_imageui(uc1_starts_cont, coords).x;
-			if((cont_data & 0xE8) == 0xE8)	// check validity and start flags present
+			if((cont_data & IS_NON_END_ADJ_START) == IS_NON_END_ADJ_START)	// check validity and start flags present
 			{
 				write_imagei(is2_start_coords, index, (int4)(coords, 0, -1));
 				++index;

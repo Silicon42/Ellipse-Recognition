@@ -1,9 +1,5 @@
-
+#include "offsets_LUT.cl_h"
 #include "samplers.cl_h"
-
-// only 4 elements in offset table because topmost bit would determine addition/subtraction
-// which doesn't matter because in order to check up gradient and down gradient, both are needed anyway
-constant const int2 offsets[4] = {(int2)(1,0),(int2)1,(int2)(0,1),(int2)(-1,1)};
 
 // Alternate Canny function that expects chars instead of floats
 // [0] In	uc2_grad: 4 channel image of x and y gradient (INT16), angle (INT16),
@@ -23,6 +19,8 @@ __kernel void non_max_sup(
 	if(!grad.y)
 		return;
 
+	// only 1st 4 elements in offset table are relevant because topmost bit would determine addition/subtraction
+	// which doesn't matter because in order to check up gradient and down gradient, both are needed anyway
 	uchar dir_idx = ((grad.x + 16) >> 5) & 3;	// convert angle into binned index into offsets table
 
 	// read pixels in and against the direction of the gradient to compare to

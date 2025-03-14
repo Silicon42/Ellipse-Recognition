@@ -6,9 +6,10 @@
 #define HAS_BOTH_CONT	(HAS_L_CONT | HAS_R_CONT)
 #define R_CONT_IDX_MASK	(HAS_R_CONT - 1)
 #define R_CONT_MASK		(HAS_R_CONT | R_CONT_IDX_MASK)
-#define END_ADJ_SHIFT	6
+#define END_ADJ_SHIFT	3
 #define ISNT_END_ADJ	(1 << END_ADJ_SHIFT)
 #define IS_START		(1 << 7)
+#define IS_NON_END_ADJ_START	(IS_START | ISNT_END_ADJ)
 #define L_CONT_IDX_SHIFT	4
 
 //NOTE: returned values in link_edge_pexels.cl are in the form 0bLlllRrrr where
@@ -19,7 +20,6 @@
 
 //NOTE: returned values in find_segment_starts.cl are in the form 0bS000Errr where
 // "S" is the start indicator flag,
-//TODO: v swap this flag's sense so that overruns into unwritten pixels aren't possible
 // "E" is the non-end-adjacent indicator flag,
 //   ie. next pixel cont_data not valid to read as part of current chain, doesn't handle start being next
 // "rrr" is the 3-bit offset direction index of the right continuation
