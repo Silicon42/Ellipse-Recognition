@@ -38,31 +38,39 @@ kernel void find_segment_starts(
 	// if no valid right continuation, cannot be start or have valid cont data, so vast majority returns early
 	if(!(cont_data & HAS_R_CONT))
 		return;
-	
 	// else there is a valid right continuation
 
 	// read next pixel in the chain (right continuation) to verify this is a true/mutual connection
-	uchar r_cont_idx = cont_data & R_CONT_IDX_MASK;
-	int2 adjacent_coords = coords + offsets[r_cont_idx];
+	uchar adj_cont_idx = cont_data & R_CONT_IDX_MASK;
+	int2 adjacent_coords = coords + offsets[adj_cont_idx];
 	uchar adjacent_data = read_imageui(uc1_cont, adjacent_coords).x;
 	// y-junction prevention, stops multiple edges that would join to process a shared region
 	// also detects if next pixel is a normal end pixel, a pixel is end adjacent if either:
 	// 1) the right continuation's left continuation is not mutual,
 	//     i.e. a joining y-junction where the current pixel is not part of the through connection,
 	// 2) or the next pixel in the chain (right continuation) has no right continuation itself
-	uchar is_r_mutual = ((adjacent_data >> L_CONT_IDX_SHIFT) ^ r_cont_idx) == 0b1100;
-	uchar isnt_end_adjacent = is_r_mutual ? (adjacent_data & HAS_R_CONT) : 0;
+	uchar is_mutual_adj = ((adjacent_data >> L_CONT_IDX_SHIFT) ^ adj_cont_idx) == 0b1100;
+	uchar isnt_end_adjacent = is_mutual_adj ? (adjacent_data & HAS_R_CONT) : 0;
 
 	// end adjacent pixels aren't allowed to be starts, this discards single and 2 pixel edge chains from being processed
 	// since they also don't have valid continuation data, nothing needs to be written for them
 	if(!isnt_end_adjacent)
 		return;
 
-	uchar out_data = r_cont_idx | isnt_end_adjacent;
+	uchar out_data = adj_cont_idx | isnt_end_adjacent;
 
-	// if a pixel has both continuations it can only become a start if it qualifies as a potential loop-breaking start
+	// if a pixel has both continuations it can become a start if it qualifies
+	// as a potential loop-breaking start OR it's a splitting y-junction
 	if(cont_data & HAS_L_CONT)
 	{
+		// to qualify as a splitting y-junction start, the left continuation must not be mutual
+		adj_cont_idx = (cont_data >> L_CONT_IDX_SHIFT) & R_CONT_IDX_MASK;
+		adjacent_coords = coords + offsets[adj_cont_idx];
+		adjacent_data = read_imageui(uc1_cont, adjacent_coords).x;
+		is_mutual_adj = ((adjacent_data ^ adj_cont_idx) & 0xF) == 0b1100;
+		if(!is_mutual_adj)
+			out_data |= IS_START;
+
 		// to qualify for a loop breaking start, the grad angle must be non-negative...
 		char grad_ang = read_imagei(ic1_grad_ang, coords).x;
 		if(grad_ang >= 0)

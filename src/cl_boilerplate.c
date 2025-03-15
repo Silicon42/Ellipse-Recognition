@@ -19,7 +19,7 @@ cl_device_id getPreferredDevice()
 	handleClError(clErr, "clGetPlatformIDs");
 
 	// use the first device
-	clErr = clGetDeviceIDs(platform[0], CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+	clErr = clGetDeviceIDs(platform[0], CL_DEVICE_TYPE_CPU, 1, &device, NULL);
 	handleClError(clErr, "clGetDeviceIDs");
 
 	return device;
@@ -256,7 +256,7 @@ cl_program buildKernelProgsFromSource(cl_context context, cl_device_id device, c
 	closedir(dir);
 
 	fputs("Linking... ", stdout);
-	cl_program linked_prog = clLinkProgram(context, 1, &device, args, src_file_cnt, kprogs, NULL, NULL, &e->err_code);
+	cl_program linked_prog = clLinkProgram(context, 1, &device, "", src_file_cnt, kprogs, NULL, NULL, &e->err_code);
 	if(e->err_code)
 	{
 			free(kprogs);
