@@ -57,4 +57,10 @@ inline int2 perp_2d_i(int2 a)
 	return (int2)(-a.y, a.x);
 }
 
+inline uint taxi_len_2d_i(int2 a)
+{
+	uint2 c = abs(a);
+	return c.x + c.y;
+}
+
 #endif//MATH_HELPERS_CL_H

@@ -51,26 +51,30 @@ kernel void line_segments(
 			printf("seg_count over\n");
 			break;
 		}*/
-		for(int len = 1; ; ++len) //real base case exit condition is mid-block at len >= 127
+		for(int len = 1; ; ++len)	//real base case exit condition is mid-block at len >= 127
 		{
 			cont_data = read_imageui(uc1_cont_info, coords).x;
+
+			// check that current pixel isn't a start to prevent double processing,
+			// else it must immediately exit without applying the current pixel's offset to offset_end
+			to_end |= cont_data & IS_START;
+			if(to_end)
+				break;
+
+			// check that next pixel's index data will be valid to prevent double processing,
+			// else it must exit after applying the current pixel's offset
+			to_end = !(cont_data & ISNT_END_ADJ);
 
 			cont_idx = cont_data & R_CONT_IDX_MASK;
 			offset_end += offsets[cont_idx];
 
-			//check that data wasn't a start OR an end was signalled last pixel
-			to_end |= cont_data & IS_START;//(cont_data & (IS_START | HAS_R_CONT)) != HAS_R_CONT;
-			if(to_end)
-				break;
-			to_end = !(cont_data & ISNT_END_ADJ);
-
 			coords += offsets[cont_idx];
-			offset_x2_mid += offsets[path_hist[(len >> 1) & 0x1F]];
-			// if 2* the midpoint is further than 1 pixel from the endpoint (2px^2 == 4) OR length exceed maximum allowed
-			//count of applied offsets is 1 higher than len so need to exit at 126 with changes below
+			offset_x2_mid += offsets[path_hist[(len/2) & 0x1F]];
+			// if 2* the midpoint is further than 2 pixel taxicab distance from the endpoint OR length exceed maximum allowed
+			// count of applied offsets is 1 higher than len so need to exit at 126 with changes below
 			if(len > 126)
 				break;
-			if(mag2_2d_i(offset_end - offset_x2_mid) > 4)
+			if(taxi_len_2d_i(offset_end - offset_x2_mid) > 2)
 			{	//FIXME: This is a temporary fix to better smooth the segment transitions,
 				// a proper fix would involve only writing out the midpoint segment,
 				// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
@@ -89,20 +93,16 @@ kernel void line_segments(
 				break;
 			}
 
-			//addition to offset_mid delayed to keep narrower distance threshold range, may or may not be ideal solution
 			if(len < 64)
 				path_hist[len & 0x1F] = cont_idx;
 		}
-		// wind back 1 pixel to last position where it was any of the following 
-		// depending on which exit condition occured:
-		// 2*midpoint within 1 pixel of endpoint / within max length / didn't overrun a start or end
-	//	offset_end -= offsets[cont_idx];
+
 		if(offset_end.x || offset_end.y)	//FIXME: this check shouldn't be neccessary
 			write_imagei(ic2_line_data, base_coords, (int4)(offset_end, 0, -1));
 		else
 		{
-		//	printf("%i %i \n", base_coords.x, base_coords.y);
-			--seg_count;
+			printf("OFFSETS 0: (%i, %i)\n", base_coords.x, base_coords.y);
+		//	--seg_count;
 		}
 
 	}
