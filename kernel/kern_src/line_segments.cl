@@ -1,4 +1,4 @@
-#include "cast_helpers.cl_h"
+//#include "cast_helpers.cl_h"
 #include "offsets_LUT.cl_h"
 #include "math_helpers.cl_h"
 #include "link_macros.cl_h"
@@ -15,49 +15,45 @@ kernel void line_segments(
 	write_only image1d_t us1_line_counts)
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
+	int2 bounds = get_image_dim(uc1_cont_info);	//DEBUGGING CODE remove once certain no more issues remain
 	
 	// initialize variables of line segment tracing loop for first iteration
 	int2 coords = read_imagei(is2_start_coords, index).lo;	// current pixel coordinates
-	if(!((union l_conv)coords).l)	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
+	if(all(coords == 0))	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 	
-	uchar cont_data, cont_idx, /*is_supported,*/ to_end = 0;
-	cont_data = read_imageui(uc1_cont_info, coords).x;
-	//is_supported = cont_data & HAS_L_CONT;	// there was another supporting pixel at the start
-	//NOTE: ^ this is mostly for the sometimes short segments that loop start injection can cause so they don't get thrown out
-	
-	// start specified in start_info implicitly has a valid continuation, so can be safely masked to just index
-	cont_idx = cont_data & R_CONT_IDX_MASK;
+	uchar cont_data, cont_idx, to_end = IS_START;
 
 	// ring buffer that stores history of pixels traversed,
 	// is 1/4 size because only half the length must be recorded for finding the midpoint
 	// and half of that is already accumulated in offset_x2_mid at any given time
 	uchar path_hist[32];
-	int2 offset_x2_mid, offset_end = 0;
-	int2 base_coords = coords;
+	int2 offset_x2_mid, offset_end;
+	int2 base_coords;
 	ushort seg_count = 0;
-	coords += offsets[cont_idx];
 
 	// exit condition occurs when a read pixel indicates a start or 1 pixel after a pixel indicates it's end adjacent
-	while(!to_end)
+	do	// while(!to_end)
 	{
-		base_coords += offset_end;
-		offset_x2_mid = offset_end = offsets[cont_idx];
-		path_hist[0] = cont_idx;
-		++seg_count;
+		base_coords = coords;
+	//	if(!index)
+	//		printf("\nS(%i,%i) ", base_coords.x, base_coords.y);
+		offset_x2_mid = offset_end = 0;
+
 		//TODO: once the duplicate processing bugs are fixed, remove this (currently fixed but future changes might break again)
 		/*if(seg_count > 255)
 		{
 			printf("seg_count over\n");
 			break;
 		}*/
-		for(int len = 1; ; ++len)	//real base case exit condition is mid-block at len >= 127
+		int len;
+		for(len = 0; ; ++len)	//real base case exit condition is mid-block at len >= 127
 		{
 			cont_data = read_imageui(uc1_cont_info, coords).x;
 
 			// check that current pixel isn't a start to prevent double processing,
 			// else it must immediately exit without applying the current pixel's offset to offset_end
-			to_end |= cont_data & IS_START;
+			to_end ^= cont_data & IS_START;
 			if(to_end)
 				break;
 
@@ -69,43 +65,49 @@ kernel void line_segments(
 			offset_end += offsets[cont_idx];
 
 			coords += offsets[cont_idx];
+		//	if(!index)
+		//		printf("%i (%i, %i) ", cont_idx, coords.x, coords.y);
+
+			if(len < 63)
+				path_hist[len & 0x1F] = cont_idx;
+
 			offset_x2_mid += offsets[path_hist[(len/2) & 0x1F]];
 			// if 2* the midpoint is further than 2 pixel taxicab distance from the endpoint OR length exceed maximum allowed
 			// count of applied offsets is 1 higher than len so need to exit at 126 with changes below
-			if(len > 126)
+			if(len >= 125)
 				break;
-			if(taxi_len_2d_i(offset_end - offset_x2_mid) > 2)
-			{	//FIXME: This is a temporary fix to better smooth the segment transitions,
-				// a proper fix would involve only writing out the midpoint segment,
-				// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
-			//	printf("%i	%i,	%i	%i\n", offset_x2_mid.x, offset_x2_mid.y, offset_x2_mid.x >> 1, offset_x2_mid.y >> 1);
-				offset_x2_mid /= 2;
-				if(!(offset_x2_mid.x || offset_x2_mid.y))	// not sure this is actually possible but it doesn't hurt for now
-				{
-					printf(" midpoint 0 ");
-					break;
-				}
-				++seg_count;
-				//printf("%i %i \n", base_coords.x, base_coords.y);
-				write_imagei(ic2_line_data, base_coords, (int4)(offset_x2_mid, 0, -1));
-				base_coords += offset_x2_mid;
-				offset_end -= offset_x2_mid;
+
+			if(taxi_len_2d_i(offset_end - offset_x2_mid) <= 2)
+				continue;
+			
+			//FIXME: This is a temporary fix to better smooth the segment transitions,
+			// a proper fix would involve only writing out the midpoint segment,
+			// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
+		//	printf("offset: <%i, %i> 2*mid: <%i, %i> ", offset_end.x, offset_end.y, offset_x2_mid.x, offset_x2_mid.y);
+			offset_x2_mid /= 2;
+			if(!(offset_x2_mid.x || offset_x2_mid.y))	// not sure this is actually possible but it doesn't hurt for now
+			{
+				printf(" midpoint 0 ");
 				break;
 			}
-
-			if(len < 64)
-				path_hist[len & 0x1F] = cont_idx;
+			++seg_count;
+			//printf("%i %i \n", base_coords.x, base_coords.y);
+			if(any(base_coords < 0 || base_coords >= bounds))
+				printf("OOPS1: (%i, %i)", base_coords.x, base_coords.y);
+			write_imagei(ic2_line_data, base_coords, (int4)(offset_x2_mid, 0, -1));
+			base_coords += offset_x2_mid;
+			offset_end -= offset_x2_mid;
+			break;
 		}
 
-		if(offset_end.x || offset_end.y)	//FIXME: this check shouldn't be neccessary
-			write_imagei(ic2_line_data, base_coords, (int4)(offset_end, 0, -1));
-		else
+		if(len)
 		{
-			printf("OFFSETS 0: (%i, %i)\n", base_coords.x, base_coords.y);
-		//	--seg_count;
+			++seg_count;
+			write_imagei(ic2_line_data, base_coords, (int4)(offset_end, 0, -1));
+			if(any(base_coords < 0 || base_coords >= bounds))
+				printf("OOPS2: (%i, %i)", base_coords.x, base_coords.y);
 		}
-
-	}
+	} while(!to_end);
 	
 	//printf("%i\n", index);
 
