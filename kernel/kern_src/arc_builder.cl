@@ -1,5 +1,6 @@
 #include "cast_helpers.cl_h"
 #include "math_helpers.cl_h"
+#include "conic_solve.cl_h"
 // fast contiguous segment elliptical arc classification
 
 //FIXME: move this to a separate file for repeated use then come back and convert floats to floats where possible
@@ -11,109 +12,6 @@
 */
 constant const char order[8] = {0,1,2,3,0,2,1,3};
 
-// calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
-// returns the foci coordinates, distance from foci to edge is implied
-// if the conic through 5 points would not be an ellipse, returns NaN
-#pragma OPENCL FP_CONTRACT OFF
-float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
-{	//TODO: see how to mitigate rounding errors better
-//if(all(diffs[0]==(int2)(75,-27)))
-//	printf("%i	%i	%i	%i\n", cross_prods[0],cross_prods[1],cross_prods[2],cross_prods[3]);
-//	printf("%v2i	%v2i	%v2i	%v2i\n", diffs[0],diffs[1],diffs[2],diffs[3]);
-	float4 foci;
-	float2 ca, ed, rs, temp_f2;
-	float b, temp_f, inv_2t, ac_diff;
-	float u, v;
-	int2 temp_i2;
-
-	// Fix to prevent exponent overflow from too many multiplication steps by pre-scaling the u and v values
-	// technically it might be safer to divide by the avg exponent between the max and non-zero-min of the coefficients,
-	// but dividing by a constant power of 2 is faster and should work in most cases, especially if resolution is kept
-	// to reasonable values (ie roughly <= 4069)
-	//FIXME: max guaranteed safe divisor with -cl-denorms-are-zero set is 2147483648 (2^31), need to add defines that take that into account
-	u =  (cross_prods[1] * cross_prods[3]) / 137438953472.0f;	// bias exponent by dividing by 2^37, max safe value without losing fine resolution
-	v = -(cross_prods[0] * cross_prods[2]) / 137438953472.0f;	// compiler should hopefully optimize this to simple exponent setting since it's a power of 2
-
-	ca = u * convert_float2(diffs[0] * diffs[2]) + v * convert_float2(diffs[1] * diffs[3]);
-	temp_i2 = diffs[0] * diffs[2].yx;
-	b = -u * (float)(temp_i2.x + temp_i2.y);
-	temp_i2 = diffs[1] * diffs[3].yx;
-	b -= v * (float)(temp_i2.x + temp_i2.y);
-//ca = (float2)(-40,-33);
-//b=-24;
-	inv_2t = 4 * ca.x * ca.y - b * b;
-if(all(diffs[0]==(int2)(75,-27)))
-printf("%A	", inv_2t);
-	//only bother computing foci for ellipse candidates, not parabolas or hyperbolas
-	if(inv_2t <= 0)
-		return NAN;
-	
-	inv_2t = 1 / inv_2t;
-
-	ed = u * (cross_prods[0] * convert_float2(diffs[2]) + cross_prods[2] * convert_float2(diffs[0]))\
-		+v * (cross_prods[1] * convert_float2(diffs[3]) + cross_prods[3] * convert_float2(diffs[1]));
-if(all(diffs[0]==(int2)(75,-27)))
-printf("%v2A	", ca);
-//ed=(float2)(168);
-	char negate = all(ca < 0) ? -1:1;	// this is to prevent the temp_f value from going negative because the square root can't handle that
-	b *= negate;
-	ed *= (float2)(-negate, negate);
-	ca *= negate;
-//if(negate < 0)
-//	printf("n");
-
-	rs = b * ed;			//b[e, d]
-	temp_f = -rs.x * ed.y;	//-bde
-	temp_f2 = ca * ed.yx;	//[cd, ae]
-	rs -= 2 * temp_f2;		//b[e, d] - 2[cd, ae]
-	ac_diff = ca.y - ca.x;	//a-c
-
-	temp_f = 2 * (temp_f + dot_2d_f(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
-	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (float2)(-ac_diff, ac_diff)));
-if(any(isnan(temp_f2)))
-	printf("X");
-
-	// due to sqrt of complex value, x and y components are either same sign if b > 0 or opposite sign if b < 0
-	if(b > 0)
-		temp_f2.y *= -1;
-
-	foci.lo = rs - temp_f2;
-	foci.hi = rs + temp_f2;
-	foci *= inv_2t;
-//printf("%v4f ]\n", foci);
-	
-	return convert_float4(foci);
-}
-#pragma OPENCL FP_CONTRACT DEFAULT
-
-// adds the coefficient components as calculated for this point to the square matrix
-// done in long int math to prevent precision loss, safe from overflow as long as
-// no more than 256 points are added this way for max x and y coords < 16384 (2^14),
-// safe limit is higher if max coords are less than that, considering the longest
-// chain I've seen so far was ~15, I'm not even going to check
-void addPointCoeffs(ulong4 coeffs[4], int2 p)
-{
-	ulong x2 = p.x * p.x;
-	ulong y2 = p.y * p.y;
-	ulong xy = p.x * p.y;
-	//TODO: this could probably be done in a more efficient order, also the ordering
-	// the ordering might not be ideal for later conversion to packed symmetric 
-	// form from stored coefficients in terms of accuracy loss
-	coeffs[0] += (ulong4)(x2, xy, y2, x2*p.x);
-	coeffs[1] += (ulong4)(x2*p.y, x2*x2, p.x*y2, p.y*y2);
-	coeffs[2] += (ulong4)(1, y2*y2, p.x, p.y);
-	coeffs[3] += (ulong4)(x2*xy, xy*y2, x2*y2, 0);
-}
-
-inline float get_ellipse_dist(const float4 foci)
-{
-	return fast_length(foci.lo) + fast_length(foci.hi);
-}
-
-inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point)
-{
-	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 2;
-}
 
 kernel void arc_builder(
 	read_only image1d_t is2_start_coords,

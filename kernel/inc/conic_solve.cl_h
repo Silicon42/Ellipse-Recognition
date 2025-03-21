@@ -1,0 +1,39 @@
+#ifndef CONIC_SOLVE_CL_H
+#define CONIC_SOLVE_CL_H
+
+#define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
+
+// computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
+void selfTransposeProduct(int m, float B[][5], float A[15]);
+
+void cholesky_inv_sym_5(float A[15]);
+
+// Takes a packed, array of floats in A representing the coefficients of the 
+// matrices L and D and vector b as produced by Cholesky LDL^-1 decomposition 
+// and solves for the 5 coefficients of a best fit, general conic equation and 
+// returns them in b
+void solveConic(float A[15], float b[5]);
+
+// Converts an ellipse in general conic form to foci-distance form
+// returns the foci on the first 4 elements of b and distance on the 5th
+// if not an ellipse, returns negative distance
+void convertGeneralConicToFociDistEllipse(float b[5]);
+
+// calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
+// returns the foci coordinates, distance from foci to edge is implied
+// if the conic through 5 points would not be an ellipse, returns NaN
+float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4]);
+
+// adds the coefficient components as calculated for this point to the square matrix
+// done in long int math to prevent precision loss, safe from overflow as long as
+// no more than 256 points are added this way for max x and y coords < 16384 (2^14),
+// safe limit is higher if max coords are less than that, considering the longest
+// chain I've seen so far was ~30, I'm not even going to check
+void addPointCoeffs(ulong4 coeffs[4], int2 p);
+
+inline float get_ellipse_dist(const float4 foci);
+
+inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point);
+
+
+#endif//CONIC_SOLVE_CL_H
