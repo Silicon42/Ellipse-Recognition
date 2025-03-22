@@ -3,6 +3,17 @@
 
 #define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
 
+typedef struct _FociDist {
+	float2 f1;
+	float2 f2;
+	float semi_major;
+} FociDist;
+
+typedef union _Ellipse {
+	FociDist foci_dist;
+	float general[5];
+} Ellipse;
+
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
 void selfTransposeProduct(int m, float B[][5], float A[15]);
 
@@ -17,7 +28,7 @@ void solveConic(float A[15], float b[5]);
 // Converts an ellipse in general conic form to foci-distance form
 // returns the foci on the first 4 elements of b and distance on the 5th
 // if not an ellipse, returns negative distance
-void convertGeneralConicToFociDistEllipse(float b[5]);
+void convertGeneralConicToFociDistEllipse(float M[5]);
 
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied

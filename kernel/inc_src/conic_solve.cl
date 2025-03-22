@@ -96,26 +96,51 @@ void solveConic(float A[15], float b[5])
 			b[i] += A[TRI_INDEX(j,i)] * b[j];
 }
 
+// following 2 functions are somewhat sensitive to fused multiply-add and will give wrong answers if they use them in some cases
+// so to prevent that, the optimizations must be disabled for them
+#pragma OPENCL FP_CONTRACT OFF
+
 // Converts an ellipse in general conic form to foci-distance form
 // returns the foci on the first 4 elements of b and distance on the 5th
 // if not an ellipse, returns negative distance
-void convertGeneralConicToFociDistEllipse(float b[5])
+void convertGeneralConicToFociDistEllipse(float M[5])
 {
-	float t2 = 4*b[2]*b[4] - b[3]*b[3];
+	float b = M[3];
+	float t2 = 4*M[2]*M[4] - b*b;	// 4ac - b^2
 	if(t2 <= 0)
 	{
-		b[4] = -1;
+		M[4] = -1;
 		return;
 	}
 
-	float2 rs = (float2)(b[1], b[0]) * b[3];
+	float det_M, ac_diff, ac_b_len;
+	ac_diff = M[2] - M[4];
+	float2 ed, ac, rs, temp_f2, focus;
+	ed = (float2)(M[1], M[0]);
+	ac = (float2)(M[2], M[4]);
+	rs = b * ed;				// b[e, d]
+	det_M = t2 - rs.x * ed.y;	// 2t - bde
+	temp_f2 = ed * ac;			// [ae, cd]
+	rs -= 2 * temp_f2.yx;		// b[e, d] - 2[cd, ae]
+	temp_f2 *= ed;				// [ae^2, cd^2]
+	det_M = -2*(det_M + temp_f2.x + temp_f2.y);	// det(M) = -2*(2t + ae^2 - bde + cd^2)
+	ac_b_len = hypot(ac_diff, b);
+
+	// [1, sign(b)] * sqrt(det(M) * (hypot(a-c, b) + [a-c, c-a]))
+	temp_f2 = (float2)(1, (b >= 0) ? 1 : -1) * sqrt(det_M * (ac_b_len + (float2)(ac_diff, -ac_diff)));
+	focus = (rs + temp_f2) / t2;
+	M[0] = focus.x;
+	M[1] = focus.y;
+	focus = (rs - temp_f2) / t2;
+	M[2] = focus.x;
+	M[3] = focus.y;
+	M[4] = sqrt(-det_M / (t2 * (ac.x + ac.y + ac_b_len)));
 }
 
 
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
 // if the conic through 5 points would not be an ellipse, returns NaN
-#pragma OPENCL FP_CONTRACT OFF
 float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
 {	//TODO: see how to mitigate rounding errors better
 //if(all(diffs[0]==(int2)(75,-27)))
@@ -185,6 +210,7 @@ if(any(isnan(temp_f2)))
 	
 	return convert_float4(foci);
 }
+
 #pragma OPENCL FP_CONTRACT DEFAULT
 
 // adds the coefficient components as calculated for this point to the square matrix
