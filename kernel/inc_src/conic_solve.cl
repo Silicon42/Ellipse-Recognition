@@ -102,22 +102,24 @@ void solveConic(float A[15], float b[5])
 
 // Converts an ellipse in general conic form to foci-distance form
 // returns the foci on the first 4 elements of b and distance on the 5th
-// if not an ellipse, returns negative distance
-void convertGeneralConicToFociDistEllipse(float M[5])
+// if not an ellipse, returns non-positive distance
+void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 {
-	float b = M[3];
-	float t2 = 4*M[2]*M[4] - b*b;	// 4ac - b^2
+	float* gen = M->general;
+	FociDist* foci = &M->foci_dist;
+	float b = gen[3];
+	float t2 = 4*gen[2]*gen[4] - b*b;	// 4ac - b^2
 	if(t2 <= 0)
 	{
-		M[4] = -1;
+		foci->semi_major = t2;
 		return;
 	}
 
 	float det_M, ac_diff, ac_b_len;
-	ac_diff = M[2] - M[4];
+	ac_diff = gen[2] - gen[4];
 	float2 ed, ac, rs, temp_f2, focus;
-	ed = (float2)(M[1], M[0]);
-	ac = (float2)(M[2], M[4]);
+	ed = (float2)(gen[1], gen[0]);
+	ac = (float2)(gen[2], gen[4]);
 	rs = b * ed;				// b[e, d]
 	det_M = t2 - rs.x * ed.y;	// 2t - bde
 	temp_f2 = ed * ac;			// [ae, cd]
@@ -128,20 +130,16 @@ void convertGeneralConicToFociDistEllipse(float M[5])
 
 	// [1, sign(b)] * sqrt(det(M) * (hypot(a-c, b) + [a-c, c-a]))
 	temp_f2 = (float2)(1, (b >= 0) ? 1 : -1) * sqrt(det_M * (ac_b_len + (float2)(ac_diff, -ac_diff)));
-	focus = (rs + temp_f2) / t2;
-	M[0] = focus.x;
-	M[1] = focus.y;
-	focus = (rs - temp_f2) / t2;
-	M[2] = focus.x;
-	M[3] = focus.y;
-	M[4] = sqrt(-det_M / (t2 * (ac.x + ac.y + ac_b_len)));
+	foci->f1 = (rs + temp_f2) / t2;
+	foci->f2 = (rs - temp_f2) / t2;
+	foci->semi_major = sqrt(-det_M / (t2 * (ac.x + ac.y + ac_b_len)));
 }
 
 
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
-// if the conic through 5 points would not be an ellipse, returns NaN
-float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4])
+// if the conic through 5 points would not be an ellipse, returns a non-positive distance (result of 4ac-b^2)
+void ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4], Ellipse * const ellipse)
 {	//TODO: see how to mitigate rounding errors better
 //if(all(diffs[0]==(int2)(75,-27)))
 //	printf("%i	%i	%i	%i\n", cross_prods[0],cross_prods[1],cross_prods[2],cross_prods[3]);
@@ -172,8 +170,10 @@ if(all(diffs[0]==(int2)(75,-27)))
 printf("%A	", inv_2t);
 	//only bother computing foci for ellipse candidates, not parabolas or hyperbolas
 	if(inv_2t <= 0)
-		return NAN;
-	
+	{
+		ellipse->foci_dist.semi_major = inv_2t;
+		return;
+	}
 	inv_2t = 1 / inv_2t;
 
 	ed = u * (cross_prods[0] * convert_float2(diffs[2]) + cross_prods[2] * convert_float2(diffs[0]))\
@@ -208,7 +208,7 @@ if(any(isnan(temp_f2)))
 	foci *= inv_2t;
 //printf("%v4f ]\n", foci);
 	
-	return convert_float4(foci);
+	return foci;
 }
 
 #pragma OPENCL FP_CONTRACT DEFAULT

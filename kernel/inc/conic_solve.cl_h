@@ -28,12 +28,12 @@ void solveConic(float A[15], float b[5]);
 // Converts an ellipse in general conic form to foci-distance form
 // returns the foci on the first 4 elements of b and distance on the 5th
 // if not an ellipse, returns negative distance
-void convertGeneralConicToFociDistEllipse(float M[5]);
+void convertGeneralConicToFociDistEllipse(Ellipse * const M);
 
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
 // if the conic through 5 points would not be an ellipse, returns NaN
-float4 ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4]);
+void ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4], Ellipse* ellipse);
 
 // adds the coefficient components as calculated for this point to the square matrix
 // done in long int math to prevent precision loss, safe from overflow as long as
