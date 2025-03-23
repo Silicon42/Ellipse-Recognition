@@ -60,8 +60,8 @@ return;
 	private int2* diffs = (private void*)&diffs8;
 	char reset = 3;
 	ushort seg_cnt;
-	float4 foci;
-	float edge_dist;
+	Ellipse ellipse;
+	float4 * foci = &ellipse.foci_dist.foci;
 	char dir, dir_trend;
 	int dir_cross;
 	uchar kick = 0;	// which point index to kick when a recalculation occurs
@@ -86,8 +86,8 @@ return;
 			if(seg_cnt >= 4)
 			{
 				float2 base_f = convert_float2(base_coords);
-				foci += (float4)(base_f, base_f);
-				write_imagef(ff4_ellipse_foci, base_coords, foci);
+				*foci += (float4)(base_f, base_f);
+				write_imagef(ff4_ellipse_foci, base_coords, *foci);
 			}
 			base_coords += total_offset;
 		case 3:	// loop entry init/re-init
@@ -178,19 +178,18 @@ return;
 				cross_prods[2] = cross_2d_i(points[2], points[1]);
 				cross_prods[3] = cross_2d_i(points[3], points[2]);
 
-				foci = ellipse_from_hist(diffs, cross_prods);
+				ellipse_from_hist(diffs, cross_prods, &ellipse);
 
 				// if points didn't form an ellipse
-				if(!isfinite(foci.x))
+				if(ellipse.foci_dist.semi_major <= 0)
 				{
 					reset = 2;
 					continue;	//continue without advancing segment count
 				}
 				
-				edge_dist = get_ellipse_dist(foci);
 				float2 mid0 = convert_float2(points[0]) / 2;
 				// if the ellipse was a bad fit, try again next time
-				if(!is_near_ellipse_edge(foci, edge_dist, mid0))
+				if(!is_near_ellipse_edge(&ellipse, mid0, 2))
 				{
 					reset = 2;
 					continue;	//continue without advancing segment count
@@ -201,7 +200,7 @@ return;
 		{
 			// if the new segment endpoint deviates from the already calculated ellipse,
 			// it either needs to be re-calculated with the new point or reset and written out
-			if(!is_near_ellipse_edge(foci, edge_dist, convert_float2(total_offset)))
+			if(!is_near_ellipse_edge(&ellipse, convert_float2(total_offset), 2))
 			{
 				// lookup which entry to kick to attempt a re-calculation of the ellipse
 				// the ordering is chosen so that it should spread the points out as recaluclations occur
@@ -217,22 +216,23 @@ return;
 				cross_prods[k_p1] = cross_2d_i(points[k_p1], points[k]);
 
 				// calculate the ellipse with the new point
-				float4 new_foci = ellipse_from_hist(diffs, cross_prods);
-				if(!isfinite(new_foci.x))
+				Ellipse new_ellipse;
+				ellipse_from_hist(diffs, cross_prods, &new_ellipse);
+				if(new_ellipse.foci_dist.semi_major <= 0)
 				{
 					reset = 1;
 					continue;
 				}
-				float new_dist = get_ellipse_dist(new_foci);
+
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
-				if(!is_near_ellipse_edge(new_foci, new_dist, old_point))
+				if(!is_near_ellipse_edge(&ellipse, old_point, 2))
 				{
 					reset = 1;
 					continue;
 				}
 				// else this was just a minor course correction and can be taken as the updated ellipse approx.
-				foci = new_foci;
-				edge_dist = new_dist;
+				//TODO: make this a reference copy instead of a value copy
+				ellipse = new_ellipse;
 			}
 		}
 		// this must stay at the end b/c some situations need to be able to skip it
@@ -252,8 +252,8 @@ return;
 	if(seg_cnt >= 4)
 	{
 		float2 base_f = convert_float2(base_coords);
-		foci += (float4)(base_f, base_f);
-		write_imagef(ff4_ellipse_foci, base_coords, foci);
+		*foci += (float4)(base_f, base_f);
+		write_imagef(ff4_ellipse_foci, base_coords, *foci);
 	}
 }
 

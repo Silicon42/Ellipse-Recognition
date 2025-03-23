@@ -106,12 +106,12 @@ void solveConic(float A[15], float b[5])
 void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 {
 	float* gen = M->general;
-	FociDist* foci = &M->foci_dist;
+	FociDist* f_d = &M->foci_dist;
 	float b = gen[3];
 	float t2 = 4*gen[2]*gen[4] - b*b;	// 4ac - b^2
 	if(t2 <= 0)
 	{
-		foci->semi_major = t2;
+		f_d->semi_major = t2;
 		return;
 	}
 
@@ -130,9 +130,10 @@ void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 
 	// [1, sign(b)] * sqrt(det(M) * (hypot(a-c, b) + [a-c, c-a]))
 	temp_f2 = (float2)(1, (b >= 0) ? 1 : -1) * sqrt(det_M * (ac_b_len + (float2)(ac_diff, -ac_diff)));
-	foci->f1 = (rs + temp_f2) / t2;
-	foci->f2 = (rs - temp_f2) / t2;
-	foci->semi_major = sqrt(-det_M / (t2 * (ac.x + ac.y + ac_b_len)));
+	f_d->foci.lo = rs + temp_f2;
+	f_d->foci.hi = rs - temp_f2;
+	f_d->foci /= t2;
+	f_d->semi_major = sqrt(-det_M / (t2 * (ac.x + ac.y + ac_b_len)));
 }
 
 
@@ -144,9 +145,8 @@ void ellipse_from_hist(private const int2 diffs[4], private const int cross_prod
 //if(all(diffs[0]==(int2)(75,-27)))
 //	printf("%i	%i	%i	%i\n", cross_prods[0],cross_prods[1],cross_prods[2],cross_prods[3]);
 //	printf("%v2i	%v2i	%v2i	%v2i\n", diffs[0],diffs[1],diffs[2],diffs[3]);
-	float4 foci;
 	float2 ca, ed, rs, temp_f2;
-	float b, temp_f, inv_2t, ac_diff;
+	float b, det_M, inv_2t, ac_diff, ac_b_len;
 	float u, v;
 	int2 temp_i2;
 
@@ -181,21 +181,22 @@ printf("%A	", inv_2t);
 if(all(diffs[0]==(int2)(75,-27)))
 printf("%v2A	", ca);
 //ed=(float2)(168);
-	char negate = all(ca < 0) ? -1:1;	// this is to prevent the temp_f value from going negative because the square root can't handle that
+	char negate = all(ca < 0) ? -1:1;	// this is to prevent the det_M value from going negative because the square root can't handle that
 	b *= negate;
 	ed *= (float2)(-negate, negate);
 	ca *= negate;
 //if(negate < 0)
 //	printf("n");
 
-	rs = b * ed;			//b[e, d]
-	temp_f = -rs.x * ed.y;	//-bde
-	temp_f2 = ca * ed.yx;	//[cd, ae]
-	rs -= 2 * temp_f2;		//b[e, d] - 2[cd, ae]
-	ac_diff = ca.y - ca.x;	//a-c
+	rs = b * ed;			// b[e, d]
+	det_M = -rs.x * ed.y;	// -bde
+	temp_f2 = ca * ed.yx;	// [cd, ae]
+	rs -= 2 * temp_f2;		// b[e, d] - 2[cd, ae]
+	ac_diff = ca.y - ca.x;	// a-c
+	ac_b_len = hypot(ac_diff, b);
 
-	temp_f = 2 * (temp_f + dot_2d_f(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
-	temp_f2 = sqrt(temp_f * (hypot(ac_diff, b) + (float2)(-ac_diff, ac_diff)));
+	det_M = 2 * (det_M + dot_2d_f(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
+	temp_f2 = sqrt(det_M * (ac_b_len + (float2)(-ac_diff, ac_diff)));
 if(any(isnan(temp_f2)))
 	printf("X");
 
@@ -203,12 +204,12 @@ if(any(isnan(temp_f2)))
 	if(b > 0)
 		temp_f2.y *= -1;
 
-	foci.lo = rs - temp_f2;
-	foci.hi = rs + temp_f2;
-	foci *= inv_2t;
+	ellipse->foci_dist.foci.lo = rs + temp_f2;
+	ellipse->foci_dist.foci.hi = rs - temp_f2;
+	ellipse->foci_dist.foci *= inv_2t;
+	ellipse->foci_dist.semi_major = sqrt(-det_M * inv_2t / (ca.x + ca.y + ac_b_len));
 //printf("%v4f ]\n", foci);
-	
-	return foci;
+	return;
 }
 
 #pragma OPENCL FP_CONTRACT DEFAULT
@@ -237,7 +238,7 @@ inline float get_ellipse_dist(const float4 foci)
 	return fast_length(foci.lo) + fast_length(foci.hi);
 }
 
-inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point)
+inline char is_near_ellipse_edge(Ellipse * const M, const float2 point, float threshold)
 {
-	return fabs(dist - (fast_distance(point, foci.lo) + fast_distance(point, foci.hi))) < 2;
+	return fabs(M->foci_dist.semi_major - (fast_distance(point, M->foci_dist.foci.lo) + fast_distance(point, M->foci_dist.foci.hi))) <= threshold;
 }

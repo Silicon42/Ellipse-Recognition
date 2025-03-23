@@ -4,8 +4,7 @@
 #define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
 
 typedef struct _FociDist {
-	float2 f1;
-	float2 f2;
+	float4 foci;
 	float semi_major;
 } FociDist;
 
@@ -44,7 +43,7 @@ void addPointCoeffs(ulong4 coeffs[4], int2 p);
 
 inline float get_ellipse_dist(const float4 foci);
 
-inline char is_near_ellipse_edge(const float4 foci, const float dist, const float2 point);
+inline char is_near_ellipse_edge(Ellipse * const M, const float2 point, float threshold);
 
 
 #endif//CONIC_SOLVE_CL_H
