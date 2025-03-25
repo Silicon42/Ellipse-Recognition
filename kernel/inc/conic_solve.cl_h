@@ -5,7 +5,7 @@
 
 typedef struct _FociDist {
 	float4 foci;
-	float semi_major;
+	float dist;
 } FociDist;
 
 typedef union _Ellipse {
@@ -41,9 +41,9 @@ void ellipse_from_hist(private const int2 diffs[4], private const int cross_prod
 // chain I've seen so far was ~30, I'm not even going to check
 void addPointCoeffs(ulong4 coeffs[4], int2 p);
 
-inline float get_ellipse_dist(const float4 foci);
-
-inline char is_near_ellipse_edge(Ellipse * const M, const float2 point, float threshold);
+// returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
+// this can be used to determine if a point is close to the ellipse boundary
+float get_ellipse_deviation(FociDist * const M, const float2 point);
 
 
 #endif//CONIC_SOLVE_CL_H

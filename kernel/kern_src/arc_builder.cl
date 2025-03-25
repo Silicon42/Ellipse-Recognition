@@ -181,7 +181,7 @@ return;
 				ellipse_from_hist(diffs, cross_prods, &ellipse);
 
 				// if points didn't form an ellipse
-				if(ellipse.foci_dist.semi_major <= 0)
+				if(ellipse.foci_dist.dist <= 0)
 				{
 					reset = 2;
 					continue;	//continue without advancing segment count
@@ -189,7 +189,7 @@ return;
 				
 				float2 mid0 = convert_float2(points[0]) / 2;
 				// if the ellipse was a bad fit, try again next time
-				if(!is_near_ellipse_edge(&ellipse, mid0, 2))
+				if(get_ellipse_deviation(&ellipse.foci_dist, mid0) > 2)
 				{
 					reset = 2;
 					continue;	//continue without advancing segment count
@@ -200,7 +200,7 @@ return;
 		{
 			// if the new segment endpoint deviates from the already calculated ellipse,
 			// it either needs to be re-calculated with the new point or reset and written out
-			if(!is_near_ellipse_edge(&ellipse, convert_float2(total_offset), 2))
+			if(get_ellipse_deviation(&ellipse.foci_dist, convert_float2(total_offset)) > 2)
 			{
 				// lookup which entry to kick to attempt a re-calculation of the ellipse
 				// the ordering is chosen so that it should spread the points out as recaluclations occur
@@ -218,14 +218,14 @@ return;
 				// calculate the ellipse with the new point
 				Ellipse new_ellipse;
 				ellipse_from_hist(diffs, cross_prods, &new_ellipse);
-				if(new_ellipse.foci_dist.semi_major <= 0)
+				if(new_ellipse.foci_dist.dist <= 0)
 				{
 					reset = 1;
 					continue;
 				}
 
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
-				if(!is_near_ellipse_edge(&ellipse, old_point, 2))
+				if(get_ellipse_deviation(&ellipse.foci_dist, old_point) > 2)
 				{
 					reset = 1;
 					continue;
