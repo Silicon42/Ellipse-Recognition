@@ -20,6 +20,7 @@ kernel void foci_debug(
 	{
 		//draw lines between the start of the arc and the associated foci
 		foci = convert_int4(convert_short4_sat_rte(read_imagef(ff4_ellipse_foci, coords)));
+	//	printf("%v4i", foci);
 		draw_line(coords, foci.lo, color + 64, uc4_out_image);
 		draw_line(coords, foci.hi, color + 64, uc4_out_image);
 	}
