@@ -5,17 +5,17 @@ Stages = [
 	{name = 'edge_thinning', args = ['grad_ang', 'grad_ang']},
 	{name = 'link_edge_pixels', args = ['grad_ang', 'cont_data']},
 	{name = 'find_segment_starts', args = ['grad_ang', 'cont_data', 'starts_cont']},
-#	{name = 'serial_reduce', args = ['starts_cont', 'start_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
-#	{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts']},#, range = {ref_arg = 'start_coords'}},
-	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
+	{name = 'serial_reduce', args = ['starts_cont', 'start_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
+	{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts']},#, range = {ref_arg = 'start_coords'}},
+#	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'seg_in_arc', 'ellipse_foci', 'pseudo_coeffs'], range = {ref_arg = 'start_coords'}},
-	{name = 'foci_debug', args = ['line_data', 'seg_in_arc', 'ellipse_foci', 'retrace']},
 
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
+	{name = 'conic_solve_debug', args = ['pseudo_coeffs','retrace'], range = {ref_arg = 'retrace'}},
 #	{name = 'colored_retrace_line', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts', 'retrace'], range = {ref_arg = 'start_coords'}},
 #	{name = 'colored_retrace_starts', args = ['start_coords', 'retrace'], range = {ref_arg = 'start_coords'}},
-	{name = 'conic_solve_debug', args = ['pseudo_coeffs','retrace'], range = {ref_arg = 'retrace'}},
+#	{name = 'foci_debug', args = ['line_data', 'seg_in_arc', 'ellipse_foci', 'retrace']},
 #	{name = 'lost_seg_debug', args = ['retrace', 'starts_cont', 'retrace']},
 #	{name = 'serial_reduce_arc_seeds', args = ['seg_in_arc', 'arc_candidates'], range = {mode = 'EXACT', params = [1,1,1]}}
 ]

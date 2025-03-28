@@ -15,24 +15,26 @@ kernel void conic_solve_debug(
 
 	union f16_conv coeffs;
 	coeffs.v = 0;
-	coeffs.v.hi.lo = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+2, coords.y));
-	if(coeffs.v.s8 < 5)	// skip drawing if less than 5 points involved
-		return;
 	coeffs.v.hi.hi = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+3, coords.y));
+	if(coeffs.v.sf < 5)	// skip drawing if less than 5 points involved
+		return;
+	coeffs.v.hi.lo = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+2, coords.y));
 	coeffs.v.lo.hi = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+1, coords.y));
-	coeffs.v.lo.lo = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4, coords.y));
+	coeffs.v.lo.lo = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4,   coords.y));
 
 	Ellipse M;
+//	printf("%v16f\n", coeffs.v);
 	solveConic(coeffs.a, M.general);
-	
-//if(any(coords != 0))
-//	return;
+
 	uint4 color = (uint4)(scatter_colorize(coords.x ^ coords.y), -1);
-/*M.general[2] = -33/155200.f;
-M.general[3] = 24/155200.f;
-M.general[4] = -40/155200.f;
+/*
+if(any(coords != 0))
+	return;
 M.general[0] = 3600/155200.f;
 M.general[1] = 3680/155200.f;
+M.general[2] = -33/155200.f;
+M.general[3] = -40/155200.f;
+M.general[4] = 24/155200.f;
 */
 
 	convertGeneralConicToFociDistEllipse(&M);
@@ -46,7 +48,7 @@ M.general[1] = 3680/155200.f;
 			float dist = get_ellipse_deviation(&M.foci_dist, (float2)(i, j));
 //			if(i==120 && j==40)
 //				printf("%f	", dist);
-			if(!isfinite(dist) || dist > M_SQRT2)
+			if(!isfinite(dist) || dist > M_SQRT2/2)
 				continue;
 			write_imageui(uc4_out, (int2)(i, j), color);
 		}

@@ -66,11 +66,11 @@ void cholesky_inv_sym_5(float A[15])
 void solveConic(float A[15], float b[5])
 {
 	// expand b coefficients
-	b[0] = A[10];
-	b[1] = A[11];
-	b[2] = A[0];
-	b[3] = A[2];
-	b[4] = A[1];
+	b[0] = A[10];	// Ex
+	b[1] = A[11];	// Dy
+	b[2] = A[0];	// Ax^2
+	b[3] = A[2];	// Cy^2
+	b[4] = A[1];	// Bxy
 
 	// copy duplicate A coefficients into position
 	A[8] = A[14];
@@ -107,8 +107,8 @@ void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 {
 	float* gen = M->general;
 	FociDist* f_d = &M->foci_dist;
-	float b = gen[3];
-	float t2 = 4*gen[2]*gen[4] - b*b;	// 4ac - b^2
+	float b = gen[4];
+	float t2 = 4*gen[2]*gen[3] - b*b;	// 4ac - b^2
 	if(!isfinite(t2) || t2 <= 0)
 	{
 		f_d->dist = -1;
@@ -116,10 +116,10 @@ void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 	}
 
 	float det_M, ac_diff, ac_b_len;
-	ac_diff = gen[2] - gen[4];
+	ac_diff = gen[2] - gen[3];
 	float2 ed, ac, rs, temp_f2, focus;
 	ed = (float2)(gen[1], gen[0]);
-	ac = (float2)(gen[2], gen[4]);
+	ac = (float2)(gen[2], gen[3]);
 	rs = b * ed;				// b[e, d]
 	det_M = t2 - rs.x * ed.y;	// 2t - bde
 	temp_f2 = ed * ac;			// [ae, cd]
@@ -229,8 +229,8 @@ void addPointCoeffs(ulong4 coeffs[4], int2 p)
 	// form from stored coefficients in terms of accuracy loss
 	coeffs[0] += (ulong4)(x2, xy, y2, x2*p.x);
 	coeffs[1] += (ulong4)(x2*p.y, x2*x2, p.x*y2, p.y*y2);
-	coeffs[2] += (ulong4)(1, y2*y2, p.x, p.y);
-	coeffs[3] += (ulong4)(x2*xy, xy*y2, x2*y2, 0);
+	coeffs[2] += (ulong4)(0, y2*y2, p.x, p.y);
+	coeffs[3] += (ulong4)(x2*xy, xy*y2, x2*y2, 1);
 }
 
 // returns the sum of the distances from an ellipses foci and a point
