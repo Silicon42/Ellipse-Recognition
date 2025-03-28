@@ -6,6 +6,7 @@ purposes only
 #include "conic_solve.cl_h"
 #include "cast_helpers.cl_h"
 #include "colorizer.cl_h"
+#include "bresenham_line.cl_h"
 
 kernel void conic_solve_debug(
 	read_only image2d_t ff4_pseudo_coeffs,
@@ -39,6 +40,8 @@ M.general[4] = 24/155200.f;
 
 	convertGeneralConicToFociDistEllipse(&M);
 //	printf("%v4f %f,	", M.foci_dist.foci, M.foci_dist.dist);
+	draw_line(coords, convert_int2_rte(M.foci_dist.foci.lo), color + 64, uc4_out);
+	draw_line(coords, convert_int2_rte(M.foci_dist.foci.hi), color + 64, uc4_out);
 
 	int2 bounds = get_image_dim(uc4_out);
 	for(int j = 0; j < bounds.y; ++j)

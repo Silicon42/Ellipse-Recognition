@@ -96,6 +96,19 @@ void solveConic(float A[15], float b[5])
 			b[i] += A[TRI_INDEX(j,i)] * b[j];
 }
 
+// returns the sum of the distances from an ellipses foci and a point
+inline float get_ellipse_dist(const float4 foci, const float2 point)
+{
+	return fast_distance(foci.lo, point) + fast_distance(foci.hi, point);
+}
+
+// returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
+// this can be used to determine if a point is close to the ellipse boundary
+float get_ellipse_deviation(FociDist * const M, const float2 point)
+{
+	return fabs(M->dist - get_ellipse_dist(M->foci, point));
+}
+
 // following 2 functions are somewhat sensitive to fused multiply-add and will give wrong answers if they use them in some cases
 // so to prevent that, the optimizations must be disabled for them
 #pragma OPENCL FP_CONTRACT OFF
@@ -207,8 +220,11 @@ if(any(isnan(temp_f2)))
 	ellipse->foci_dist.foci.lo = rs + temp_f2;
 	ellipse->foci_dist.foci.hi = rs - temp_f2;
 	ellipse->foci_dist.foci *= inv_2t;
-	ellipse->foci_dist.dist = 2*sqrt(-det_M * inv_2t / (ca.x + ca.y + ac_b_len));
-//printf("%v4f ]\n", foci);
+//	printf("(%f %f)\n", det_M * inv_2t, (ca.x + ca.y + ac_b_len));
+	//FIXME: something was wrong with the commented out calculation, however if corrected it *should* be faster since it would
+	// need only 1 sqrt call, but in the interest of actually moving forward, I just reverted to the less efficient method that I know works for now
+	ellipse->foci_dist.dist = get_ellipse_dist(ellipse->foci_dist.foci, 0); //2*sqrt(-det_M * inv_2t / (ca.x + ca.y + ac_b_len));
+//printf("%v4f ]\n", ellipse->foci_dist.foci);
 	return;
 }
 
@@ -231,17 +247,4 @@ void addPointCoeffs(ulong4 coeffs[4], int2 p)
 	coeffs[1] += (ulong4)(x2*p.y, x2*x2, p.x*y2, p.y*y2);
 	coeffs[2] += (ulong4)(0, y2*y2, p.x, p.y);
 	coeffs[3] += (ulong4)(x2*xy, xy*y2, x2*y2, 1);
-}
-
-// returns the sum of the distances from an ellipses foci and a point
-inline float get_ellipse_dist(const float4 foci, const float2 point)
-{
-	return fast_distance(foci.lo, point) + fast_distance(foci.hi, point);
-}
-
-// returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
-// this can be used to determine if a point is close to the ellipse boundary
-float get_ellipse_deviation(FociDist * const M, const float2 point)
-{
-	return fabs(M->dist - get_ellipse_dist(M->foci, point));
 }

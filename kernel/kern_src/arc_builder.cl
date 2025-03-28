@@ -12,6 +12,8 @@
 */
 constant const char order[8] = {0,1,2,3,0,2,1,3};
 
+//TODO: VVV this VVV value needs fine tuning
+#define ELLIPSE_DEVIATION_THRESH 16
 
 kernel void arc_builder(
 	read_only image1d_t is2_start_coords,
@@ -173,9 +175,11 @@ kernel void arc_builder(
 				}
 				
 				float2 mid0 = convert_float2(points[0]) / 2;
+				float deviation = get_ellipse_deviation(&ellipse.foci_dist, mid0);
 				// if the ellipse was a bad fit, try again next time
-				if(get_ellipse_deviation(&ellipse.foci_dist, mid0) > 2)
+				if(deviation > ELLIPSE_DEVIATION_THRESH)
 				{
+	//				printf("seg_cnt3: %f", ellipse.foci_dist.dist);
 					reset = 2;
 					continue;	//continue without advancing segment count
 				}
@@ -183,9 +187,10 @@ kernel void arc_builder(
 		}
 		else
 		{
+	//				printf("test1 ");
 			// if the new segment endpoint deviates from the already calculated ellipse,
 			// it either needs to be re-calculated with the new point or reset and written out
-			if(get_ellipse_deviation(&ellipse.foci_dist, convert_float2(total_offset)) > 2)
+			if(get_ellipse_deviation(&ellipse.foci_dist, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
 			{
 				// lookup which entry to kick to attempt a re-calculation of the ellipse
 				// the ordering is chosen so that it should spread the points out as recaluclations occur
@@ -209,8 +214,9 @@ kernel void arc_builder(
 					continue;
 				}
 
+		//			printf("test2 ");
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
-				if(get_ellipse_deviation(&ellipse.foci_dist, old_point) > 2)
+				if(get_ellipse_deviation(&ellipse.foci_dist, old_point) > ELLIPSE_DEVIATION_THRESH)
 				{
 					reset = 1;
 					continue;
@@ -238,6 +244,7 @@ kernel void arc_builder(
 	{
 		float2 base_f = convert_float2(base_coords);
 		*foci += (float4)(base_f, base_f);
+//printf("%v4f ]\n", *foci);
 		write_imagef(ff4_ellipse_foci, base_coords, *foci);
 	}
 }
