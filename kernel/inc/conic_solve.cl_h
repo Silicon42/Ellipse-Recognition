@@ -11,6 +11,7 @@ typedef struct _FociDist {
 typedef union _Ellipse {
 	FociDist foci_dist;
 	float general[5];
+	int4 foci_bits;
 } Ellipse;
 
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
@@ -34,12 +35,13 @@ void convertGeneralConicToFociDistEllipse(Ellipse * const M);
 // if the conic through 5 points would not be an ellipse, returns NaN
 void ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4], Ellipse* ellipse);
 
-// adds the coefficient components as calculated for this point to the square matrix
+// calculate the coefficient components for this point to the square matrix
 // done in long int math to prevent precision loss, safe from overflow as long as
 // no more than 256 points are added this way for max x and y coords < 16384 (2^14),
 // safe limit is higher if max coords are less than that, considering the longest
 // chain I've seen so far was ~30, I'm not even going to check
-void addPointCoeffs(ulong4 coeffs[4], int2 p);
+// Assumes x and y coords are in the range of 0 to 16383
+ulong16 getPointCoeffs(int2 p);
 
 // returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
 // this can be used to determine if a point is close to the ellipse boundary

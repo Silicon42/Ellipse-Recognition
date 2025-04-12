@@ -1,8 +1,9 @@
 #include "cast_helpers.cl_h"
 #include "math_helpers.cl_h"
 #include "conic_solve.cl_h"
+#include "arc_data.cl_h"
 // fast contiguous segment elliptical arc classification
-
+//FIXME: reported seg_cnt seems to be one to high in some(?) cases
 //FIXME: move this to a separate file for repeated use then come back and convert floats to floats where possible
 /*
 #ifndef float
@@ -12,16 +13,74 @@
 */
 constant const char order[8] = {0,1,2,3,0,2,1,3};
 
+//TODO: See "Arc Adjacency Matrix-Based Fast Ellipse Detection" by Meng et al.
+// They have an interesting way of categorizing segments as elliptical that might be
+// more efficient than what I'm currently using if I can wrap my head around the math
+
 //TODO: VVV this VVV value needs fine tuning
 #define ELLIPSE_DEVIATION_THRESH 16
 
+#define LOGICAL_RESET		1
+#define LOOP_ENTRY_RESET	2
+#define FIRST_SOLVE_RESET	3
+
+void write_arc(
+	write_only image2d_t ii2_arc_data, 
+	write_only image2d_t ff4_pre_solve_coeffs,
+	write_only image2d_t ff4_ellipse_foci,
+	write_only image2d_t ff4_dup_foci,	// Contains the foci as calculated according to the coefficients for arc segments of at least 4 segments
+	write_only image2d_t ff1_ellipse_major,
+	ulong16 * const coeffs,
+	int2 const start_coords, 
+	int2 const end_coords, 
+	int2 const last_seg, 
+	int const dir, 
+	int const seg_cnt)
+{
+	// fix endpoint weights so they count for half as much as interior points, this prevents double weighting on shared endpoints
+/*	if(seg_cnt > 1)
+	{
+		*coeffs *= 2;
+		*coeffs -= getPointCoeffs(end_coords);
+	}
+*/	*coeffs += getPointCoeffs(start_coords);
+
+	float16 coeffs_f = convert_float16(*coeffs);
+	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2,   start_coords.y*2  ), coeffs_f.lo.lo);
+	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2+1, start_coords.y*2  ), coeffs_f.lo.hi);
+	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2,   start_coords.y*2+1), coeffs_f.hi.lo);
+	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2+1, start_coords.y*2+1), coeffs_f.hi.hi);
+	//TODO: see if packing a struct and writing the full width would be faster or if using the default alignment of write_image is faster
+	RW_ArcData data = {.ad = {
+		.last_seg = convert_char2(last_seg),
+		.dir_cnt = dir << 14 | min(seg_cnt, SEG_CNT_MASK),
+		.endpoint = convert_short2(end_coords)
+	}};
+
+	write_imagei(ii2_arc_data, start_coords, (int4)(data.rw, 0, 0));
+	//TODO: there might be a perf benefit to not doing the rest if < 4 segments
+	Ellipse el;
+	solveConic((private float*)&coeffs_f, el.general);
+	convertGeneralConicToFociDistEllipse(&el);
+	if(seg_cnt >= 4)
+		printf("%.6v4A		%.6A\n", el.foci_dist.foci, el.foci_dist.dist);
+//printf("%v2i	", start_coords);
+	write_imagef(ff1_ellipse_major, start_coords, el.foci_dist.dist);
+	write_imagef(ff4_dup_foci, start_coords, el.foci_dist.foci);
+	write_imagef(ff4_ellipse_foci, start_coords, el.foci_dist.foci);
+}
+
 kernel void arc_builder(
-	read_only image1d_t is2_start_coords,
-	read_only image2d_t ic2_line_data,
-	read_only image1d_t us1_line_counts,
-	write_only image2d_t us1_seg_in_arc,
-	write_only image2d_t ff4_ellipse_foci,	//TODO: ff4_ellipse_foci is only used for debugging, remove it eventually
-	write_only image2d_t ff4_pseudo_coeffs)	//contains the 12 unique coefficients that the self transpose product produces as part of calculating pseudo inverse
+	read_only image1d_t is2_start_coords,	// branch-free segment chain processing starting locations
+	read_only image2d_t ic2_line_data,		// displacement vectors for segment endpoints
+	read_only image1d_t us1_line_counts,	// how many segments the corresponding start has associated with it, used to evaluate the correct number of segments
+	write_only image2d_t ii2_arc_data,		// Contains arc end location, last segment vector, turning direction, and seg_cnt
+//TODO: prevent double counting of the coefficients for endpoints by weighting them per segment rather than per point
+// this might mean that these calculations would be better done in line segments than here
+	write_only image2d_t ff4_pre_solve_coeffs,	// contains the 14 unique coefficients that the self transpose product produces as part of calculating pseudo inverse and a copy of the seg_cnt so that added coefficients know how many went into them
+	write_only image2d_t ff4_ellipse_foci,	// Contains the foci as calculated according to the coefficients for arc segments of at least 4 segments
+	write_only image2d_t ff4_dup_foci,	// Contains the foci as calculated according to the coefficients for arc segments of at least 4 segments
+	write_only image2d_t ff1_ellipse_major)	// Contains the major axis length (foci-edge-foci length) as calculated according to the coefficients for arc segments of at least 4 segments
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
 
@@ -35,7 +94,14 @@ kernel void arc_builder(
 	// get starting pixel coordinates
 	int2 base_coords = read_imagei(is2_start_coords, index).lo;
 
-	ulong4 coeffs[4];	// accumulator for the 14+1 unique coeffs of the self-transpose-product matrix
+	ulong16 coeffs;	// accumulator for the 14+1 unique coeffs of the self-transpose-product matrix
+	// stores a running total of the coefficients as calculated for each point that is currently associated with the arc
+	// EXCEPT the start point, which gets added at write time, this is because both end points of the arc are half the weight
+	// for the solution so that when arcs that are separate but share endpoints are processed, they don't double up on the 
+	// weighting in the solution, or more accurately all the other weights than the start point get doubled at write time,
+	// then one instance of the start weights gets added and one instance of the end weights gets subtracted and if 2 arcs 
+	// share the same point the sum of their weights will include exactly 2 copies of the same set of weights
+
 	int2 total_offset, curr_coords, curr_seg, prev_seg;
 	curr_coords = base_coords;
 	private int2 points[4];	// relative points to last reset used in the 
@@ -44,7 +110,7 @@ kernel void arc_builder(
 	private int cross_prods[4];
 	private int8 diffs8;
 	private int2* diffs = (private void*)&diffs8;
-	char reset = 3;
+	char reset = LOOP_ENTRY_RESET;
 	ushort seg_cnt;
 	Ellipse ellipse;
 	float4 * foci = &ellipse.foci_dist.foci;
@@ -60,49 +126,36 @@ kernel void arc_builder(
 	{
 		switch(reset)
 		{
-		case 1:	// logical reset, last read segment can't be part of the same elliptical arc
-			write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
+		case LOGICAL_RESET:	// last read segment likely can't be part of the same elliptical arc due to failing a logical test
 			// write coefficients out to buffer
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4,   base_coords.y), convert_float4(coeffs[0]));
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(coeffs[1]));
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(coeffs[2]));
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(coeffs[3]));
-
-			//if it was long enough to calculate an ellipse, write out the foci
+			write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff4_dup_foci, ff1_ellipse_major, &coeffs, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
+		/*	//if it was long enough to calculate an ellipse, write out the foci
 			if(seg_cnt >= 4)
 			{
 				float2 base_f = convert_float2(base_coords);
 				*foci += (float4)(base_f, base_f);
 				write_imagef(ff4_ellipse_foci, base_coords, *foci);
 			}
-			base_coords += total_offset;
-		case 3:	// loop entry init/re-init
+		*/	base_coords += total_offset;
+		//	printf("%v16lu\n", coeffs);
+			// intentional fall-through to re-init
+		case LOOP_ENTRY_RESET:	// loop entry init/re-init
 			reset = 0;
-			coeffs[0] = coeffs[1] = coeffs[2] = coeffs[3] = 0;
-			addPointCoeffs(coeffs, base_coords);
-			total_offset = 0;	//keep last segment that caused the reset
+			coeffs = 0;
+			total_offset = 0;	//keep last segment that caused the reset	//TODO: check if this comment still true
 			seg_cnt = 1;
 			dir_trend = 0;	//trend unknown since only 1 segment at this point
 			break;
-		case 2:	// first solve reset, at time of adding 4th segment, failed to get a valid ellipse fit
+		case FIRST_SOLVE_RESET:	// at time of adding 4th segment, failed to get a valid ellipse fit
 			reset = 0;
 			// kick first segment and copy things down 1 slot to try again
 			int2 first_point = points[0];
 			int2 new_base_coords = base_coords + first_point;
-			ulong4 base_coeffs[4] = {0};
-			addPointCoeffs(base_coeffs, base_coords);
-			coeffs[0] -= base_coeffs[0];
-			coeffs[1] -= base_coeffs[1];
-			coeffs[2] -= base_coeffs[2];
-			coeffs[3] -= base_coeffs[3];
-			addPointCoeffs(base_coeffs, new_base_coords);
-			write_imageui(us1_seg_in_arc, base_coords, 1);
-			// write the single segment coefficients scaled by 1/2 so as to not bias solutions toward single segments
-			// other low segment counts may still cause biased weighting but not nearly as bad as single segments
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4,   base_coords.y), convert_float4(base_coeffs[0])/2);
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(base_coeffs[1])/2);
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(base_coeffs[2])/2);
-			write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(base_coeffs[3])/2);
+			ulong16 base_coeffs = getPointCoeffs(new_base_coords);
+			coeffs -= base_coeffs;
+
+			// write the single segment out
+			write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff4_dup_foci, ff1_ellipse_major, &base_coeffs, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1);
 			
 			base_coords = new_base_coords;	// advance base coords by first segment
 			total_offset -= first_point;
@@ -116,15 +169,15 @@ kernel void arc_builder(
 		prev_seg = curr_seg;
 		total_offset += curr_seg;
 		curr_coords += curr_seg;
-		addPointCoeffs(coeffs, curr_coords);
-		
+		coeffs += getPointCoeffs(curr_coords);
+
 		curr_seg = read_imagei(ic2_line_data, curr_coords).lo;
 
 		// angle difference between segments A and B must be acute (no sharp corners), ie positive dot product
 		int dir_dot = dot_2d_i(prev_seg, curr_seg);
 		if(dir_dot <= 0)
 		{
-			reset = 1;	//set reset flag
+			reset = LOGICAL_RESET;	//set reset flag
 			continue;
 		}
 		
@@ -132,7 +185,7 @@ kernel void arc_builder(
 		dir_cross = cross_2d_i(prev_seg, curr_seg);
 		if(abs(dir_cross) > dir_dot)
 		{
-			reset = 1;
+			reset = LOGICAL_RESET;
 			continue;
 		}
 		
@@ -140,7 +193,7 @@ kernel void arc_builder(
 		// if curving direction changes between +/- trigger a reset
 		if((dir ^ dir_trend) == -2)
 		{
-			reset = 1;
+			reset = LOGICAL_RESET;
 			continue;
 		}
 		// if curving direction hasn't yet collapsed to +/-1, attempt to do so
@@ -170,7 +223,7 @@ kernel void arc_builder(
 				// if points didn't form an ellipse with a reasonable minimum major axis length
 				if(ellipse.foci_dist.dist <= 2)
 				{
-					reset = 2;
+					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
 				
@@ -180,7 +233,7 @@ kernel void arc_builder(
 				if(deviation > ELLIPSE_DEVIATION_THRESH)
 				{
 	//				printf("seg_cnt3: %f", ellipse.foci_dist.dist);
-					reset = 2;
+					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
 			}
@@ -210,7 +263,7 @@ kernel void arc_builder(
 				ellipse_from_hist(diffs, cross_prods, &new_ellipse);
 				if(new_ellipse.foci_dist.dist <= 0)
 				{
-					reset = 1;
+					reset = LOGICAL_RESET;
 					continue;
 				}
 
@@ -218,7 +271,7 @@ kernel void arc_builder(
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
 				if(get_ellipse_deviation(&ellipse.foci_dist, old_point) > ELLIPSE_DEVIATION_THRESH)
 				{
-					reset = 1;
+					reset = LOGICAL_RESET;
 					continue;
 				}
 				// else this was just a minor course correction and can be taken as the updated ellipse approx.
@@ -233,12 +286,9 @@ kernel void arc_builder(
 //		printf("%v2i	%v2i	%v2i	%v2i\n", points[0],points[1],points[2],points[3]);
 
 	//flush last arc
-	write_imageui(us1_seg_in_arc, base_coords, seg_cnt);
-	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4,   base_coords.y), convert_float4(coeffs[0]));
-	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+1, base_coords.y), convert_float4(coeffs[1]));
-	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+2, base_coords.y), convert_float4(coeffs[2]));
-	write_imagef(ff4_pseudo_coeffs, (int2)(base_coords.x*4+3, base_coords.y), convert_float4(coeffs[3]));
+	write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff4_dup_foci, ff1_ellipse_major, &coeffs, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
 
+/*
 	//if it was long enough to calculate an ellipse, write out the foci
 	if(seg_cnt >= 4)
 	{
@@ -246,7 +296,7 @@ kernel void arc_builder(
 		*foci += (float4)(base_f, base_f);
 //printf("%v4f ]\n", *foci);
 		write_imagef(ff4_ellipse_foci, base_coords, *foci);
-	}
+	}*/
 }
 
 //debugging print stubs

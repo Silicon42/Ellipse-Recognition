@@ -1,0 +1,19 @@
+#ifndef ARC_DATA_CL_H
+#define ARC_DATA_CL_H
+
+#define DIR_SHIFT		14
+#define SEG_CNT_MASK	((1 << DIR_SHIFT) - 1)
+
+typedef struct _arcdata{
+	short dir_cnt;	// dir stored in top 2 bits, clamped count in bottom 14 bits
+	char2 last_seg;
+	short2 endpoint;
+} ArcData;
+
+typedef union _rw_arcdata{
+	int2 rw;
+	ArcData ad;
+} RW_ArcData;
+
+
+#endif//ARC_DATA_CL_H

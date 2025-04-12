@@ -230,21 +230,25 @@ if(any(isnan(temp_f2)))
 
 #pragma OPENCL FP_CONTRACT DEFAULT
 
-// adds the coefficient components as calculated for this point to the square matrix
+// calculate the coefficient components for this point to the square matrix
 // done in long int math to prevent precision loss, safe from overflow as long as
 // no more than 256 points are added this way for max x and y coords < 16384 (2^14),
 // safe limit is higher if max coords are less than that, considering the longest
 // chain I've seen so far was ~30, I'm not even going to check
-void addPointCoeffs(ulong4 coeffs[4], int2 p)
+// Assumes x and y coords are in the range of 0 to 16383
+ulong16 getPointCoeffs(int2 p)
 {
+	// x2 and y2 are stored in ulongs so promotion occurs before operations in the return statement
+	// could be done just as well with casting but is more readable this way
 	ulong x2 = p.x * p.x;
 	ulong y2 = p.y * p.y;
-	ulong xy = p.x * p.y;
+	uint xy = p.x * p.y;
 	//TODO: this could probably be done in a more efficient order, also 
 	// the ordering might not be ideal for later conversion to packed symmetric 
 	// form from stored coefficients in terms of accuracy loss
-	coeffs[0] += (ulong4)(x2, xy, y2, x2*p.x);
-	coeffs[1] += (ulong4)(x2*p.y, x2*x2, p.x*y2, p.y*y2);
-	coeffs[2] += (ulong4)(0, y2*y2, p.x, p.y);
-	coeffs[3] += (ulong4)(x2*xy, xy*y2, x2*y2, 1);
+	return (ulong16)(
+		x2,		xy,		y2,		x2*p.x,	//	x^2		xy		y^2		x^3
+		x2*p.y,	x2*x2,	p.x*y2,	p.y*y2,	//	x^2y	x^4		xy^2	y^3
+		0,		y2*y2,	p.x,	p.y,	//	resv.	y^4		x		y
+		x2*xy,	xy*y2,	x2*y2,	1);		//	x^3y	x^y3	x^2y^2	2*count
 }

@@ -29,7 +29,6 @@ And thanks to Martin Tournoij for his fork of toml-c available here:
 https://github.com/arp242/toml-c .
 
 # TODO List
-* IMPORTANT: re-add capability to print image sizes and kernel sizes
 * Add type read/write type mismatch warning for OpenCL kernel compilation by 
 parsing raw input for mis-matched read/write calls
 * verify artificial vector bithacks actually provide a perf benefit
@@ -49,3 +48,6 @@ forgot the importance of using group shared memory when possible
 * add capability to specify clamped border type with warning if appropriate order
 not available, currently defaults to whatever has the correct channel count and
 is on the OpenCL 2.x minimum full profile support list
+* make naming conventions the same across the codebase (low priority)
+* fix naming of FociDist to be FociMajor and all references to "dist" in regards
+to the ellipse distance to "major"
