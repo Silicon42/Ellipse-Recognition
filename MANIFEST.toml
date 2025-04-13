@@ -8,18 +8,18 @@ Stages = [
 	{name = 'serial_reduce', args = ['starts_cont', 'start_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts']},#, range = {ref_arg = 'start_coords'}},
 #	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
-	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'pre_solve_coeffs', 'ellipse_foci', 'dup', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
+	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'pre_solve_coeffs', 'ellipse_foci', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
+	{name = 'serial_reduce_arcs', args = ['arc_data', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
 
 #### OUTPUT DEBUGGING KERNELS ####
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
-	{name = 'foci_dist_draw', args = ['arc_data','ellipse_foci','dup', 'ellipse_major', 'retrace'], range = {ref_arg = 'retrace'}},
+	{name = 'foci_dist_draw', args = ['arc_data','ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'retrace'}},
 #	{name = 'conic_solve_debug', args = ['pre_solve_coeffs','retrace'], range = {ref_arg = 'retrace'}},	#DEPRECATED
 #	{name = 'colored_retrace_line', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts', 'retrace'], range = {ref_arg = 'start_coords'}},
 #	{name = 'colored_retrace_starts', args = ['start_coords', 'retrace'], range = {ref_arg = 'start_coords'}},
 	{name = 'foci_debug', args = ['line_data', 'arc_data', 'ellipse_foci', 'retrace']},
 #	{name = 'lost_seg_debug', args = ['retrace', 'starts_cont', 'retrace']},
-#	{name = 'serial_reduce_arc_seeds', args = ['seg_in_arc', 'arc_candidates'], range = {mode = 'EXACT', params = [1,1,1]}}
 ]
 
 # hard-coded entries corresponding to program input
@@ -45,9 +45,10 @@ line_cnts = {type = 'image1d_t', channel_type = 'uint16', channel_count = 1, siz
 arc_data = {type = 'image2d_t', channel_type = 'int32', channel_count = 2, size = {ref_arg = 'starts_cont'}}
 ellipse_foci = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {ref_arg = 'starts_cont'}}
 ellipse_major = {type = 'image2d_t', channel_type = 'float', channel_count = 1, size = {ref_arg = 'starts_cont'}}
+pre_solve_coeffs = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {mode = 'MULTIPLY', params = [2,2,1], ref_arg = 'starts_cont'}}
+arc_coords = {type = 'image2d_t', channel_type='int16', channel_count=2, size={mode = 'EXACT', params = [16384,2,1]}}
+#TODO: add a buffer for the non-arc-associated line segments and figure out how you want to handle those and arcs with 2 or 3 segments
+
+#### DEGUGGING ONLY ARGS ####
 retrace = {type = 'image2d_t', channel_type = 'uint8', channel_count = 4, size = {ref_arg = 'input'}}
 expanded = {type = 'image2d_t', channel_type = 'uint8', channel_count = 4, size = {mode = 'MULTIPLY', params = [3,3,1]}}
-arc_candidates = {type = 'image1d_t', channel_type = 'int16', channel_count = 2, size = {mode = 'EXACT', params = [16384,1,1]}}
-pre_solve_coeffs = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {mode = 'MULTIPLY', params = [2,2,1], ref_arg = 'starts_cont'}}
-
-dup = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {ref_arg = 'starts_cont'}}

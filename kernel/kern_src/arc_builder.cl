@@ -28,7 +28,6 @@ void write_arc(
 	write_only image2d_t ii2_arc_data, 
 	write_only image2d_t ff4_pre_solve_coeffs,
 	write_only image2d_t ff4_ellipse_foci,
-	write_only image2d_t ff4_dup_foci,	// Contains the foci as calculated according to the coefficients for arc segments of at least 4 segments
 	write_only image2d_t ff1_ellipse_major,
 	ulong16 * const coeffs,
 	int2 const start_coords, 
@@ -62,12 +61,11 @@ void write_arc(
 	Ellipse el;
 	solveConic((private float*)&coeffs_f, el.general);
 	convertGeneralConicToFociDistEllipse(&el);
-	if(seg_cnt >= 4)
-		printf("%.6v4A		%.6A\n", el.foci_dist.foci, el.foci_dist.dist);
+//	if(seg_cnt >= 4)
+//		printf("%.6v4A		%.6A\n", el.foci_dist.foci, el.foci_dist.dist);
 //printf("%v2i	", start_coords);
-	write_imagef(ff1_ellipse_major, start_coords, el.foci_dist.dist);
-	write_imagef(ff4_dup_foci, start_coords, el.foci_dist.foci);
 	write_imagef(ff4_ellipse_foci, start_coords, el.foci_dist.foci);
+	write_imagef(ff1_ellipse_major, start_coords, el.foci_dist.dist);
 }
 
 kernel void arc_builder(
@@ -79,7 +77,6 @@ kernel void arc_builder(
 // this might mean that these calculations would be better done in line segments than here
 	write_only image2d_t ff4_pre_solve_coeffs,	// contains the 14 unique coefficients that the self transpose product produces as part of calculating pseudo inverse and a copy of the seg_cnt so that added coefficients know how many went into them
 	write_only image2d_t ff4_ellipse_foci,	// Contains the foci as calculated according to the coefficients for arc segments of at least 4 segments
-	write_only image2d_t ff4_dup_foci,	// Contains the foci as calculated according to the coefficients for arc segments of at least 4 segments
 	write_only image2d_t ff1_ellipse_major)	// Contains the major axis length (foci-edge-foci length) as calculated according to the coefficients for arc segments of at least 4 segments
 {
 	short index = get_global_id(0);	// must be scheduled as 1D
@@ -128,7 +125,7 @@ kernel void arc_builder(
 		{
 		case LOGICAL_RESET:	// last read segment likely can't be part of the same elliptical arc due to failing a logical test
 			// write coefficients out to buffer
-			write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff4_dup_foci, ff1_ellipse_major, &coeffs, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
+			write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
 		/*	//if it was long enough to calculate an ellipse, write out the foci
 			if(seg_cnt >= 4)
 			{
@@ -155,7 +152,7 @@ kernel void arc_builder(
 			coeffs -= base_coeffs;
 
 			// write the single segment out
-			write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff4_dup_foci, ff1_ellipse_major, &base_coeffs, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1);
+			write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &base_coeffs, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1);
 			
 			base_coords = new_base_coords;	// advance base coords by first segment
 			total_offset -= first_point;
@@ -286,7 +283,7 @@ kernel void arc_builder(
 //		printf("%v2i	%v2i	%v2i	%v2i\n", points[0],points[1],points[2],points[3]);
 
 	//flush last arc
-	write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff4_dup_foci, ff1_ellipse_major, &coeffs, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
+	write_arc(ii2_arc_data, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
 
 /*
 	//if it was long enough to calculate an ellipse, write out the foci

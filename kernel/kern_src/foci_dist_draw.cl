@@ -12,7 +12,6 @@ purposes only
 kernel void foci_dist_draw(
 	read_only image2d_t ii2_arc_data,
 	read_only image2d_t ff4_foci,
-	read_only image2d_t ff4_dup,
 	read_only image2d_t ff1_major,
 	write_only image2d_t uc4_out)
 {
@@ -28,7 +27,6 @@ kernel void foci_dist_draw(
 		.foci = read_imagef(ff4_foci, coords),
 		.dist = read_imagef(ff1_major, coords).x
 	};
-	float4 dup = read_imagef(ff4_dup, coords);
 
 	int2 bounds = get_image_dim(uc4_out);
 	for(int j = 0; j < bounds.y; ++j)
@@ -36,7 +34,7 @@ kernel void foci_dist_draw(
 		for(int i = 0; i < bounds.x; ++i)
 		{
 			float dist = get_ellipse_deviation(&ellipse, (float2)(i, j));
-			if(!isfinite(dist) || dist > M_SQRT2/2)
+			if(!isfinite(dist) || dist > M_SQRT2/2)	//actual safety margin is probably M_SQRT2
 				continue;
 			write_imageui(uc4_out, (int2)(i, j), (uint4)(color, -1));
 		}
