@@ -10,23 +10,31 @@ purposes only
 #include "bresenham_line.cl_h"
 
 kernel void foci_dist_draw(
-	read_only image2d_t ii2_arc_data,
+//	read_only image2d_t ii2_arc_data,
+	read_only image2d_t is1_dir_cnt,
 	read_only image2d_t ff4_foci,
 	read_only image2d_t ff1_major,
 	write_only image2d_t uc4_out)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
-	ArcData data = ((RW_ArcData)read_imagei(ii2_arc_data, coords).lo).ad;
-	if((data.dir_cnt & SEG_CNT_MASK) < 4)	// only draw ellipses that have at least 4 segments to them
+	//ArcData data = ((RW_ArcData)read_imagei(ii2_arc_data, coords).lo).ad;
+	short dir_cnt = read_imagei(is1_dir_cnt, coords).x;
+	if((dir_cnt & SEG_CNT_MASK) < 4)	// only draw ellipses that have at least 4 segments to them
 		return;
-
-	uint3 color = scatter_colorize(coords.x ^ coords.y);
 
 	FociDist ellipse = {
 		.foci = read_imagef(ff4_foci, coords),
 		.dist = read_imagef(ff1_major, coords).x
 	};
+
+	if(ellipse.dist < 0)
+	{
+		printf(" hyperbola?");
+		return;
+	}
+
+	uint3 color = scatter_colorize(coords.x ^ coords.y);
 
 	int2 bounds = get_image_dim(uc4_out);
 	for(int j = 0; j < bounds.y; ++j)
@@ -40,10 +48,10 @@ kernel void foci_dist_draw(
 		}
 	}
 
-	int2 end_coords = convert_int2(data.endpoint);
+//	int2 end_coords = convert_int2(data.endpoint);
 	int4 foci = convert_int4_sat_rte(ellipse.foci);
-	draw_line(end_coords, foci.lo, (uint4)(color/2, 128), uc4_out);
-	draw_line(end_coords, foci.hi, (uint4)(color/2, 128), uc4_out);
+//	draw_line(end_coords, foci.lo, (uint4)(color/2, 128), uc4_out);
+//	draw_line(end_coords, foci.hi, (uint4)(color/2, 128), uc4_out);
 	draw_line(coords, foci.lo, (uint4)(color + 64, 128), uc4_out);
 	draw_line(coords, foci.hi, (uint4)(color + 64, 128), uc4_out);
 }

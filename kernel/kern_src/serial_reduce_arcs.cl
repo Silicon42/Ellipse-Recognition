@@ -5,21 +5,21 @@
 #include "arc_data.cl_h"
 
 __kernel void serial_reduce_arcs(
-	read_only image2d_t ii2_arc_data,
+	read_only image2d_t is1_dir_cnt,
 	write_only image2d_t is2_arc_coords)
 {
 	ushort max_size = get_image_width(is2_arc_coords);	//TODO: this can probably be replaced optionally with a define
 	if(get_global_id(0))	// only thread 0 proccesses anything here
 		return;
 	
-	int2 bounds = get_image_dim(ii2_arc_data);
+	int2 bounds = get_image_dim(is1_dir_cnt);
 	int index[2] = {0};
 
 	for(int2 coords = 0; coords.y < bounds.y; ++coords.y)
 	{
 		for(coords.x = 0; coords.x < bounds.x; ++coords.x)
 		{
-			ushort dir_cnt = read_imagei(ii2_arc_data, coords).x;
+			ushort dir_cnt = read_imagei(is1_dir_cnt, coords).x;
 			//TODO: the following could be done in 1 check if the direction encoding were different,
 			// may not actually be beneficial to change it though since other things still need it as a signed value
 			if((dir_cnt & SEG_CNT_MASK) < 4 || (dir_cnt >> DIR_SHIFT) == 0)
@@ -36,5 +36,5 @@ __kernel void serial_reduce_arcs(
 			++index[is_ccw];
 		}
 	}
-	printf("serial_reduce_arcs(): max indices were %u, %u\n", index,[0], index[1]);
+	printf("serial_reduce_arcs(): max indices were %u, %u\n", index[0], index[1]);
 }

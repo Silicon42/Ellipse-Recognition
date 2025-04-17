@@ -3,12 +3,12 @@
 
 #define DIR_SHIFT		14
 #define SEG_CNT_MASK	((1 << DIR_SHIFT) - 1)
-
+	// dir stored in top 2 bits, clamped count in bottom 14 bits
 typedef struct _arcdata{
-	short dir_cnt;	// dir stored in top 2 bits, clamped count in bottom 14 bits
+	char2 first_seg;
 	char2 last_seg;
 	short2 endpoint;
-} ArcData;
+} __attribute__((aligned(8))) ArcData;
 
 typedef union _rw_arcdata{
 	int2 rw;

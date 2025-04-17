@@ -4,12 +4,12 @@
 
 kernel void foci_debug(
 	read_only image2d_t ic2_line_data,
-	read_only image2d_t ii2_arc_data,
+	read_only image2d_t is1_dir_cnt,
 	read_only image2d_t ff4_ellipse_foci,
 	write_only image2d_t uc4_out_image)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	uint seg_cnt = read_imagei(ii2_arc_data, coords).x & SEG_CNT_MASK;
+	uint seg_cnt = read_imagei(is1_dir_cnt, coords).x & SEG_CNT_MASK;
 
 	//arbitrary color to distinguish nearby arcs from each other
 	uint4 color = (uint4)(scatter_colorize(coords.x * coords.y), 1000);
@@ -20,8 +20,9 @@ kernel void foci_debug(
 	else
 	{
 		//draw lines between the start of the arc and the associated foci
-		foci = convert_int4(convert_short4_sat_rte(read_imagef(ff4_ellipse_foci, coords)));
-	//	printf("%v4i", foci);
+		float4 foci_f = read_imagef(ff4_ellipse_foci, coords);
+//		printf("%v4f\n", foci_f);
+		foci = convert_int4(convert_short4_sat_rte(foci_f));
 		draw_line(coords, foci.lo, color + 64, uc4_out_image);
 		draw_line(coords, foci.hi, color + 64, uc4_out_image);
 	}
