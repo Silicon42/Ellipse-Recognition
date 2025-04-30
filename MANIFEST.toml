@@ -9,7 +9,7 @@ Stages = [
 	{name = 'line_segments', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts']},#, range = {ref_arg = 'start_coords'}},
 #	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'arc_dir_cnt', 'pre_solve_coeffs', 'ellipse_foci', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
-#	{name = 'serial_reduce_arcs', args = ['arc_data', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
+	{name = 'serial_reduce_arcs', args = ['arc_dir_cnt', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
 
 #### OUTPUT DEBUGGING KERNELS ####
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},

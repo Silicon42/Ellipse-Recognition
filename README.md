@@ -3,7 +3,11 @@ An OpenCL implementation of fast ellipse recognition (WIP)
 
 Currently includes a Scharr filter based edge detector that simultaneously 
 calculates x and y gradients from a single input channel. No performance testing 
-has been done yet. Ellipse recognition has not yet been implemented.
+has been done yet. Ellipse recognition has not yet been fully implemented yet.
+
+## Notes
+Coordinate conventions are left-handed (X+ right, Y+ down, Z+ back, theta+ clockwise) 
+because everything gets calculated in terms of screen/image space coordinates.
 
 # Cloning this repo
 This repo uses git submodules to pull in the OpenCL headers, so you must use

@@ -19,6 +19,8 @@ __kernel void serial_reduce_arcs(
 	{
 		for(coords.x = 0; coords.x < bounds.x; ++coords.x)
 		{
+			if(all(coords == 0))	//prevent arcs at (0,0) from possibly writing, since that currently signifies the end of the list
+				continue;	//TODO: fix it so that arcs at (0,0) don't cause problems
 			ushort dir_cnt = read_imagei(is1_dir_cnt, coords).x;
 			//TODO: the following could be done in 1 check if the direction encoding were different,
 			// may not actually be beneficial to change it though since other things still need it as a signed value

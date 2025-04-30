@@ -5,8 +5,7 @@
 #define SEG_CNT_MASK	((1 << DIR_SHIFT) - 1)
 	// dir stored in top 2 bits, clamped count in bottom 14 bits
 typedef struct _arcdata{
-	char2 first_seg;
-	char2 last_seg;
+	char4 tangents;
 	short2 endpoint;
 } __attribute__((aligned(8))) ArcData;
 

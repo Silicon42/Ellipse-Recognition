@@ -1,82 +1,260 @@
-#include "cast_helpers.cl_h"
+/*
+gets up to 8 candidate matches of if arc segment A could be in the same ellipse
+as a given arc segment B and if it can, adds the candidate to A's list of up to 8
+if there is space.
+Only matches arcs of the same turning direction, expects cw arcs in is2_arc_coords
+y=0 and ccw arcs in y=1.
+*/
+
+//#include "cast_helpers.cl_h"
 #include "math_helpers.cl_h"
+#include "arc_data.cl_h"
+
+#define MAX_CANDIDATES 8
+
+// state representation of the arc retraction state machine that runs when a pair
+// of arc candidates have ends that are too close to be run through the Candy's 
+// theorem constraint as is
+// bit 0 represents B having both sides retracted
+// bits 1 and 2 represent the A retraction degree,
+//	0: no retraction,
+//	1: tangent retraction,
+//	2: 1/4 retraction
+//	3: special entry/exit state
+enum distState{
+	A0B0 = 0b000,
+	A0B1 = 0b001,
+	A1B0 = 0b010,
+	A1B1 = 0b011,
+	A2B0 = 0b100,
+	A2B1 = 0b101,
+	START= 0b110,
+	EXIT = 0b111,
+};
+
+bool isPointOutOfRegion(int4 tangents, int4 displacements)
+{
+	tangents *= displacements.yxwz;
+	tangents.even -= tangents.odd;
+	return any(tangents.even < 0);
+}
+
+// Fills the test points array with floating point coordinates corresponding to the line segment endpoints of the segments
+// that constitute the arc closest to the approximately 5/8, 1/4, 1/2, 3/4, and 3/8 through the arc using the measure of 
+// the segment count for the arc, this ensures that chosen points reflect true points on the curve as accurately as possible
+// as opposed to interpolating a line segment
+// They are ordered this way such that by default the 3 test points are the middle 3 and if a candidate arc is too close to 
+// one side, the start point of which 3 to test in the array may simply be shifted +1 or -1 to accomodate
+//NOTE: this expects arc segment counts to fit fully in SEG_CNT_MASK (16383 at time of writing) to give accurate results
+//NOTE: this traverses the ic2_line_data list for the given arc, so it can be slow for long arcs. I don't currently have a better solution.
+inline void getCandysTestPoints(read_only image2d_t ic2_line_data, int seg_cnt, int2 coords, float2 test_points[5])
+{
+
+	int test_indices[5];
+	test_indices[0] = seg_cnt/4;
+	test_indices[1] = (seg_cnt*3)/8;
+	test_indices[2] = seg_cnt/2;
+	test_indices[3] = seg_cnt - test_indices[1];
+	test_indices[4] = seg_cnt - test_indices[0];
+
+	char order[] = {1,4,2,0,3};
+	for(int i = 0, cnt = 1; i < 5; )
+	{
+		if(cnt >= test_indices[i])
+		{
+			test_points[order[i]] = convert_float2(coords);
+			++i;
+			continue;
+		}
+
+		coords += read_imagei(ic2_line_data, coords).lo;
+		++cnt;
+	}
+}
 
 kernel void arc_seg_adj_matrix(
-//	read_only image2d_t ic2_line_data,
-//	read_only image2d_t us1_seg_in_arc,
-	read_only image1d_t ic4_tangents,
-	read_only image1d_t is4_arc_candidate_coords,
-	write_only image1d_t us4_sparse_adj_matrix)
+	read_only image2d_t ic2_line_data,
+	read_only image2d_t ii2_arc_data,
+	read_only image2d_t is1_dir_cnt,
+	read_only image2d_t is2_arc_coords,
+	write_only image2d_t ii4_sparse_adj_matrix)
 {
-	int index = get_global_id(0);
-	int4 A_arc_coords = read_imagei(is4_arc_candidate_coords, index);
+	int2 indices = (int2)(get_global_id(0), get_global_id(1));
+	int2 A_coords[2];
+	A_coords[0] = read_imagei(is2_arc_coords, indices).lo;
 
-	// only process valid entries
-	if(!any(A_arc_coords == 0))
+	// only process valid arcs
+	if(all(A_coords[0] == 0))
 		return;
 
-	int4 A_tangents = read_imagei(ic4_tangents, index);
-	int2 A_end_offset = A_arc_coords.hi - A_arc_coords.lo;
-	uint worst_dist2 = mag2_2d_i(A_end_offset);
-	
-	uchar num_candidates[2] = {0};
-	ushort candidates[2] = {-1, -1};
-	uint candidate_dist2[2] = {-1, -1};
-	uchar worst = 0;
+	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, indices).lo).ad;
+	A_coords[1] = convert_int2(A_data.endpoint);
+	int2 A_end_offset = A_coords[1] - A_coords[0];
+	int4 A_tangents = convert_int4(A_data.tangents);
+	// flip vectors for ccw arcs to keep check sense the same
+	if(indices.y)
+	{
+		A_end_offset *= -1;
+		A_tangents *= -1;
+	}
 
-	//TODO: revisit these checks once you understand the Candy's Theorem constraint, should be more efficient
-	for(uint i = 0; ; ++i)
+	//TODO: this might need to be upped/more intelligently chosen if some close together arcs that should match fail to do so
+	float2 test_points[5];
+	int seg_cnt = read_imagei(is1_dir_cnt, A_coords[0]).x & SEG_CNT_MASK;
+	int2 coords = A_coords[0] + A_tangents.lo;
+	if(seg_cnt > 5)
+		getCandysTestPoints(ic2_line_data, seg_cnt, coords, test_points);
+	else
+	{
+		test_points[1] = convert_float2(coords);
+		test_points[3] = convert_float2(A_coords[1] - A_tangents.hi);
+		coords += read_imagei(ic2_line_data, coords).lo;
+		test_points[2] = convert_float2(coords);
+		test_points[4] = (test_points[1] + test_points[2])/2;
+		if(seg_cnt == 4)
+			test_points[0] = (test_points[3] + test_points[2])/2;
+		else	// seg_cnt == 5
+		{
+			coords += read_imagei(ic2_line_data, coords).lo;
+			test_points[0] = convert_float2(coords);
+		}
+	}
+
+	int num_candidates = 0;
+	__attribute__((aligned(2*MAX_CANDIDATES))) short candidates[MAX_CANDIDATES] = {-1,-1,-1,-1,-1,-1,-1,-1};
+
+	for(int i = 0; ; ++i)
 	{
 		// check which location to evaluate for adjacency
-		int4 B_arc_coords = read_imagei(is4_arc_candidate_coords, i);
+		int2 B_coords[2];
+		B_coords[0] = read_imagei(is2_arc_coords, (int2)(i, indices.y)).lo;
 
-		// only process valid entries
-		if(!any(B_arc_coords == 0))
+		// only process valid arcs
+		if(all(B_coords[0] == 0))
 			break;
+		
+		// skip matching against itself
+		if(all(B_coords[0] == A_coords[0]))
+			continue;
 
-		int2 A_to_B = B_arc_coords.lo - A_arc_coords.hi;	// vector from end of arc A to start of arc B
-		uint dist2 = mag2_2d_i(A_to_B);
-		// if it's at or above the max search radius away from the end,
-		// skip it, it's not likely part of the same ellipse,
-		// also prevents it from including itself
-		if(dist2 >= worst_dist2)
+		int4 A_to_B_start;
+		A_to_B_start.hi = B_coords[0] - A_coords[1];	// vector from end of arc A to start of arc B
+		uint dist2 = mag2_2d_i(A_to_B_start.hi);
+		
+		// if start of arc B isn't toward the interior side of arc A,
+		// A_end_offset X A_to_B will be negative, indicating it should be skipped
+		if(cross_2d_i(A_end_offset, A_to_B_start.hi) < 0)
+			continue;
+
+		A_to_B_start.lo = B_coords[0] - A_coords[0];	// vector from start of arc A to start of arc B
+
+		// if the start of B isn't between the tangents of A it should be skipped
+		if(isPointOutOfRegion(A_tangents, A_to_B_start))
+			continue;
+
+		// since it passed initial tests, read in the tangents and endpoint data for deeper verification
+		ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, (int2)(i, indices.y)).lo).ad;
+		B_coords[1] = convert_int2(B_data.endpoint);
+
+		int4 A_to_B_end;
+		A_to_B_end.lo = B_coords[1] - A_coords[0];
+		// if end of arc B isn't toward the interior side of arc A,
+		// A_end_offset X A_to_B will be negative, indicating it should be skipped
+		if(cross_2d_i(A_end_offset, A_to_B_end.lo) < 0)
+			continue;
+
+		A_to_B_end.hi = B_coords[1] - A_coords[1];
+
+		// if the end of B isn't between the tangents of A it should be skipped
+		if(isPointOutOfRegion(A_tangents, A_to_B_end))
+			continue;
+
+		int4 B_tangents = convert_int4(B_data.tangents);
+		if(indices.y)
+			B_tangents *= -1;
+
+		if(isPointOutOfRegion(A_to_B_start, B_tangents.xyxy))
 			continue;
 		
-		// if start of arc B isn't within the tangent of the end of arc A,
-		// A_to_B will have a component against the direction of A_end_offset
-		// so dot product will be negative, indicating it should be skipped
-		if(dot_2d_i(A_end_offset, A_to_B) < 0)
+		if(isPointOutOfRegion(A_to_B_end, B_tangents.zwzw))
 			continue;
 
-		int4 B_tangents = read_imagei(ic4_tangents, i);
-		int2 B_end_offset = B_arc_coords.hi - B_arc_coords.lo;
+		// all preliminary region checks passed, do Candy's theorem checks
+		int2 B_end_offset = B_coords[1] - B_coords[0];
 
-		// angle between segments A and B must be acute, ie positive dot product
-		if(dot_2d_i(A_end_offset, B_end_offset) <= 0)
-			continue;
+		// check if the distance from A end to B start is within a magnitude of 3 to the distance from A start to B end
+		// if it is, then the coords used as the arc endpoints in the Candy's theorem checks need to be changed and the test indices might need to be shifted
+		// this is done by getting the squares of the distances and comparing the smaller of them * 8 with the difference
+		// if it does not exceed the difference the length is at most 1/3 the length of the longer, in the case where one or both
+		// lengths are 0 then this still evaluates as needing a retraction
+		//int4 A_coords_copy = A_coords;	// duplicate for modifying 
+		int dist2AB[2] = {mag2_2d_i(A_to_B_end.lo), mag2_2d_i(A_to_B_start.hi)};
+		int dist2diffAB = dist2AB[0] - dist2AB[1];	// + means A start to B end (0) was bigger, - means A end to B start was bigger (1)
+		bool min_sel;// = dist2diffAB >= 0;	// 0 if negative
+		enum distState state = START;
+		char const sign_sel[2] = {1,-1};
+		int2 const * B_tan = (int2*)&B_tangents;
+		int2 const * A_tan = (int2*)&A_tangents;
 		
-		int dir = cross_2d_i(A_end_offset, B_end_offset);
-		// anti-joggle check, the turning direction of the segment offsets must
-		// match that of the line between them, meaning the product of the 2 must be non-negative
-		if(dir * cross_2d_i(A_end_offset, A_to_B) < 0)
-			continue;
+		while(dist2AB[min_sel] * 8 <= dist2diffAB)
+		{	// the max length side was >= 3x the length of the min length side
+			bool new_min = dist2diffAB >= 0;
+			switch(state)
+			{
+			case START:
+				state = A0B0;
+				B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+				dist2AB[min_sel] = mag2_2d_i(B_coords[!min_sel] - A_coords[min_sel]);
 
-		// could add a B chord len search region check here for better symmetry but it would be mostly redundant
-		
-		uchar is_ccw = dir <= 0;
-		is_both = dir == 0;
-		// all checks passed, save candidate
-		//TODO: this might be done better with vector selection
-		do	// the indexing is done to avoid branching since any given arc will typically find one or the other but almost never both
-		{
-			candidates[is_worst[is_ccw]][is_ccw] = i;	// replace worst candidate
-			candidate_dist2[is_worst[is_ccw]][is_ccw] = dist2;
-			is_worst[is_ccw] = candidate_dist2[0][is_ccw] > candidate_dist2[1][is_ccw];	// update worst candidate
-			++num_candidates[is_ccw];	// update number of candidates found so far
-			//if(num_candidates[is_ccw] >= MAX_CANDIDATES)
-				worst_dist2 = candidate_dist2[is_worst[is_ccw]][is_ccw];	// update search range
-		}while(is_both--);
+				min_sel = new_min;
+			case A0B0:
+				state = (min_sel ^ new_min) ? A0B1 : A1B0;
+			case A1B0:
+				state = (min_sel ^ new_min) ? A1B1 : A2B0;
+			case A2B0:
+				state = (min_sel ^ new_min) ? A2B1 : EXIT;
+			case A0B1:
+				state = A1B1;
+				min_sel = new_min;
+			case A1B1:
+				state = (min_sel ^ new_min) ? EXIT : A2B1;
+			case A2B1:
+				state = EXIT;
+
+			case EXIT:
+				break;
+			}
+			// shorten B arc on side attached to the min length along tangent and re-calc dist to see if this fixed the issue
+			dist2diffAB = dist2AB[0] - dist2AB[1];
+			bool new_min_sel = dist2diffAB >= 0;
+			// if there is still a problem
+			if(dist2AB[new_min_sel] * 8 <= dist2diffAB)
+			{
+				// if the short side swapped
+				if(min_sel ^ new_min_sel)
+				{
+					B_coords
+				}
+			}
+
+
+			if(seg_cnt >= 6)	// 6 is minimum seg_cnt where 1/4 and 3/8 eval points differ
+			{}
+		}
+
+		//TODO: handle corner case where distances are small and arcs are fully complementary parts, causing moving of just one side
+		// to make the other side be more than a magnitude of 3 difference to the new distance, in extreme cases, even retracting
+		// both sides of B along their "tangents" could still leave it in a bad state, so one more attempt must be made to retract
+		// a side of A along the "tangent", if this again causes problems with the same side, a longer retraction to the 1/4 point must be used instead
+
+		if(num_candidates < MAX_CANDIDATES)
+			candidates[num_candidates] = i;
+		++num_candidates;
 	}
-	printf("(%i,%i) %u %u %u %u\n", A_arc_coords.lo, candidates[0][0], candidates[1][0], candidates[0][1], candidates[1][1]);
-	write_imageui(us4_sparse_adj_matrix, index, (uint4)(candidates[!is_worst[0]][0], candidates[is_worst[0]][0], candidates[!is_worst[1]][1], candidates[is_worst[1]][1]));
+
+	// debug info in case it turns out 8 slots isn't reliably enough in a busy scene
+	if(num_candidates > MAX_CANDIDATES)
+		printf("%v2i ran out of slots (%i)\n", indices, num_candidates);
+	
+	write_imagei(ii4_sparse_adj_matrix, indices, *(int4*)candidates);
 }

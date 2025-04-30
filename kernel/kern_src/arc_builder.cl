@@ -31,7 +31,7 @@ void write_arc(
 	write_only image2d_t ff4_ellipse_foci,
 	write_only image2d_t ff1_ellipse_major,
 	ulong16 * const coeffs,
-	ArcData data,	// expected to have .first_seg pre-populated
+	ArcData data,	// expected to have .tangents.lo pre-populated
 	int2 const start_coords, 
 	int2 const end_coords, 
 	int2 const last_seg, //TODO: here on down might be more performant to combine into destination structs BEFORE passing them in
@@ -41,7 +41,7 @@ void write_arc(
 	write_imagei(is1_dir_cnt, start_coords, dir << 14 | min(seg_cnt, SEG_CNT_MASK));
 	//TODO: see if packing a struct and writing the full width would be faster or if using the default alignment of write_image is faster
 	
-	data.last_seg = convert_char2(last_seg);
+	data.tangents.hi = convert_char2(last_seg);
 	data.endpoint = convert_short2(end_coords);
 
 	write_imagei(ii2_arc_data, start_coords, (int4)(((RW_ArcData)data).rw, 0, 0));
@@ -139,7 +139,7 @@ kernel void arc_builder(
 			coeffs = 0;
 			total_offset = 0;	//keep last segment that caused the reset	//TODO: check if this comment still true
 			seg_cnt = 1;
-			data.first_seg = convert_char2(curr_seg);
+			data.tangents.lo = convert_char2(curr_seg);
 			dir_trend = 0;	//trend unknown since only 1 segment at this point
 			break;
 		case FIRST_SOLVE_RESET:	// at time of adding 4th segment, failed to get a valid ellipse fit
@@ -154,7 +154,7 @@ kernel void arc_builder(
 			write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &base_coeffs, data, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1);
 			
 			base_coords = new_base_coords;	// advance base coords by first segment
-			data.first_seg = convert_char2(diffs[1]);
+			data.tangents.lo = convert_char2(diffs[1]);
 			total_offset -= first_point;
 			points[0] = points[1] - first_point;	// remove first segment's offset to account for new base coord
 			points[1] = points[2] - first_point;
