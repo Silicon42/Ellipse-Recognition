@@ -187,66 +187,83 @@ kernel void arc_seg_adj_matrix(
 		// this is done by getting the squares of the distances and comparing the smaller of them * 8 with the difference
 		// if it does not exceed the difference the length is at most 1/3 the length of the longer, in the case where one or both
 		// lengths are 0 then this still evaluates as needing a retraction
-		//int4 A_coords_copy = A_coords;	// duplicate for modifying 
-		int dist2AB[2] = {mag2_2d_i(A_to_B_end.lo), mag2_2d_i(A_to_B_start.hi)};
-		int dist2diffAB = dist2AB[0] - dist2AB[1];	// + means A start to B end (0) was bigger, - means A end to B start was bigger (1)
-		bool min_sel;// = dist2diffAB >= 0;	// 0 if negative
+		int2 A_coords_copy[2];	// duplicate for modifying
+		A_coords_copy[0] = A_coords[0];
+		A_coords_copy[1] = A_coords[1];
+		
+		int dist2AB[2];
+		dist2AB[1] = mag2_2d_i(A_to_B_start.hi);
+		bool min_sel = 0, min_trend;	// 0 if negative
+		char test_index = 1;
 		enum distState state = START;
 		char const sign_sel[2] = {1,-1};
 		int2 const * B_tan = (int2*)&B_tangents;
 		int2 const * A_tan = (int2*)&A_tangents;
 		
-		while(dist2AB[min_sel] * 8 <= dist2diffAB)
-		{	// the max length side was >= 3x the length of the min length side
-			bool new_min = dist2diffAB >= 0;
+		while(1)
+		{
+			if(state == EXIT)
+				break;
+			dist2AB[min_sel] = mag2_2d_i(B_coords[!min_sel] - A_coords[min_sel]);
+			// + means A start to B end (0) was bigger, - means A end to B start was bigger (1)
+			int dist2diffAB = dist2AB[0] - dist2AB[1];
+			min_sel = dist2diffAB >= 0;
+			// the max length side was >= 3x the length of the min length side
+			if(dist2AB[min_sel] * 8 <= dist2diffAB)
+				break;
 			switch(state)
 			{
 			case START:
 				state = A0B0;
 				B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
-				dist2AB[min_sel] = mag2_2d_i(B_coords[!min_sel] - A_coords[min_sel]);
-
-				min_sel = new_min;
+				min_trend = min_sel;
+				continue;
 			case A0B0:
-				state = (min_sel ^ new_min) ? A0B1 : A1B0;
+				state = (min_sel == min_trend) ? A1B0 : A0B1;
+				if(min_sel == min_trend)
+				{
+					A_coords_copy[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
+					test_index += sign_sel[min_sel];
+				}
+				else
+					B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+				continue;
 			case A1B0:
-				state = (min_sel ^ new_min) ? A1B1 : A2B0;
+				state = (min_sel == min_trend) ? A2B0 : A1B1;
+				if(min_sel == min_trend)
+					A_coords_copy[min_sel] = convert_int2(test_points[1 + 2*min_sel]);
+				else
+					B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+				continue;
 			case A2B0:
-				state = (min_sel ^ new_min) ? A2B1 : EXIT;
+				state = (min_sel == min_trend) ? EXIT : A2B1;
+				if(min_sel != min_trend)
+					B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+				continue;
 			case A0B1:
 				state = A1B1;
-				min_sel = new_min;
+				A_coords_copy[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
+				test_index += sign_sel[min_sel];
+				min_trend = min_sel;
+				continue;
 			case A1B1:
-				state = (min_sel ^ new_min) ? EXIT : A2B1;
+				state = (min_sel == min_trend) ? A2B1 : EXIT;
+				if(min_sel == min_trend)
+					A_coords_copy[min_sel] = convert_int2(test_points[1 + 2*min_sel]);
+				continue;
 			case A2B1:
 				state = EXIT;
-
 			case EXIT:
-				break;
+				;
 			}
-			// shorten B arc on side attached to the min length along tangent and re-calc dist to see if this fixed the issue
-			dist2diffAB = dist2AB[0] - dist2AB[1];
-			bool new_min_sel = dist2diffAB >= 0;
-			// if there is still a problem
-			if(dist2AB[new_min_sel] * 8 <= dist2diffAB)
-			{
-				// if the short side swapped
-				if(min_sel ^ new_min_sel)
-				{
-					B_coords
-				}
-			}
-
-
-			if(seg_cnt >= 6)	// 6 is minimum seg_cnt where 1/4 and 3/8 eval points differ
-			{}
 		}
 
-		//TODO: handle corner case where distances are small and arcs are fully complementary parts, causing moving of just one side
-		// to make the other side be more than a magnitude of 3 difference to the new distance, in extreme cases, even retracting
-		// both sides of B along their "tangents" could still leave it in a bad state, so one more attempt must be made to retract
-		// a side of A along the "tangent", if this again causes problems with the same side, a longer retraction to the 1/4 point must be used instead
+		int4 diagonals = (int4)(B_coords[0] - A_coords_copy[0], B_coords[1] - A_coords_copy[1]);
 
+		// test if Candy's Theorem constraint passes for at least 2 of the test points
+		
+
+		// candidate passed all tests, add it to the list if space is available
 		if(num_candidates < MAX_CANDIDATES)
 			candidates[num_candidates] = i;
 		++num_candidates;
