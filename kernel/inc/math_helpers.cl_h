@@ -18,6 +18,8 @@ double dot_2d_d(double2 a, double2 b);
 
 uint mag2_2d_i(int2 a);
 
+float mag2_2d_f(float2 a);
+
 //unsafe for relatively large values,
 // however I only use it for mid-point to end-point deflection of line checks which are all small
 uchar mag2_2d_c(char2 a);
@@ -25,5 +27,10 @@ uchar mag2_2d_c(char2 a);
 int2 perp_2d_i(int2 a);
 
 uint taxi_len_2d_i(int2 a);
+
+// Finds intersection of line passing through points a and b with line passing through c and d
+// doesn't check for parallel lines
+float2 intersect_ab_cd(float2 a, float2 b, float2 c, float2 d);
+
 
 #endif//MATH_HELPERS_CL_H

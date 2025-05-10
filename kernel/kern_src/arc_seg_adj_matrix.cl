@@ -9,6 +9,7 @@ y=0 and ccw arcs in y=1.
 //#include "cast_helpers.cl_h"
 #include "math_helpers.cl_h"
 #include "arc_data.cl_h"
+#include "conic_solve.cl_h"
 
 #define MAX_CANDIDATES 8
 
@@ -77,6 +78,8 @@ kernel void arc_seg_adj_matrix(
 	read_only image2d_t ii2_arc_data,
 	read_only image2d_t is1_dir_cnt,
 	read_only image2d_t is2_arc_coords,
+	read_only image2d_t ff4_ellipse_foci,
+	read_only image2d_t ff1_ellipse_major,
 	write_only image2d_t ii4_sparse_adj_matrix)
 {
 	int2 indices = (int2)(get_global_id(0), get_global_id(1));
@@ -98,6 +101,9 @@ kernel void arc_seg_adj_matrix(
 		A_tangents *= -1;
 	}
 
+	//TODO: evaluate if using just 2 test points and requiring they both pass is sufficient instead of allowing for 3 with potentially 1 failure
+	// if this is the case, the test points could be stored as integers, letting some of the later calculations be integer ops in the absence of an FPU
+	// which would reduce the effect of interpolation induced error on low seg_cnt Candy's theorem calcs, additionally you could reduce the array to 4 potential points
 	//TODO: this might need to be upped/more intelligently chosen if some close together arcs that should match fail to do so
 	float2 test_points[5];
 	int seg_cnt = read_imagei(is1_dir_cnt, A_coords[0]).x & SEG_CNT_MASK;
@@ -180,31 +186,38 @@ kernel void arc_seg_adj_matrix(
 			continue;
 
 		// all preliminary region checks passed, do Candy's theorem checks
+
+		// This will be needed later so read it here in hopes that by the time the read latency is up it's actually ready to use
+		FociDist B_foci_major = {.foci = read_imagef(ff4_ellipse_foci, B_coords[0]), .dist = read_imagef(ff1_ellipse_major, B_coords[0]).x};
 		int2 B_end_offset = B_coords[1] - B_coords[0];
 
+//TODO: re-evaluate the types here once you know more about float vs int performance on different systems, endpoints could be
+// represented as ints initially for certain calculations, testpoints must stay floats for low seg_cnt interpolation accuracy reasons
 		// check if the distance from A end to B start is within a magnitude of 3 to the distance from A start to B end
 		// if it is, then the coords used as the arc endpoints in the Candy's theorem checks need to be changed and the test indices might need to be shifted
 		// this is done by getting the squares of the distances and comparing the smaller of them * 8 with the difference
 		// if it does not exceed the difference the length is at most 1/3 the length of the longer, in the case where one or both
 		// lengths are 0 then this still evaluates as needing a retraction
-		int2 A_coords_copy[2];	// duplicate for modifying
-		A_coords_copy[0] = A_coords[0];
-		A_coords_copy[1] = A_coords[1];
+		float2 A_coords_f[2], B_coords_f[2];	// duplicates for modifying
+		A_coords_f[0] = convert_float2(A_coords[0]);
+		A_coords_f[1] = convert_float2(A_coords[1]);
+		B_coords_f[0] = convert_float2(B_coords[0]);
+		B_coords_f[1] = convert_float2(B_coords[1]);
 		
 		int dist2AB[2];
 		dist2AB[1] = mag2_2d_i(A_to_B_start.hi);
 		bool min_sel = 0, min_trend;	// 0 if negative
 		char test_index = 1;
 		enum distState state = START;
-		char const sign_sel[2] = {1,-1};
-		int2 const * B_tan = (int2*)&B_tangents;
-		int2 const * A_tan = (int2*)&A_tangents;
+		float const sign_sel[2] = {1,-1};
+		float2 const B_tan[2] = {convert_float2(B_tangents.lo), convert_float2(B_tangents.hi)};
+		float2 const A_tan[2] = {convert_float2(A_tangents.lo), convert_float2(A_tangents.hi)};
 		
 		while(1)
 		{
 			if(state == EXIT)
 				break;
-			dist2AB[min_sel] = mag2_2d_i(B_coords[!min_sel] - A_coords[min_sel]);
+			dist2AB[min_sel] = mag2_2d_f(B_coords_f[!min_sel] - A_coords_f[min_sel]);
 			// + means A start to B end (0) was bigger, - means A end to B start was bigger (1)
 			int dist2diffAB = dist2AB[0] - dist2AB[1];
 			min_sel = dist2diffAB >= 0;
@@ -215,41 +228,41 @@ kernel void arc_seg_adj_matrix(
 			{
 			case START:
 				state = A0B0;
-				B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+				B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				min_trend = min_sel;
 				continue;
 			case A0B0:
 				state = (min_sel == min_trend) ? A1B0 : A0B1;
 				if(min_sel == min_trend)
 				{
-					A_coords_copy[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
+					A_coords_f[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
 					test_index += sign_sel[min_sel];
 				}
 				else
-					B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+					B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				continue;
 			case A1B0:
 				state = (min_sel == min_trend) ? A2B0 : A1B1;
 				if(min_sel == min_trend)
-					A_coords_copy[min_sel] = convert_int2(test_points[1 + 2*min_sel]);
+					A_coords_f[min_sel] = test_points[1 + 2*min_sel];
 				else
-					B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+					B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				continue;
 			case A2B0:
 				state = (min_sel == min_trend) ? EXIT : A2B1;
 				if(min_sel != min_trend)
-					B_coords[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
+					B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				continue;
 			case A0B1:
 				state = A1B1;
-				A_coords_copy[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
+				A_coords_f[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
 				test_index += sign_sel[min_sel];
 				min_trend = min_sel;
 				continue;
 			case A1B1:
 				state = (min_sel == min_trend) ? A2B1 : EXIT;
 				if(min_sel == min_trend)
-					A_coords_copy[min_sel] = convert_int2(test_points[1 + 2*min_sel]);
+					A_coords_f[min_sel] = test_points[1 + 2*min_sel];
 				continue;
 			case A2B1:
 				state = EXIT;
@@ -258,10 +271,56 @@ kernel void arc_seg_adj_matrix(
 			}
 		}
 
-		int4 diagonals = (int4)(B_coords[0] - A_coords_copy[0], B_coords[1] - A_coords_copy[1]);
+		// Do the parts of the Canny's check calculation that can be shared for each test point
+
+		// get the central point all Canny's checks pass through
+		float2 central = intersect_ab_cd(A_coords_f[0], B_coords_f[0], A_coords_f[1], B_coords_f[1]);
+
+		// express A and B end coords relative to start
+		A_coords_f[1] -= A_coords_f[0];
+		B_coords_f[1] -= B_coords_f[0];
+		// express A and B start coords relative to central point
+		A_coords_f[0] -= central;
+		B_coords_f[0] -= central;
+
+		float2 shared = A_coords_f[1] / cross_2d_f(A_coords_f[0], A_coords_f[1]) + B_coords_f[1] / cross_2d_f(B_coords_f[0], B_coords_f[1]);
 
 		// test if Candy's Theorem constraint passes for at least 2 of the test points
+		float2 tp_rel;
+		char fail_cnt = 0;
+		// express test point coords relative to central point
+		tp_rel = test_points[test_index] - central;
+		// find corresponding point to test point as according to Candy's Theorem relative to the central point and then add back the central point's offset
+		tp_rel *= cross_2d_f(tp_rel, shared);
+		tp_rel += central;
+
+		// check that the predicted point is a close match to arc B's predicted foci and major axis length
+		if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
+			++fail_cnt;
 		
+		++test_index;
+		// do the above again for the second test point
+		tp_rel = test_points[test_index] - central;
+		tp_rel *= cross_2d_f(tp_rel, shared);
+		tp_rel += central;
+		if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
+			++fail_cnt;
+		
+		switch(fail_cnt)
+		{
+		default:	// too many failures or invalid (How???)
+			continue;
+		case 1:	// could go either way, try 3rd test point
+			++test_index;
+			tp_rel = test_points[test_index] - central;
+			tp_rel *= cross_2d_f(tp_rel, shared);
+			tp_rel += central;
+			if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
+				continue;
+printf("%v2i in Arc_seg_adj_matrix(): B: %i seg_cnt %i\n", indices, i, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
+		case 0:
+			;
+		}
 
 		// candidate passed all tests, add it to the list if space is available
 		if(num_candidates < MAX_CANDIDATES)

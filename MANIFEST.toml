@@ -10,6 +10,7 @@ Stages = [
 #	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'arc_dir_cnt', 'pre_solve_coeffs', 'ellipse_foci', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
 	{name = 'serial_reduce_arcs', args = ['arc_dir_cnt', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
+	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 
 #### OUTPUT DEBUGGING KERNELS ####
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
@@ -47,7 +48,8 @@ arc_dir_cnt = {type = 'image2d_t', channel_type = 'int16', channel_count = 1, si
 ellipse_foci = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {ref_arg = 'starts_cont'}}
 ellipse_major = {type = 'image2d_t', channel_type = 'float', channel_count = 1, size = {ref_arg = 'starts_cont'}}
 pre_solve_coeffs = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {mode = 'MULTIPLY', params = [2,2,1], ref_arg = 'starts_cont'}}
-arc_coords = {type = 'image2d_t', channel_type='int16', channel_count=2, size={mode = 'EXACT', params = [16384,2,1]}}
+arc_coords = {type = 'image2d_t', channel_type = 'int16', channel_count = 2, size = {mode = 'EXACT', params = [16384,2,1]}}
+sparse_adj_matrix = {type = 'image2d_t', channel_type = 'int32', channel_count = 4, size = {ref_arg = 'arc_coords'}}
 #TODO: add a buffer for the non-arc-associated line segments and figure out how you want to handle those and arcs with 2 or 3 segments
 
 #### PURELY DEGUGGING ONLY ARGS ####

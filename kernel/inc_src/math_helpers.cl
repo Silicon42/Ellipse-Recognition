@@ -41,6 +41,12 @@ uint mag2_2d_i(int2 a)
 	return a2.x + a2.y;
 }
 
+float mag2_2d_f(float2 a)
+{
+	float2 a2 = a * a;
+	return a2.x + a2.y;
+}
+
 //unsafe for relatively large values,
 // however I only use it for mid-point to end-point deflection of line checks which are all small
 uchar mag2_2d_c(char2 a)
@@ -58,4 +64,12 @@ uint taxi_len_2d_i(int2 a)
 {
 	uint2 c = abs(a);
 	return c.x + c.y;
+}
+
+float2 intersect_ab_cd(float2 a, float2 b, float2 c, float2 d)
+{
+	float2 ab, cd;
+	ab = b - a;
+	cd = d - c;
+	return (cd * cross_2d_f(b, a) + ab * cross_2d_f(c, d)) / cross_2d_f(ab, cd);
 }
