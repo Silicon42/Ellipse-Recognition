@@ -34,7 +34,7 @@ kernel void foci_dist_draw(
 		return;
 	}
 
-	uint3 color = scatter_colorize(coords.x ^ coords.y);
+	uint3 color = scatter_colorize(coords.x ^ (coords.x * coords.y));
 
 	int2 bounds = get_image_dim(uc4_out);
 	for(int j = 0; j < bounds.y; ++j)
@@ -49,6 +49,8 @@ kernel void foci_dist_draw(
 	}
 
 //	int2 end_coords = convert_int2(data.endpoint);
+	if(!all(isfinite(ellipse.foci)))
+		return;
 	int4 foci = convert_int4_sat_rte(ellipse.foci);
 //	draw_line(end_coords, foci.lo, (uint4)(color/2, 128), uc4_out);
 //	draw_line(end_coords, foci.hi, (uint4)(color/2, 128), uc4_out);

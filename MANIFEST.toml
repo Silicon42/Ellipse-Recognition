@@ -19,7 +19,8 @@ Stages = [
 #	{name = 'conic_solve_debug', args = ['pre_solve_coeffs','retrace'], range = {ref_arg = 'retrace'}},	#DEPRECATED
 #	{name = 'colored_retrace_line', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts', 'retrace'], range = {ref_arg = 'start_coords'}},
 #	{name = 'colored_retrace_starts', args = ['start_coords', 'retrace'], range = {ref_arg = 'start_coords'}},
-	{name = 'foci_debug', args = ['line_data', 'arc_dir_cnt', 'ellipse_foci', 'retrace']},
+#	{name = 'foci_debug', args = ['line_data', 'arc_dir_cnt', 'ellipse_foci', 'retrace']},
+	{name = 'adj_debug', args = ['arc_coords', 'sparse_adj_matrix', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'lost_seg_debug', args = ['retrace', 'starts_cont', 'retrace']},
 ]
 

@@ -12,19 +12,23 @@ kernel void foci_debug(
 	uint seg_cnt = read_imagei(is1_dir_cnt, coords).x & SEG_CNT_MASK;
 
 	//arbitrary color to distinguish nearby arcs from each other
-	uint4 color = (uint4)(scatter_colorize(coords.x * coords.y), 1000);
+	uint4 color = (uint4)(scatter_colorize(coords.x ^ (coords.x * coords.y)), 1000);
 	int4 foci;
+	float4 foci_f;
 
 	if(seg_cnt < 4)
 		color /= 3;
 	else
 	{
 		//draw lines between the start of the arc and the associated foci
-		float4 foci_f = read_imagef(ff4_ellipse_foci, coords);
+		foci_f = read_imagef(ff4_ellipse_foci, coords);
+		if(all(isfinite(foci_f)))
+		{
 //		printf("%v4f\n", foci_f);
-		foci = convert_int4(convert_short4_sat_rte(foci_f));
-		draw_line(coords, foci.lo, color + 64, uc4_out_image);
-		draw_line(coords, foci.hi, color + 64, uc4_out_image);
+			foci = convert_int4(convert_short4_sat_rte(foci_f));
+			draw_line(coords, foci.lo, color + 64, uc4_out_image);
+			draw_line(coords, foci.hi, color + 64, uc4_out_image);
+		}
 	}
 	//draw lines for all the segments associated with the arc
 	for(int i = seg_cnt; i > 0; --i)
@@ -37,7 +41,7 @@ kernel void foci_debug(
 		write_imageui(uc4_out_image, prev_coords, -1);
 	}
 
-	if(seg_cnt < 4)
+	if(seg_cnt < 4 || !all(isfinite(foci_f)))
 		return;
 	color.w = 128;
 	//draw lines between the end of the arc and the associated foci
