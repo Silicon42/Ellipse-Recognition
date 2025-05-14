@@ -50,7 +50,6 @@ bool isPointOutOfRegion(int4 tangents, int4 displacements)
 //NOTE: this traverses the ic2_line_data list for the given arc, so it can be slow for long arcs. I don't currently have a better solution.
 inline void getCandysTestPoints(read_only image2d_t ic2_line_data, int seg_cnt, int2 coords, float2 test_points[5])
 {
-
 	int test_indices[5];
 	test_indices[0] = seg_cnt/4;
 	test_indices[1] = (seg_cnt*3)/8;
@@ -73,6 +72,8 @@ inline void getCandysTestPoints(read_only image2d_t ic2_line_data, int seg_cnt, 
 	}
 }
 
+//TODO: *1 See if a KD tree would help here or if that's too much overhead for the small n
+
 kernel void arc_seg_adj_matrix(
 	read_only image2d_t ic2_line_data,
 	read_only image2d_t ii2_arc_data,
@@ -86,7 +87,7 @@ kernel void arc_seg_adj_matrix(
 	int2 A_coords[2];
 	A_coords[0] = read_imagei(is2_arc_coords, indices).lo;
 
-	// only process valid arcs
+	// only process initialized arc entries, once there is a null entry all after are also null
 	if(all(A_coords[0] == 0))
 		return;
 
@@ -128,24 +129,32 @@ kernel void arc_seg_adj_matrix(
 
 	int num_candidates = 0;
 	__attribute__((aligned(2*MAX_CANDIDATES))) short candidates[MAX_CANDIDATES] = {-1,-1,-1,-1,-1,-1,-1,-1};
+	//TODO: *1
+	int worst_candidate = 0;
+	uint candidate_dist2[MAX_CANDIDATES] = {-1,-1,-1,-1,-1,-1,-1,-1};
+	int2 A_avg_coords = A_coords[0] + A_coords[1];
 
 	for(int i = 0; ; ++i)
 	{
+		// skip matching against itself
+		if(indices.x == i)
+			continue;
+		
 		// check which location to evaluate for adjacency
 		int2 B_coords[2];
 		B_coords[0] = read_imagei(is2_arc_coords, (int2)(i, indices.y)).lo;
 
-		// only process valid arcs
+		// only process initialized arc entries, once there is a null entry all after are also null
 		if(all(B_coords[0] == 0))
 			break;
-		
-		// skip matching against itself
-		if(all(B_coords[0] == A_coords[0]))
+
+		//TODO: *1
+		uint dist2 = mag2_2d_i(A_avg_coords - (B_coords[0] + B_coords[1]));
+		if(dist2 > candidate_dist2[worst_candidate])
 			continue;
 
 		int4 A_to_B_start;
 		A_to_B_start.hi = B_coords[0] - A_coords[1];	// vector from end of arc A to start of arc B
-		uint dist2 = mag2_2d_i(A_to_B_start.hi);
 		
 		// if start of arc B isn't toward the interior side of arc A,
 		// A_end_offset X A_to_B will be negative, indicating it should be skipped
@@ -317,14 +326,26 @@ kernel void arc_seg_adj_matrix(
 			tp_rel += central;
 			if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
 				continue;
-printf("%v2i in Arc_seg_adj_matrix(): B: %i seg_cnt %i\n", indices, i, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
+printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coords[0].x, B_coords[0].y, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
 		case 0:
 			;
 		}
 
 		// candidate passed all tests, add it to the list if space is available
-		if(num_candidates < MAX_CANDIDATES)
-			candidates[num_candidates] = i;
+		//if(num_candidates < MAX_CANDIDATES)
+		//TODO: *1
+		candidates[worst_candidate] = i;
+		candidate_dist2[worst_candidate] = dist2;
+		dist2 = 0;
+		for(int j = 0; j < MAX_CANDIDATES; ++j)
+		{
+			if(candidate_dist2[j] > dist2)
+			{
+				worst_candidate = j;
+				dist2 = candidate_dist2[j];
+			}
+		}
+
 		++num_candidates;
 	}
 
