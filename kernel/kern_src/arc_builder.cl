@@ -36,7 +36,8 @@ void write_arc(
 	int2 const end_coords, 
 	int2 const last_seg, //TODO: here on down might be more performant to combine into destination structs BEFORE passing them in
 	int const dir, 
-	int const seg_cnt)
+	int const seg_cnt,
+	float const len_approx)
 {
 	write_imagei(is1_dir_cnt, start_coords, dir << 14 | min(seg_cnt, SEG_CNT_MASK));
 	//TODO: see if packing a struct and writing the full width would be faster or if using the default alignment of write_image is faster
@@ -56,6 +57,7 @@ void write_arc(
 */	*coeffs += getPointCoeffs(start_coords);
 
 	float16 coeffs_f = convert_float16(*coeffs);
+	coeffs_f.s8 = len_approx;
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2,   start_coords.y*2  ), coeffs_f.lo.lo);
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2+1, start_coords.y*2  ), coeffs_f.lo.hi);
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2,   start_coords.y*2+1), coeffs_f.hi.lo);
@@ -113,6 +115,7 @@ kernel void arc_builder(
 	private int2* diffs = (private void*)&diffs8;
 	char reset = LOOP_ENTRY_RESET;
 	ushort seg_cnt;
+	float len_approx;
 	ArcData data;
 	Ellipse ellipse;
 	float4 * foci = &ellipse.foci_dist.foci;
@@ -130,7 +133,7 @@ kernel void arc_builder(
 		{
 		case LOGICAL_RESET:	// last read segment likely can't be part of the same elliptical arc due to failing a logical test
 			// write coefficients out to buffer
-			write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
+			write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
 			base_coords += total_offset;
 		//	printf("%v16lu\n", coeffs);
 			// intentional fall-through to re-init
@@ -139,6 +142,7 @@ kernel void arc_builder(
 			coeffs = 0;
 			total_offset = 0;	//keep last segment that caused the reset	//TODO: check if this comment still true
 			seg_cnt = 1;
+			len_approx = 0;
 			data.tangents.lo = convert_char2(curr_seg);
 			dir_trend = 0;	//trend unknown since only 1 segment at this point
 			break;
@@ -149,9 +153,11 @@ kernel void arc_builder(
 			int2 new_base_coords = base_coords + first_point;
 			ulong16 base_coeffs = getPointCoeffs(new_base_coords);
 			coeffs -= base_coeffs;
+			float first_len = mag_2d_i(diffs[0]);
+			len_approx -= first_len;
 
 			// write the single segment out
-			write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &base_coeffs, data, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1);
+			write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &base_coeffs, data, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1, first_len);
 			
 			base_coords = new_base_coords;	// advance base coords by first segment
 			data.tangents.lo = convert_char2(diffs[1]);
@@ -163,11 +169,11 @@ kernel void arc_builder(
 			diffs[1] = diffs[2];
 			diffs[2] = diffs[3];
 		}
-		prev_seg = curr_seg;
 		total_offset += curr_seg;
 		curr_coords += curr_seg;
+		len_approx = mag_2d_i(curr_seg);
 		coeffs += getPointCoeffs(curr_coords);
-
+		prev_seg = curr_seg;
 		curr_seg = read_imagei(ic2_line_data, curr_coords).lo;
 
 		// angle difference between segments A and B must be acute (no sharp corners), ie positive dot product
@@ -283,7 +289,7 @@ kernel void arc_builder(
 //		printf("%v2i	%v2i	%v2i	%v2i\n", points[0],points[1],points[2],points[3]);
 
 	//flush last arc
-	write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt);
+	write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
 
 /*
 	//if it was long enough to calculate an ellipse, write out the foci

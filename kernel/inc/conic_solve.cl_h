@@ -25,6 +25,16 @@ void cholesky_inv_sym_5(float A[15]);
 // returns them in b
 void solveConic(float A[15], float b[5]);
 
+// gets a consistently scaled rough approximation of an ellipse's perimeter
+// used for ranking how much of the calculated ellipse a set of arc segments 
+// actually accounts for as calculated by the sum of their line segment lengths
+// divided by the coverage divisor
+//NOTE: currently uses the Kummer infinite sum approximation with very few terms used
+// (https://en.wikipedia.org/wiki/Perimeter_of_an_ellipse#Infinite_sums)
+//NOTE: scaling factor: is currently 2/pi times the perimeter (at time of writing 5/20/2025) 
+#define ELLI_COVER_SCALE	M_2_PI_F
+float get_ellipse_coverage_divisor(float gen[5]);
+
 // Converts an ellipse in general conic form to foci-distance form
 // returns the foci on the first 4 elements of b and distance on the 5th
 // if not an ellipse, returns negative distance

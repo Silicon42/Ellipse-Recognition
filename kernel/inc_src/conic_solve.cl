@@ -109,13 +109,54 @@ float get_ellipse_deviation(FociDist * const M, const float2 point)
 	return fabs(M->dist - get_ellipse_dist(M->foci, point));
 }
 
-// following 2 functions are somewhat sensitive to fused multiply-add and will give wrong answers if they use them in some cases
+// following few functions are somewhat sensitive to fused multiply-add and will give wrong answers if they use them in some cases
 // so to prevent that, the optimizations must be disabled for them
 #pragma OPENCL FP_CONTRACT OFF
+
+// gets a consistently scaled rough approximation of an ellipse's perimeter
+// used for ranking how much of the calculated ellipse a set of arc segments 
+// actually accounts for as calculated by the sum of their line segment lengths
+// divided by the coverage divisor
+//NOTE: currently uses the Kummer infinite sum approximation with very few terms used
+// (https://en.wikipedia.org/wiki/Perimeter_of_an_ellipse#Infinite_sums)
+//NOTE: scaling factor: is currently 2/pi times the perimeter (at time of writing 5/20/2025) 
+float get_ellipse_coverage_divisor(float gen[5])
+{
+	float b = gen[4];
+	float b2 = b*b;
+	float t2 = 4*gen[2]*gen[3] - b2;	// 4ac - b^2
+	if(!isfinite(t2) || t2 <= 0)
+		return -1;
+
+	float det_M, ac_diff2, ac_b_len2;
+	ac_diff2 = gen[2] - gen[3];
+	ac_diff2 *= ac_diff2;	// (a-c)^2
+	float2 ed, ac, temp_f2;
+	ed = (float2)(gen[1], gen[0]);
+	ac = (float2)(gen[2], gen[3]);
+	temp_f2 = ed * ed * ac;			// [ae^2, cd^2]
+	det_M = t2 - b * ed.x * ed.y + temp_f2.x + temp_f2.y;	// det(M) = -2*(2t + ae^2 - bde + cd^2)	//NOTE: -2 scalar ommitted as not relevant here
+	ac_b_len2 = ac_diff2 + b2;
+
+	// semi-major and semi-minor axis lengths but with the det(M) scale factor deffered for calculation simplification reasons
+	float semimajor = 1 / (t2 * (ac.x + ac.y + sqrt(ac_b_len2)));	// 1/((4ac-b^2) * (a + c + )
+	float semiminor = sqrt(semimajor + sqrt(2*(ac_diff2 + ac_b_len2)));
+	semimajor = sqrt(semimajor);
+
+	// real approx is pi*(maj + min)*(1 + h/4 + h^2/64 + h^3/256 + ...) where h = ((maj - min)/(maj + min))^2
+	// What's actually calculated here (at time of writing 5/20/2025) is (a + b)(4 + h)
+	float axis_sum, h;
+	axis_sum = semimajor;
+	axis_sum  += semiminor;
+	h = (semimajor - semiminor) / axis_sum;
+	h *= h;
+	return det_M * axis_sum * (4 + h);	// reintroduce det(M) scale factor that was omitted in semi-major and semi-minor calc
+}
 
 // Converts an ellipse in general conic form to foci-distance form
 // returns the foci on the first 4 elements of b and distance on the 5th
 // if not an ellipse, returns non-positive distance
+//NOTE: derived from here: https://math.stackexchange.com/questions/44391/foci-of-a-general-conic-equation
 void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 {
 	float* gen = M->general;
@@ -130,7 +171,7 @@ void convertGeneralConicToFociDistEllipse(Ellipse * const M)
 
 	float det_M, ac_diff, ac_b_len;
 	ac_diff = gen[2] - gen[3];
-	float2 ed, ac, rs, temp_f2, focus;
+	float2 ed, ac, rs, temp_f2;
 	ed = (float2)(gen[1], gen[0]);
 	ac = (float2)(gen[2], gen[3]);
 	rs = b * ed;				// b[e, d]
@@ -208,7 +249,7 @@ void ellipse_from_hist(private const int2 diffs[4], private const int cross_prod
 	ac_diff = ca.y - ca.x;	// a-c
 	ac_b_len = hypot(ac_diff, b);
 
-	det_M = 2 * (det_M + dot_2d_f(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
+	det_M = 2 * (det_M + dot(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
 	temp_f2 = sqrt(det_M * (ac_b_len + (float2)(-ac_diff, ac_diff)));
 if(any(isnan(temp_f2)))
 	printf("X");
@@ -249,6 +290,6 @@ ulong16 getPointCoeffs(int2 p)
 	return (ulong16)(
 		x2,		xy,		y2,		x2*p.x,	//	x^2		xy		y^2		x^3
 		x2*p.y,	x2*x2,	p.x*y2,	p.y*y2,	//	x^2y	x^4		xy^2	y^3
-		0,		y2*y2,	p.x,	p.y,	//	resv.	y^4		x		y
+		0,		y2*y2,	p.x,	p.y,	//	perim.	y^4		x		y
 		x2*xy,	xy*y2,	x2*y2,	1);		//	x^3y	x^y3	x^2y^2	2*count
 }

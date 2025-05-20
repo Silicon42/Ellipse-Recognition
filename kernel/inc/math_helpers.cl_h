@@ -12,17 +12,20 @@ int cross_2d_c(char2 a, char2 b);
 
 int dot_2d_i(int2 a, int2 b);
 
-float dot_2d_f(float2 a, float2 b);
+//float dot_2d_f(float2 a, float2 b);
 
-double dot_2d_d(double2 a, double2 b);
+//double dot_2d_d(double2 a, double2 b);
 
 uint mag2_2d_i(int2 a);
 
 float mag2_2d_f(float2 a);
 
+float mag_2d_i(int2 a);
+
 //unsafe for relatively large values,
 // however I only use it for mid-point to end-point deflection of line checks which are all small
 uchar mag2_2d_c(char2 a);
+
 
 int2 perp_2d_i(int2 a);
 

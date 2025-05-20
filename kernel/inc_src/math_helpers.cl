@@ -37,14 +37,20 @@ double dot_2d_d(double2 a, double2 b)
 
 uint mag2_2d_i(int2 a)
 {
-	int2 a2 = a * a;
-	return a2.x + a2.y;
+	a *= a;
+	return a.x + a.y;
 }
 
 float mag2_2d_f(float2 a)
 {
-	float2 a2 = a * a;
-	return a2.x + a2.y;
+	a *= a;
+	return a.x + a.y;
+}
+
+float mag_2d_i(int2 a)
+{
+	a *= a;
+	return sqrt((float)(a.x + a.y));
 }
 
 //unsafe for relatively large values,
