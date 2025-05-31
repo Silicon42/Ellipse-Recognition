@@ -2,6 +2,7 @@
 #define CONIC_SOLVE_CL_H
 
 #define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
+#define MAX_CANDIDATES 8
 
 typedef struct _FociDist {
 	float4 foci;

@@ -50,4 +50,10 @@ union s_conv{
 	char ca[2];
 };
 
+union s8_conv{
+	short8 s;
+	short a[8];
+	int4 i;
+};
+
 #endif//CAST_HELPERS_CL_H

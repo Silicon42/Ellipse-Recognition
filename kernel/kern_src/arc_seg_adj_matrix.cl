@@ -10,8 +10,7 @@ y=0 and ccw arcs in y=1.
 #include "math_helpers.cl_h"
 #include "arc_data.cl_h"
 #include "conic_solve.cl_h"
-
-#define MAX_CANDIDATES 8
+#include "cast_helpers.cl_h"
 
 // state representation of the arc retraction state machine that runs when a pair
 // of arc candidates have ends that are too close to be run through the Candy's 
@@ -87,7 +86,7 @@ kernel void arc_seg_adj_matrix(
 	int2 A_coords[2];
 	A_coords[0] = read_imagei(is2_arc_coords, indices).lo;
 
-	// only process initialized arc entries, once there is a null entry all after are also null
+	// only process initialized arc entries, once there is a null entry, all after are also null
 	if(all(A_coords[0] == 0))
 		return;
 
@@ -128,7 +127,7 @@ kernel void arc_seg_adj_matrix(
 	}
 
 	int num_candidates = 0;
-	__attribute__((aligned(2*MAX_CANDIDATES))) short candidates[MAX_CANDIDATES] = {-1,-1,-1,-1,-1,-1,-1,-1};
+	union s8_conv candidates = {.i = -1};
 	//TODO: *1
 	int worst_candidate = 0;
 	uint candidate_dist2[MAX_CANDIDATES] = {-1,-1,-1,-1,-1,-1,-1,-1};
@@ -334,7 +333,7 @@ printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coo
 		// candidate passed all tests, add it to the list if space is available
 		//if(num_candidates < MAX_CANDIDATES)
 		//TODO: *1
-		candidates[worst_candidate] = i;
+		candidates.a[worst_candidate] = i;
 		candidate_dist2[worst_candidate] = dist2;
 		dist2 = 0;
 		for(int j = 0; j < MAX_CANDIDATES; ++j)
@@ -353,5 +352,5 @@ printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coo
 	if(num_candidates > MAX_CANDIDATES)
 		printf("%v2i ran out of slots (%i)\n", indices, num_candidates);
 	
-	write_imagei(ii4_sparse_adj_matrix, indices, *(int4*)candidates);
+	write_imagei(ii4_sparse_adj_matrix, indices, candidates.i);
 }
