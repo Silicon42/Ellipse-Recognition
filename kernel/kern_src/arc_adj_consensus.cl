@@ -26,6 +26,12 @@ constant const uchar processed4[70] = {
 	0xF0
 };
 
+// computes coverage (and if it's a closed region) for a given clique of arcs and, if it's better than the existing best values
+void set_best_clique_if_better(int4 const arc_tangents[9], float16 const arc_coeffs[9], float best_elli_gen[5], float* best_coverage, uchar* best_clique, uchar clique_set)
+{
+	
+}
+
 kernel void arc_adj_consensus(
 	read_only image2d_t ic2_line_data,
 	read_only image2d_t ii2_arc_data,
@@ -164,7 +170,9 @@ kernel void arc_adj_consensus(
 			{
 				edge_sets[k] = pairs[i] & pairs[j];
 				//NOTE: maximal check not done here because it's simpler to do it in the 5+ clique processing stage
-				//TODO: check that doing this is actually beneficial perf wise
+				//TODO: check that doing this is actually beneficial perf wise, could potentially be beneficial to add and
+				// early exit that checks if 5+ clique processing even has a chance of producing a set or if there are no more
+				// shared edges but then, the maximal check for 4 would definitely need to be applied here
 			}
 		}
 	}
