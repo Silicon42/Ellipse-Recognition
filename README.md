@@ -55,3 +55,4 @@ is on the OpenCL 2.x minimum full profile support list
 * make naming conventions the same across the codebase (low priority)
 * fix naming of FociDist to be FociMajor and all references to "dist" in regards
 to the ellipse distance to "major"
+* reorder general conic coeffs to be more convenient for reading and writing

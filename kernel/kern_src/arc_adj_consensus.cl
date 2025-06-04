@@ -27,21 +27,42 @@ constant const uchar processed4[70] = {
 };
 
 // computes coverage (and if it's a closed region) for a given clique of arcs and, if it's better than the existing best values
-void set_best_clique_if_better(int4 const arc_tangents[9], float16 const arc_coeffs[9], float best_elli_gen[5], float* best_coverage, uchar* best_clique, uchar clique_set)
+void setBestCliqueIfBetter(int4 const arc_tangents[9], float16 const arc_coeffs[9], float best_elli_gen[5], float* best_coverage, uchar* best_clique, uchar clique_set)
 {
-	
+//TODO: actually implement closed region check, currently doesn't access the tangents arg and just assumes it's true which is problematic
+// due to some solutions, especially for arcs that aren't part of a real ellipse, being numerically unstable and possibly false positives
+	float16 elli_coeffs = arc_coeffs[8];
+
+	// add coefficients for all arcs in the clique
+	for(int i = 0; i < MAX_CANDIDATES; ++i)
+	{
+		if(clique_set & (1 << i))
+			elli_coeffs += arc_coeffs[i];
+	}
+
+	float elli_coverage = elli_coeffs.s8;	//extract perimeter before it gets overwritten
+	// solve for the general conic equation coefficients
+	float elli_sol[5];
+	solveConic((__private float*)&elli_coeffs, elli_sol);
+
+	elli_coverage /= get_ellipse_coverage_divisor(elli_sol);
+	if(elli_coverage > *best_coverage)
+	{
+		*best_coverage = elli_coverage;
+		*best_clique = clique_set;
+		for(int i = 0; i < sizeof(elli_sol); ++i)
+			best_elli_gen[i] = elli_sol[i];
+	}
 }
 
 kernel void arc_adj_consensus(
-	read_only image2d_t ic2_line_data,
-	read_only image2d_t ii2_arc_data,
-	read_only image2d_t is1_dir_cnt,
+//	read_only image2d_t ii2_arc_data,
 	read_only image2d_t is2_arc_coords,
-	read_only image2d_t ff4_ellipse_foci,
-	read_only image2d_t ff1_ellipse_major,
+	read_only image2d_t ff4_pre_solve_coeffs,
 	read_only image2d_t ii4_sparse_adj_matrix,
-	write_only image2d_t uc1_adj_consensus,
-	write_only image2d_t ff4)
+//	write_only image2d_t uc1_adj_consensus,
+	write_only image2d_t ff4_sol_coeffs_ABCD,
+	write_only image2d_t ff1_sol_coeffs_E)
 {
 	int2 indices = (int2)(get_global_id(0), get_global_id(1));
 
@@ -54,7 +75,7 @@ kernel void arc_adj_consensus(
 
 	union s8_conv candidates;
 	candidates.i = read_imagei(ii4_sparse_adj_matrix, indices);
-
+/*//TEMPORARILY DISABLED FOR DEBUGGING
 	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, indices).lo).ad;
 	A_coords[1] = convert_int2(A_data.endpoint);
 	int2 A_end_offset = A_coords[1] - A_coords[0];
@@ -65,7 +86,7 @@ kernel void arc_adj_consensus(
 		A_end_offset *= -1;
 		A_tangents *= -1;
 	}
-
+*/
 	// This is technically a form of maximal clique listing for small node counts where the node count fits within some native type size
 	// of bits, which allows for representing graph edges for each node to all other given nodes as a bit vector that can be easily
 	// manipulated with bitwise ops. Since in order for arcs to form a clique, they must logically agree with their relative placements
@@ -87,8 +108,20 @@ kernel void arc_adj_consensus(
 	//NOTE: the primary node is implicit and does not occupy a bit in the bit vector, instead if there is less than MAX_CANDIDATES,
 	// then the corresponding leftover singles edge sets (ie edge that it can share) will be empty
 
-//TODO: !!! add coverage initialization/processing
+//TODO: !!! add coverage initialization/processing for single arc closed region
+	float best_coverage = 0;
+	Ellipse best_elli_sol;
+	uchar best_clique = 0;
 
+	float16 arc_pre_solves[9];
+	readPreSolveCoeffs(ff4_pre_solve_coeffs, A_coords[0], &arc_pre_solves[8]);
+	for(int i = 0; i < MAX_CANDIDATES; ++i)
+	{
+		if(candidates.a[i] < 0)
+			break;
+		int2 B_coords = read_imagei(is2_arc_coords, (int2)(candidates.a[i], indices.y)).lo;
+		readPreSolveCoeffs(ff4_pre_solve_coeffs, B_coords, &arc_pre_solves[i]);
+	}
 
 	uchar edge_sets[80] = {0};
 	// everything in the local graph has an implicit connection to the primary arc so the size 0 clique is just itself ie this is
@@ -117,7 +150,8 @@ kernel void arc_adj_consensus(
 		if(edge_sets[i] == processed)
 		{
 //TODO: !!! coverage processing
-			edge_sets[i] = 0;	// this isn't strictly neccessary but helps making it clear that there is no point doing further combining
+			setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+		//	edge_sets[i] = 0;	// this isn't strictly neccessary but helps making it clear that there is no point doing further combining
 		}
 	}
 
@@ -133,7 +167,8 @@ kernel void arc_adj_consensus(
 			if(pairs[k] == processed)
 			{
 //TODO: !!! coverage processing
-				pairs[k] = 0;
+				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+			//	pairs[k] = 0;
 			}
 		}
 	}
@@ -152,8 +187,8 @@ kernel void arc_adj_consensus(
 			{
 				processed = processed_1 | processed_2 | (1 << (MAX_CANDIDATES + j - j_thresh));	//TODO: this might be faster with a LUT
 				if(processed == (pairs[i] & pairs[j]))
-					;
 //TODO: !!! coverage processing
+					setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
 			}
 		}
 	}
@@ -186,8 +221,17 @@ kernel void arc_adj_consensus(
 		{
 			processed = processed4[i] | processed4[j];
 			if((edge_sets[i] & edge_sets[j]) == processed)
-			;
+				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
 //TODO: !!! coverage processing
 		}
 	}
+
+	// if no match whatsoever, skip writing
+	if(best_coverage <= 0)
+		return;
+
+	//TODO: consensus probably needs to be stored as candidate list instead for ease of access, could overwrite existing candidate list safely
+//	write_imageui(uc1_adj_consensus, indices, best_clique);
+	write_imagef(ff4_sol_coeffs_ABCD, indices, best_elli_sol.foci_dist.foci);
+	write_imagef(ff1_sol_coeffs_E, indices, best_elli_sol.foci_dist.dist);
 }

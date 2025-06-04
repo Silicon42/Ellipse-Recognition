@@ -4,6 +4,7 @@
 #define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
 #define MAX_CANDIDATES 8
 
+//TODO: element names need rework to be more general
 typedef struct _FociDist {
 	float4 foci;
 	float dist;
@@ -12,7 +13,7 @@ typedef struct _FociDist {
 typedef union _Ellipse {
 	FociDist foci_dist;
 	float general[5];
-	int4 foci_bits;
+//	int4 foci_bits;
 } Ellipse;
 
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
@@ -58,5 +59,7 @@ ulong16 getPointCoeffs(int2 p);
 // this can be used to determine if a point is close to the ellipse boundary
 float get_ellipse_deviation(FociDist * const M, const float2 point);
 
+//TODO: convert instances of reading/writing the pre-solve coeffs to using functions
+void readPreSolveCoeffs(read_only image2d_t ff4_pre_solve_coeffs, int2 coords, float16* ret);
 
 #endif//CONIC_SOLVE_CL_H

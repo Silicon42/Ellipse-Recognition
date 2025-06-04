@@ -293,3 +293,12 @@ ulong16 getPointCoeffs(int2 p)
 		0,		y2*y2,	p.x,	p.y,	//	perim.	y^4		x		y
 		x2*xy,	xy*y2,	x2*y2,	1);		//	x^3y	x^y3	x^2y^2	2*count
 }
+
+void readPreSolveCoeffs(read_only image2d_t ff4_pre_solve_coeffs, int2 coords, float16* ret)
+{
+	coords.x *= 4;
+	(*ret).hi.hi = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(3,0));
+	(*ret).hi.lo = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(2,0));
+	(*ret).lo.hi = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(1,0));
+	(*ret).lo.lo = read_imagef(ff4_pre_solve_coeffs, coords);
+}

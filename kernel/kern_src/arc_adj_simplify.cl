@@ -15,8 +15,10 @@ kernel void arc_adj_simplify(
 	union s8_conv A_candidates, A_candidates_out = {.i = -1}, B_candidates;
 	A_candidates.i = read_imagei(ii4_sparse_adj_matrix_r, indices);
 
-	for(int i = 0, j = 0; (i < MAX_CANDIDATES) && (A_candidates.a[i] != -1); ++i)
+	for(int i = 0, j = 0; i < MAX_CANDIDATES; ++i)
 	{
+		if(A_candidates.a[i] < 0)
+			break;
 		B_candidates.i = read_imagei(ii4_sparse_adj_matrix_r, (int2)(A_candidates.a[i], indices.y));
 		// if B has no matching link to A, remove it from A's list
 		if(all(B_candidates.s != (short)indices.x))
@@ -25,6 +27,5 @@ kernel void arc_adj_simplify(
 		A_candidates_out.a[j] = A_candidates.a[i];
 		++j;
 	}
-
 	write_imagei(ii4_sparse_adj_matrix_w, indices, A_candidates_out.i);
 }
