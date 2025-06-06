@@ -10,21 +10,22 @@ Stages = [
 #	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'arc_dir_cnt', 'pre_solve_coeffs', 'ellipse_foci', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
 	{name = 'serial_reduce_arcs', args = ['arc_dir_cnt', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
-	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
-	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'undirected_sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'undirected_sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'arc_adj_consensus', args = ['arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'arc_coords'}},
 
 #### OUTPUT DEBUGGING KERNELS ####
+	{name = 'arc_seg_adj_stripped', args = ['arc_data', 'arc_coords', 'retrace'], range = {ref_arg = 'retrace'}},
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
-#	{name = 'foci_dist_draw', args = ['arc_dir_cnt', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'retrace'}},
+	{name = 'foci_dist_draw', args = ['arc_dir_cnt', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'retrace'}},
 #	{name = 'gen_ellipse_draw', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'conic_solve_debug', args = ['pre_solve_coeffs', 'retrace'], range = {ref_arg = 'retrace'}},	#DEPRECATED
 #	{name = 'colored_retrace_line', args = ['starts_cont', 'start_coords', 'line_data', 'line_cnts', 'retrace'], range = {ref_arg = 'start_coords'}},
 #	{name = 'colored_retrace_starts', args = ['start_coords', 'retrace'], range = {ref_arg = 'start_coords'}},
 #	{name = 'foci_debug', args = ['line_data', 'arc_dir_cnt', 'ellipse_foci', 'retrace']},
 #	{name = 'adj_debug', args = ['arc_coords', 'sparse_adj_matrix', 'retrace'], range = {ref_arg = 'arc_coords'}},
-	{name = 'adj_debug', args = ['arc_coords', 'undirected_sparse_adj_matrix', 'retrace'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'adj_debug', args = ['arc_coords', 'undirected_sparse_adj_matrix', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'lost_seg_debug', args = ['retrace', 'starts_cont', 'retrace']},
 ]
 

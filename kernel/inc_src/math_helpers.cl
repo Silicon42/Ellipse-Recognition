@@ -29,12 +29,12 @@ float dot_2d_f(float2 a, float2 b)
 {
 	return a.x * b.x + a.y * b.y;
 }
-
+/*
 double dot_2d_d(double2 a, double2 b)
 {
 	return a.x * b.x + a.y * b.y;
 }
-
+*/
 uint mag2_2d_i(int2 a)
 {
 	a *= a;

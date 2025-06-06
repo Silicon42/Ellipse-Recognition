@@ -1,6 +1,6 @@
 
 #define THRESH 9
-/*
+
 #ifndef double	// fallback for devices without double support
 // it's not super critical to function that this be a double in this file but it does prevent a rounding error
 #define double float

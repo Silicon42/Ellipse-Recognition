@@ -15,7 +15,14 @@ kernel void arc_adj_simplify(
 	union s8_conv A_candidates, A_candidates_out = {.i = -1}, B_candidates;
 	A_candidates.i = read_imagei(ii4_sparse_adj_matrix_r, indices);
 
-	for(int i = 0, j = 0; i < MAX_CANDIDATES; ++i)
+	// early exit for unwritten values
+	if(all(A_candidates.i == 0))
+		return;
+	//if(all(indices == 0))
+		printf("%v8i - %i\n", convert_int8(A_candidates.s), indices.x);
+
+	int j = 0;
+	for(int i = 0; i < MAX_CANDIDATES; ++i)
 	{
 		if(A_candidates.a[i] < 0)
 			break;
@@ -27,5 +34,5 @@ kernel void arc_adj_simplify(
 		A_candidates_out.a[j] = A_candidates.a[i];
 		++j;
 	}
-	write_imagei(ii4_sparse_adj_matrix_w, indices, A_candidates_out.i);
+	write_imagei(ii4_sparse_adj_matrix_w, indices, j ? A_candidates_out.i : 0);
 }

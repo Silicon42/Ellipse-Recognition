@@ -90,7 +90,7 @@ kernel void arc_seg_adj_matrix(
 	if(all(A_coords[0] == 0))
 		return;
 
-	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, indices).lo).ad;
+	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, A_coords[0]).lo).ad;
 	A_coords[1] = convert_int2(A_data.endpoint);
 	int2 A_end_offset = A_coords[1] - A_coords[0];
 	int4 A_tangents = convert_int4(A_data.tangents);
@@ -167,7 +167,7 @@ kernel void arc_seg_adj_matrix(
 			continue;
 
 		// since it passed initial tests, read in the tangents and endpoint data for deeper verification
-		ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, (int2)(i, indices.y)).lo).ad;
+		ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, B_coords[0]).lo).ad;
 		B_coords[1] = convert_int2(B_data.endpoint);
 
 		int4 A_to_B_end;
@@ -330,8 +330,7 @@ printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coo
 			;
 		}
 
-		// candidate passed all tests, add it to the list if space is available
-		//if(num_candidates < MAX_CANDIDATES)
+		// candidate passed all tests, add it to the list overwriting the worst candidate
 		//TODO: *1
 		candidates.a[worst_candidate] = i;
 		candidate_dist2[worst_candidate] = dist2;
@@ -347,6 +346,9 @@ printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coo
 
 		++num_candidates;
 	}
+	// arcs with no candidates instead get encoded as 0 to get treated the same as invalid entries
+	if(num_candidates == 0)
+		return;
 
 	// debug info in case it turns out 8 slots isn't reliably enough in a busy scene
 	if(num_candidates > MAX_CANDIDATES)
