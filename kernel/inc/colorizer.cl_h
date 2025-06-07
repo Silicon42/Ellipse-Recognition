@@ -1,6 +1,16 @@
 #ifndef COLORIZER_CL_H
 #define COLORIZER_CL_H
 
+#define RED		(uint4)(-1,0,0,-1)
+#define GREEN	(uint4)(0,-1,0,-1)
+#define BLUE	(uint4)(0,0,-1,-1)
+#define CYAN	(uint4)(0,-1,-1,-1)
+#define YELLOW	(uint4)(-1,-1,0,-1)
+#define MAGENTA	(uint4)(-1,0,-1,-1)
+#define BLACK	(uint4)(0,0,0,-1)
+#define GRAY	(uint4)(128,128,128,-1)
+#define WHITE	(uint4)(-1,-1,-1,-1)
+
 uint3 scatter_colorize(int index);
 
 #endif//COLORIZER_CL_H

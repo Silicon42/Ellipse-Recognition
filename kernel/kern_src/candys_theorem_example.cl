@@ -1,9 +1,6 @@
 /*
-gets up to 8 candidate matches of if arc segment A could be in the same ellipse
-as a given arc segment B and if it can, adds the candidate to A's list of up to 8
-if there is space.
-Only matches arcs of the same turning direction, expects cw arcs in is2_arc_coords
-y=0 and ccw arcs in y=1.
+stripped down version of the candy's theorem logic from arc_seg_adj_matrix() that draws the
+lines for the intermediate calculations of a pre-set pair of arcs for debugging purposes
 */
 
 //#include "cast_helpers.cl_h"
@@ -11,6 +8,8 @@ y=0 and ccw arcs in y=1.
 #include "arc_data.cl_h"
 #include "conic_solve.cl_h"
 #include "cast_helpers.cl_h"
+#include "bresenham_line.cl_h"
+#include "colorizer.cl_h"
 
 // state representation of the arc retraction state machine that runs when a pair
 // of arc candidates have ends that are too close to be run through the Candy's 
@@ -73,33 +72,52 @@ inline void getCandysTestPoints(read_only image2d_t ic2_line_data, int seg_cnt, 
 
 //TODO: *1 See if a KD tree would help here or if that's too much overhead for the small n
 
-kernel void arc_seg_adj_matrix(
+kernel void candys_theorem_example(
 	read_only image2d_t ic2_line_data,
 	read_only image2d_t ii2_arc_data,
 	read_only image2d_t is1_dir_cnt,
 	read_only image2d_t is2_arc_coords,
 	read_only image2d_t ff4_ellipse_foci,
 	read_only image2d_t ff1_ellipse_major,
-	write_only image2d_t ii4_sparse_adj_matrix)
+	write_only image2d_t uc4_out)
 {
-	int2 indices = (int2)(get_global_id(0), get_global_id(1));
+	int2 indices = (int2)(8,0);
+	int B_index = 7;
 	int2 A_coords[2];
 	A_coords[0] = read_imagei(is2_arc_coords, indices).lo;
-
-	// only process initialized arc entries, once there is a null entry, all after are also null
-	if(all(A_coords[0] == 0))
-		return;
-
 	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, A_coords[0]).lo).ad;
 	A_coords[1] = convert_int2(A_data.endpoint);
 	int2 A_end_offset = A_coords[1] - A_coords[0];
 	int4 A_tangents = convert_int4(A_data.tangents);
+	
+	int2 B_coords[2];
+	B_coords[0] = read_imagei(is2_arc_coords, (int2)(B_index, indices.y)).lo;
+	ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, B_coords[0]).lo).ad;
+	B_coords[1] = convert_int2(B_data.endpoint);
+	int4 B_tangents = convert_int4(B_data.tangents);
+
 	// flip vectors for ccw arcs to keep check sense the same
 	if(indices.y)
 	{
 		A_end_offset *= -1;
 		A_tangents *= -1;
+		B_tangents *= -1;
 	}
+
+	draw_line(A_coords[0], A_coords[1], CYAN, uc4_out);
+	draw_line(B_coords[0], B_coords[1], YELLOW, uc4_out);
+	draw_line(A_coords[0], B_coords[1], MAGENTA/2, uc4_out);
+	draw_line(B_coords[0], A_coords[1], MAGENTA/2, uc4_out);
+	draw_line(A_coords[0], A_coords[0]+A_tangents.lo, WHITE, uc4_out);
+	draw_line(A_coords[1], A_coords[1]-A_tangents.hi, GRAY, uc4_out);
+	draw_line(B_coords[0], B_coords[0]+B_tangents.lo, WHITE, uc4_out);
+	draw_line(B_coords[1], B_coords[1]-B_tangents.hi, GRAY, uc4_out);
+
+
+	int4 A_to_B_start;
+	A_to_B_start.hi = B_coords[0] - A_coords[1];	// vector from end of arc A to start of arc B
+	int4 A_to_B_end;
+	A_to_B_end.lo = B_coords[1] - A_coords[0];
 
 	//TODO: evaluate if using just 2 test points and requiring they both pass is sufficient instead of allowing for 3 with potentially 1 failure
 	// if this is the case, the test points could be stored as integers, letting some of the later calculations be integer ops in the absence of an FPU
@@ -126,73 +144,9 @@ kernel void arc_seg_adj_matrix(
 		}
 	}
 
-	int num_candidates = 0;
-	union s8_conv candidates = {.i = -1};
-	//TODO: *1
-	int worst_candidate = 0;
-	uint candidate_dist2[MAX_CANDIDATES] = {-1,-1,-1,-1,-1,-1,-1,-1};
-	int2 A_avg_coords = A_coords[0] + A_coords[1];
 
-	for(int i = 0; ; ++i)
+//	for(int i = 0; ; ++i)
 	{
-		// skip matching against itself
-		if(indices.x == i)
-			continue;
-		
-		// check which location to evaluate for adjacency
-		int2 B_coords[2];
-		B_coords[0] = read_imagei(is2_arc_coords, (int2)(i, indices.y)).lo;
-
-		// only process initialized arc entries, once there is a null entry all after are also null
-		if(all(B_coords[0] == 0))
-			break;
-
-		//TODO: *1
-		uint dist2 = mag2_2d_i(A_avg_coords - (B_coords[0] + B_coords[1]));
-		if(dist2 > candidate_dist2[worst_candidate])
-			continue;
-
-		int4 A_to_B_start;
-		A_to_B_start.hi = B_coords[0] - A_coords[1];	// vector from end of arc A to start of arc B
-		
-		// if start of arc B isn't toward the interior side of arc A,
-		// A_end_offset X A_to_B will be negative, indicating it should be skipped
-		if(cross_2d_i(A_end_offset, A_to_B_start.hi) < 0)
-			continue;
-
-		A_to_B_start.lo = B_coords[0] - A_coords[0];	// vector from start of arc A to start of arc B
-
-		// if the start of B isn't between the tangents of A it should be skipped
-		if(isPointOutOfRegion(A_tangents, A_to_B_start))
-			continue;
-
-		// since it passed initial tests, read in the tangents and endpoint data for deeper verification
-		ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, B_coords[0]).lo).ad;
-		B_coords[1] = convert_int2(B_data.endpoint);
-
-		int4 A_to_B_end;
-		A_to_B_end.lo = B_coords[1] - A_coords[0];
-		// if end of arc B isn't toward the interior side of arc A,
-		// A_end_offset X A_to_B will be negative, indicating it should be skipped
-		if(cross_2d_i(A_end_offset, A_to_B_end.lo) < 0)
-			continue;
-
-		A_to_B_end.hi = B_coords[1] - A_coords[1];
-
-		// if the end of B isn't between the tangents of A it should be skipped
-		if(isPointOutOfRegion(A_tangents, A_to_B_end))
-			continue;
-
-		int4 B_tangents = convert_int4(B_data.tangents);
-		if(indices.y)
-			B_tangents *= -1;
-
-		if(isPointOutOfRegion(A_to_B_start, B_tangents.xyxy))
-			continue;
-		
-		if(isPointOutOfRegion(A_to_B_end, B_tangents.zwzw))
-			continue;
-
 		// all preliminary region checks passed, do Candy's theorem checks
 
 		// This will be needed later so read it here in hopes that by the time the read latency is up it's actually ready to use
@@ -215,6 +169,7 @@ kernel void arc_seg_adj_matrix(
 		int dist2AB[2];
 		dist2AB[0] = mag2_2d_i(A_to_B_end.lo);
 		dist2AB[1] = mag2_2d_i(A_to_B_start.hi);
+
 		bool min_sel = 0, min_trend;	// 0 if negative
 		char test_index = 1;
 		enum distState state = START;
@@ -228,18 +183,21 @@ kernel void arc_seg_adj_matrix(
 			// + means A start to B end (0) was bigger, - means A end to B start was bigger (1)
 			int dist2diffAB = dist2AB[0] - dist2AB[1];
 			min_sel = dist2diffAB >= 0;
-			// the max length side was >= 3x the length of the min length side
+			printf("\ndist2AB = {%i, %i},	min_sel = %i	state = ", dist2AB[0], dist2AB[1], min_sel);
+			// the max length side was < 3x the length of the min length side, no retraction of endpoints neccessary
 			if(abs(dist2diffAB) < 8 * dist2AB[min_sel])
 				break;
 			
 			switch(state)
 			{
 			case START:
+				printf("Start	");
 				state = A0B0;
 				B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				min_trend = min_sel;
 				continue;
 			case A0B0:
+				printf("A0B0	");
 				state = (min_sel == min_trend) ? A1B0 : A0B1;
 				if(min_sel == min_trend)
 				{
@@ -250,6 +208,7 @@ kernel void arc_seg_adj_matrix(
 					B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				continue;
 			case A1B0:
+				printf("A1B0	");
 				state = (min_sel == min_trend) ? A2B0 : A1B1;
 				if(min_sel == min_trend)
 					A_coords_f[min_sel] = test_points[1 + 2*min_sel];
@@ -257,27 +216,35 @@ kernel void arc_seg_adj_matrix(
 					B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				continue;
 			case A2B0:
+				printf("A2B0	");
 				state = (min_sel == min_trend) ? EXIT : A2B1;
 				if(min_sel != min_trend)
 					B_coords_f[!min_sel] += sign_sel[!min_sel] * B_tan[!min_sel];
 				continue;
 			case A0B1:
+				printf("A0B1	");
 				state = A1B1;
 				A_coords_f[min_sel] += sign_sel[min_sel] * A_tan[min_sel];
 				test_index += sign_sel[min_sel];
 				min_trend = min_sel;
 				continue;
 			case A1B1:
+				printf("A1B1	");
 				state = (min_sel == min_trend) ? A2B1 : EXIT;
 				if(min_sel == min_trend)
 					A_coords_f[min_sel] = test_points[1 + 2*min_sel];
 				continue;
 			case A2B1:
+				printf("A2B1	");
 				state = EXIT;
 			case EXIT:
 				;
 			}
 		}
+		//draw updated dist lines
+		draw_line(convert_int2(A_coords_f[0]), convert_int2(B_coords_f[1]), GREEN, uc4_out);
+		draw_line(convert_int2(B_coords_f[0]), convert_int2(A_coords_f[1]), GREEN, uc4_out);
+
 
 		// Do the parts of the Canny's check calculation that can be shared for each test point
 
@@ -315,11 +282,10 @@ kernel void arc_seg_adj_matrix(
 			++fail_cnt;
 		
 		printf("%v2f\n", tp_rel);
-
+/*
 		switch(fail_cnt)
 		{
 		default:	// too many failures or invalid (How???)
-		printf("?");
 			continue;
 		case 1:	// could go either way, try 3rd test point
 			++test_index;
@@ -328,38 +294,12 @@ kernel void arc_seg_adj_matrix(
 			tp_rel += central;
 			if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
 			{
-		printf("!");
 				continue;
 			}
 printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coords[0].x, B_coords[0].y, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
 		case 0:
 			;
 		}
-		printf(".");
-
-		// candidate passed all tests, add it to the list overwriting the worst candidate
-		//TODO: *1
-		candidates.a[worst_candidate] = i;
-		candidate_dist2[worst_candidate] = dist2;
-		dist2 = 0;
-		for(int j = 0; j < MAX_CANDIDATES; ++j)
-		{
-			if(candidate_dist2[j] > dist2)
-			{
-				worst_candidate = j;
-				dist2 = candidate_dist2[j];
-			}
-		}
-
-		++num_candidates;
-	}
-	// arcs with no candidates instead get encoded as 0 to get treated the same as invalid entries
-	if(num_candidates == 0)
-		return;
-
-	// debug info in case it turns out 8 slots isn't reliably enough in a busy scene
-	if(num_candidates > MAX_CANDIDATES)
-		printf("%v2i ran out of slots (%i)\n", indices, num_candidates);
-	
-	write_imagei(ii4_sparse_adj_matrix, indices, candidates.i);
+*/	}
+//	write_imagei(ii4_sparse_adj_matrix, indices, candidates.i);
 }
