@@ -39,6 +39,21 @@ bool isPointOutOfRegion(int4 tangents, int4 displacements)
 	return any(tangents.even < 0);
 }
 
+// Given a test point, the central crossing point, the pre-computed shared portion of the calculation of the Candy's theorem
+// that applies to all points, and the foci and major axis length of the suspected arc see if the correspoing point falls 
+// within a small margin of error of the edge of the conic
+inline bool doesFailCandysCheck(float2 testpoint, float2 const central, float2 const shared_calc, FociDist const * const B_foci_major)
+{
+	// express test point coords relative to central point
+	testpoint -= central;
+	// find corresponding point to test point as according to Candy's Theorem relative to the central point and then add back the central point's offset
+	testpoint /= cross_2d_f(testpoint, shared_calc) - 1;
+	testpoint += central;
+
+	// check that the predicted point is a close match to arc B's predicted foci and major axis length
+	return get_ellipse_deviation(B_foci_major, testpoint) > M_SQRT2_F;
+}
+
 // Fills the test points array with floating point coordinates corresponding to the line segment endpoints of the segments
 // that constitute the arc closest to the approximately 5/8, 1/4, 1/2, 3/4, and 3/8 through the arc using the measure of 
 // the segment count for the arc, this ensures that chosen points reflect true points on the curve as accurately as possible
@@ -94,12 +109,6 @@ kernel void arc_seg_adj_matrix(
 	A_coords[1] = convert_int2(A_data.endpoint);
 	int2 A_end_offset = A_coords[1] - A_coords[0];
 	int4 A_tangents = convert_int4(A_data.tangents);
-	// flip vectors for ccw arcs to keep check sense the same
-	if(indices.y)
-	{
-		A_end_offset *= -1;
-		A_tangents *= -1;
-	}
 
 	//TODO: evaluate if using just 2 test points and requiring they both pass is sufficient instead of allowing for 3 with potentially 1 failure
 	// if this is the case, the test points could be stored as integers, letting some of the later calculations be integer ops in the absence of an FPU
@@ -124,6 +133,13 @@ kernel void arc_seg_adj_matrix(
 			coords += read_imagei(ic2_line_data, coords).lo;
 			test_points[0] = convert_float2(coords);
 		}
+	}
+
+	// flip vectors for ccw arcs to keep check sense the same
+	if(indices.y)
+	{
+		A_end_offset *= -1;
+		A_tangents *= -1;
 	}
 
 	int num_candidates = 0;
@@ -219,8 +235,9 @@ kernel void arc_seg_adj_matrix(
 		char test_index = 1;
 		enum distState state = START;
 		float const sign_sel[2] = {1,-1};
-		float2 const B_tan[2] = {convert_float2(B_tangents.lo), convert_float2(B_tangents.hi)};
-		float2 const A_tan[2] = {convert_float2(A_tangents.lo), convert_float2(A_tangents.hi)};
+		//TODO: A_data and B_data shouldn't have to be kept just for this, see if these can be moved for better logistics
+		float2 const B_tan[2] = {convert_float2(B_data.tangents.lo), convert_float2(B_data.tangents.hi)};
+		float2 const A_tan[2] = {convert_float2(A_data.tangents.lo), convert_float2(A_data.tangents.hi)};
 		
 		while(state != EXIT)
 		{
@@ -285,57 +302,40 @@ kernel void arc_seg_adj_matrix(
 		float2 central = intersect_ab_cd(A_coords_f[0], B_coords_f[0], A_coords_f[1], B_coords_f[1]);
 
 		// express A and B end coords relative to start
-		A_coords_f[1] -= A_coords_f[0];
-		B_coords_f[1] -= B_coords_f[0];
-		// express A and B start coords relative to central point
+		float2 A_start_end = A_coords_f[1] - A_coords_f[0];
+		float2 B_start_end = B_coords_f[1] - B_coords_f[0];
+		// express A and B coords relative to central point
 		A_coords_f[0] -= central;
 		B_coords_f[0] -= central;
-
-		float2 shared = A_coords_f[1] / cross_2d_f(A_coords_f[0], A_coords_f[1]) + B_coords_f[1] / cross_2d_f(B_coords_f[0], B_coords_f[1]);
+		A_coords_f[1] -= central;
+		B_coords_f[1] -= central;
+	
+		float2 shared = A_start_end / cross_2d_f(A_coords_f[0], A_coords_f[1]) + B_start_end / cross_2d_f(B_coords_f[0], B_coords_f[1]);
 
 		// test if Candy's Theorem constraint passes for at least 2 of the test points
-		float2 tp_rel;
 		char fail_cnt = 0;
-		// express test point coords relative to central point
-		tp_rel = test_points[test_index] - central;
-		// find corresponding point to test point as according to Candy's Theorem relative to the central point and then add back the central point's offset
-		tp_rel *= cross_2d_f(tp_rel, shared);
-		tp_rel += central;
-
 		// check that the predicted point is a close match to arc B's predicted foci and major axis length
-		if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
+		if(doesFailCandysCheck(test_points[test_index], central, shared, &B_foci_major))
 			++fail_cnt;
 		
-		++test_index;
-		// do the above again for the second test point
-		tp_rel = test_points[test_index] - central;
-		tp_rel *= cross_2d_f(tp_rel, shared);
-		tp_rel += central;
-		if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
+		if(doesFailCandysCheck(test_points[++test_index], central, shared, &B_foci_major))
 			++fail_cnt;
-		
-		printf("%v2f\n", tp_rel);
+
+	//	printf("%v2f\n", tp_rel);
 
 		switch(fail_cnt)
 		{
-		default:	// too many failures or invalid (How???)
-		printf("?");
+		default:	// too many failures
+	//	printf("?");
 			continue;
-		case 1:	// could go either way, try 3rd test point
-			++test_index;
-			tp_rel = test_points[test_index] - central;
-			tp_rel *= cross_2d_f(tp_rel, shared);
-			tp_rel += central;
-			if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
-			{
-		printf("!");
+		case 1:		// could go either way, try 3rd test point
+			if(doesFailCandysCheck(test_points[++test_index], central, shared, &B_foci_major))
 				continue;
-			}
 printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coords[0].x, B_coords[0].y, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
 		case 0:
 			;
 		}
-		printf(".");
+	//	printf(".");
 
 		// candidate passed all tests, add it to the list overwriting the worst candidate
 		//TODO: *1
@@ -350,7 +350,7 @@ printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coo
 				dist2 = candidate_dist2[j];
 			}
 		}
-
+	//	printf("%i",num_candidates);
 		++num_candidates;
 	}
 	// arcs with no candidates instead get encoded as 0 to get treated the same as invalid entries

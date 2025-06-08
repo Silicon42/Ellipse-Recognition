@@ -57,7 +57,7 @@ ulong16 getPointCoeffs(int2 p);
 
 // returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
 // this can be used to determine if a point is close to the ellipse boundary
-float get_ellipse_deviation(FociDist * const M, const float2 point);
+float get_ellipse_deviation(FociDist const * const M, const float2 point);
 
 //TODO: convert instances of reading/writing the pre-solve coeffs to using functions
 void readPreSolveCoeffs(read_only image2d_t ff4_pre_solve_coeffs, int2 coords, float16* ret);

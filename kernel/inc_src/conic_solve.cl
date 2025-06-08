@@ -104,7 +104,7 @@ inline float get_ellipse_dist(const float4 foci, const float2 point)
 
 // returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
 // this can be used to determine if a point is close to the ellipse boundary
-float get_ellipse_deviation(FociDist * const M, const float2 point)
+float get_ellipse_deviation(FociDist const * const M, const float2 point)
 {
 	return fabs(M->dist - get_ellipse_dist(M->foci, point));
 }

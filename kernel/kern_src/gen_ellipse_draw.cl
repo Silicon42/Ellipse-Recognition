@@ -39,7 +39,7 @@ kernel void gen_ellipse_draw(
 		for(int i = 0; i < bounds.x; ++i)
 		{
 			float dist = get_ellipse_deviation(fd, (float2)(i, j));
-			if(!isfinite(dist) || dist > M_SQRT2/2)	//actual safety margin is probably M_SQRT2
+			if(!isfinite(dist) || dist > M_SQRT2_F/2)	//actual safety margin is probably M_SQRT2
 				continue;
 			write_imageui(uc4_out, (int2)(i, j), (uint4)(color, -1));
 		}

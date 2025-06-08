@@ -3,14 +3,14 @@ stripped down version of arc_seg_adj_matrix() for debugging / logic checking,
 doesn't use Candy's theorem constraints
 */
 
-//#include "cast_helpers.cl_h"
 #include "math_helpers.cl_h"
 #include "arc_data.cl_h"
 #include "conic_solve.cl_h"
 #include "cast_helpers.cl_h"
 #include "bresenham_line.cl_h"
+#include "colorizer.cl_h"
 
-bool isPointOutOfRegion(int4 tangents, int4 displacements)
+bool isPointOutOfRegion1(int4 tangents, int4 displacements)
 {
 	tangents *= displacements.yxwz;
 	tangents.even -= tangents.odd;
@@ -43,9 +43,9 @@ kernel void arc_seg_adj_stripped(
 	if(all(B_coords[0] == 0))
 	{
 		printf("%v2i", A_coords[1]);
-		draw_line(A_coords[0], A_coords[1], (uint4)(-1, 0, -1, -1), uc4_out);		//magenta (chord)
-		draw_line(A_coords[0], A_coords[0] - A_tangents.lo*256, (uint4)(-1, -1, 0, -1), uc4_out);	//yellow (start tangent)
-		draw_line(A_coords[1], A_coords[1] + A_tangents.hi*256, (uint4)(0, -1, -1, -1), uc4_out);	//cyan (end tangent)
+		draw_line(A_coords[0], A_coords[1], MAGENTA, uc4_out);		// (chord)
+		draw_line(A_coords[0], A_coords[0] - A_tangents.lo*256, YELLOW, uc4_out);	// (start tangent)
+		draw_line(A_coords[1], A_coords[1] + A_tangents.hi*256, CYAN, uc4_out);	// (end tangent)
 	}
 	// flip vectors for ccw arcs to keep check sense the same
 	if(indices.y)
@@ -68,7 +68,7 @@ kernel void arc_seg_adj_stripped(
 		A_to_B_start.lo = B_coords[0] - A_coords[0];	// vector from start of arc A to start of arc B
 
 		// if the start of B isn't between the tangents of A it should be skipped
-		if(isPointOutOfRegion(A_tangents, A_to_B_start))
+		if(isPointOutOfRegion1(A_tangents, A_to_B_start))
 			break;
 
 		// since it passed initial tests, read in the tangents and endpoint data for deeper verification
@@ -85,22 +85,22 @@ kernel void arc_seg_adj_stripped(
 		A_to_B_end.hi = B_coords[1] - A_coords[1];
 
 		// if the end of B isn't between the tangents of A it should be skipped
-		if(isPointOutOfRegion(A_tangents, A_to_B_end))
+		if(isPointOutOfRegion1(A_tangents, A_to_B_end))
 			break;
 /*
 		int4 B_tangents = convert_int4(B_data.tangents);
 		if(indices.y)
 			B_tangents *= -1;
 
-		if(isPointOutOfRegion(A_to_B_start, B_tangents.xyxy))
+		if(isPointOutOfRegion1(A_to_B_start, B_tangents.xyxy))
 			break;
 		
-		if(isPointOutOfRegion(A_to_B_end, B_tangents.zwzw))
+		if(isPointOutOfRegion1(A_to_B_end, B_tangents.zwzw))
 			break;
 */
 		// all preliminary region checks passed, do Candy's theorem checks
 
-		write_imageui(uc4_out, B_coords[0], -1);
+		write_imageui(uc4_out, B_coords[0], GRAY);
 		break;
 	}
 //	write_imageui(uc4_out, B_coords[0], -1);

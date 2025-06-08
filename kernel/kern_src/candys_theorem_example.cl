@@ -81,13 +81,13 @@ kernel void candys_theorem_example(
 	read_only image2d_t ff1_ellipse_major,
 	write_only image2d_t uc4_out)
 {
-	int2 indices = (int2)(8,0);
+	int2 indices = (int2)(1,0);
 	int B_index = 7;
 	int2 A_coords[2];
 	A_coords[0] = read_imagei(is2_arc_coords, indices).lo;
 	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, A_coords[0]).lo).ad;
 	A_coords[1] = convert_int2(A_data.endpoint);
-	int2 A_end_offset = A_coords[1] - A_coords[0];
+	//int2 A_end_offset = A_coords[1] - A_coords[0];
 	int4 A_tangents = convert_int4(A_data.tangents);
 	
 	int2 B_coords[2];
@@ -95,14 +95,6 @@ kernel void candys_theorem_example(
 	ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, B_coords[0]).lo).ad;
 	B_coords[1] = convert_int2(B_data.endpoint);
 	int4 B_tangents = convert_int4(B_data.tangents);
-
-	// flip vectors for ccw arcs to keep check sense the same
-	if(indices.y)
-	{
-		A_end_offset *= -1;
-		A_tangents *= -1;
-		B_tangents *= -1;
-	}
 
 	draw_line(A_coords[0], A_coords[1], CYAN, uc4_out);
 	draw_line(B_coords[0], B_coords[1], YELLOW, uc4_out);
@@ -242,8 +234,11 @@ kernel void candys_theorem_example(
 			}
 		}
 		//draw updated dist lines
-		draw_line(convert_int2(A_coords_f[0]), convert_int2(B_coords_f[1]), GREEN, uc4_out);
-		draw_line(convert_int2(B_coords_f[0]), convert_int2(A_coords_f[1]), GREEN, uc4_out);
+		draw_line(convert_int2(A_coords_f[0]), convert_int2(B_coords_f[1]), MAGENTA, uc4_out);
+		draw_line(convert_int2(B_coords_f[0]), convert_int2(A_coords_f[1]), MAGENTA, uc4_out);
+		//draw center finding lines
+		draw_line(convert_int2(A_coords_f[0]), convert_int2(B_coords_f[0]), BLUE, uc4_out);
+		draw_line(convert_int2(B_coords_f[1]), convert_int2(A_coords_f[1]), BLUE, uc4_out);
 
 
 		// Do the parts of the Canny's check calculation that can be shared for each test point
@@ -252,37 +247,37 @@ kernel void candys_theorem_example(
 		float2 central = intersect_ab_cd(A_coords_f[0], B_coords_f[0], A_coords_f[1], B_coords_f[1]);
 
 		// express A and B end coords relative to start
-		A_coords_f[1] -= A_coords_f[0];
-		B_coords_f[1] -= B_coords_f[0];
-		// express A and B start coords relative to central point
+		float2 A_start_end = A_coords_f[1] - A_coords_f[0];
+		float2 B_start_end = B_coords_f[1] - B_coords_f[0];
+		// express A and B coords relative to central point
 		A_coords_f[0] -= central;
 		B_coords_f[0] -= central;
-
-		float2 shared = A_coords_f[1] / cross_2d_f(A_coords_f[0], A_coords_f[1]) + B_coords_f[1] / cross_2d_f(B_coords_f[0], B_coords_f[1]);
+		A_coords_f[1] -= central;
+		B_coords_f[1] -= central;
+	
+		float2 shared = A_start_end / cross_2d_f(A_coords_f[0], A_coords_f[1]) + B_start_end / cross_2d_f(B_coords_f[0], B_coords_f[1]);
 
 		// test if Candy's Theorem constraint passes for at least 2 of the test points
 		float2 tp_rel;
-		char fail_cnt = 0;
-		// express test point coords relative to central point
-		tp_rel = test_points[test_index] - central;
-		// find corresponding point to test point as according to Candy's Theorem relative to the central point and then add back the central point's offset
-		tp_rel *= cross_2d_f(tp_rel, shared);
-		tp_rel += central;
+		//char fail_cnt = 0;
 
-		// check that the predicted point is a close match to arc B's predicted foci and major axis length
-		if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
-			++fail_cnt;
-		
-		++test_index;
-		// do the above again for the second test point
-		tp_rel = test_points[test_index] - central;
-		tp_rel *= cross_2d_f(tp_rel, shared);
-		tp_rel += central;
-		if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
-			++fail_cnt;
-		
-		printf("%v2f\n", tp_rel);
-/*
+		for(int i = 0; i < 3; ++i)
+		{
+			// express test point coords relative to central point
+			tp_rel = test_points[test_index] - central;
+			// find corresponding point to test point as according to Candy's Theorem relative to the central point and then add back the central point's offset
+			tp_rel /= cross_2d_f(tp_rel, shared) - 1;
+			tp_rel += central;
+
+			// check that the predicted point is a close match to arc B's predicted foci and major axis length
+			uint4 color = (get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F) ? RED : GREEN;
+			
+			draw_line(convert_int2(test_points[test_index]), convert_int2(tp_rel), color, uc4_out);
+			++test_index;
+		}
+		write_imageui(uc4_out, convert_int2(central), WHITE);
+	/*	printf("%v2f\n", tp_rel);
+
 		switch(fail_cnt)
 		{
 		default:	// too many failures or invalid (How???)
