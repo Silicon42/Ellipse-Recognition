@@ -46,6 +46,7 @@ void setBestCliqueIfBetter(int4 const arc_tangents[9], float16 const arc_coeffs[
 	solveConic((__private float*)&elli_coeffs, elli_sol);
 
 	elli_coverage /= get_ellipse_coverage_divisor(elli_sol);
+	printf("%f ", elli_coverage);
 	if(elli_coverage > *best_coverage)
 	{
 		*best_coverage = elli_coverage;
@@ -75,6 +76,12 @@ kernel void arc_adj_consensus(
 
 	union s8_conv candidates;
 	candidates.i = read_imagei(ii4_sparse_adj_matrix, indices);
+
+	if(all(candidates.i == 0))
+	{
+//TODO: single arc closed region check and write
+		return;
+	}
 /*//TEMPORARILY DISABLED FOR DEBUGGING
 	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, indices).lo).ad;
 	A_coords[1] = convert_int2(A_data.endpoint);
@@ -113,6 +120,7 @@ kernel void arc_adj_consensus(
 	Ellipse best_elli_sol;
 	uchar best_clique = 0;
 
+	// read in the conic pre-solve coefficients for each of the candidates of arc A
 	float16 arc_pre_solves[9];
 	readPreSolveCoeffs(ff4_pre_solve_coeffs, A_coords[0], &arc_pre_solves[8]);
 	for(int i = 0; i < MAX_CANDIDATES; ++i)
@@ -133,15 +141,15 @@ kernel void arc_adj_consensus(
 	uchar processed;
 //	uchar const pairs = sizeof(edge_sets) - 28;
 
-	// 1 clique processing
-	for(int i = 0; (i < MAX_CANDIDATES) && (candidates.a[i] != -1); ++i)
+	// 1 clique processing & converting candidate lists to boolean bit vector form
+	for(int i = 0; (i < MAX_CANDIDATES) && (candidates.a[i] >= 0); ++i)
 	{
 		union s8_conv B_candidates = {.i = read_imagei(ii4_sparse_adj_matrix, (int2)(candidates.a[i], indices.y))};
 		// the node gets an edge to itself, this makes some logic simpler
 		processed = 1 << i;
 		edge_sets[i] = processed;
 		// set bits corresponding to shared connections to a node
-		for(int j = 0; j < MAX_CANDIDATES; ++j)
+		for(int j = 0; (j < MAX_CANDIDATES) && (candidates.a[j] >= 0); ++j)
 		{
 			if(any(B_candidates.s == candidates.a[j]))
 				edge_sets[i] |= 1 << j;
@@ -187,8 +195,11 @@ kernel void arc_adj_consensus(
 			{
 				processed = processed_1 | processed_2 | (1 << (MAX_CANDIDATES + j - j_thresh));	//TODO: this might be faster with a LUT
 				if(processed == (pairs[i] & pairs[j]))
+				{
+//					printf("3\n");
 //TODO: !!! coverage processing
 					setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+				}
 			}
 		}
 	}
@@ -221,11 +232,15 @@ kernel void arc_adj_consensus(
 		{
 			processed = processed4[i] | processed4[j];
 			if((edge_sets[i] & edge_sets[j]) == processed)
+			{
+//				printf("4+\n");
 				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+			}
 //TODO: !!! coverage processing
 		}
 	}
 
+printf("%02X ", best_clique);
 	// if no match whatsoever, skip writing
 	if(best_coverage <= 0)
 		return;

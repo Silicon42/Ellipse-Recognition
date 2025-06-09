@@ -296,9 +296,9 @@ ulong16 getPointCoeffs(int2 p)
 
 void readPreSolveCoeffs(read_only image2d_t ff4_pre_solve_coeffs, int2 coords, float16* ret)
 {
-	coords.x *= 4;
-	(*ret).hi.hi = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(3,0));
-	(*ret).hi.lo = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(2,0));
+	coords *= 2;
+	(*ret).hi.hi = read_imagef(ff4_pre_solve_coeffs, coords + 1);
+	(*ret).hi.lo = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(0,1));
 	(*ret).lo.hi = read_imagef(ff4_pre_solve_coeffs, coords + (int2)(1,0));
 	(*ret).lo.lo = read_imagef(ff4_pre_solve_coeffs, coords);
 }
