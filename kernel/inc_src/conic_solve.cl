@@ -137,10 +137,11 @@ float get_ellipse_coverage_divisor(float gen[5])
 	temp_f2 = ed * ed * ac;			// [ae^2, cd^2]
 	det_M = t2 - b * ed.x * ed.y + temp_f2.x + temp_f2.y;	// det(M) = -2*(2t + ae^2 - bde + cd^2)	//NOTE: -2 scalar ommitted as not relevant here
 	ac_b_len2 = ac_diff2 + b2;
-
+//FIXME: this math is coming out negative which causes indeterminate results when taking the square root, this shouldn't be the case in the first place so the math is wrong somewhere here
 	// semi-major and semi-minor axis lengths but with the det(M) scale factor deffered for calculation simplification reasons
 	float semimajor = 1 / (t2 * (ac.x + ac.y + sqrt(ac_b_len2)));	// 1/((4ac-b^2) * (a + c + )
 	float semiminor = sqrt(semimajor + sqrt(2*(ac_diff2 + ac_b_len2)));
+	printf("%f	", semimajor);
 	semimajor = sqrt(semimajor);
 
 	// real approx is pi*(maj + min)*(1 + h/4 + h^2/64 + h^3/256 + ...) where h = ((maj - min)/(maj + min))^2
@@ -150,7 +151,9 @@ float get_ellipse_coverage_divisor(float gen[5])
 	axis_sum  += semiminor;
 	h = (semimajor - semiminor) / axis_sum;
 	h *= h;
-	return det_M * axis_sum * (4 + h);	// reintroduce det(M) scale factor that was omitted in semi-major and semi-minor calc
+	float ret = det_M * axis_sum * (4 + h);	// reintroduce det(M) scale factor that was omitted in semi-major and semi-minor calc
+//	printf("%f	", ret);
+	return ret;
 }
 
 // Converts an ellipse in general conic form to foci-distance form

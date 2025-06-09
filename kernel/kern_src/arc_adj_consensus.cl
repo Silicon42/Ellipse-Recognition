@@ -46,7 +46,7 @@ void setBestCliqueIfBetter(int4 const arc_tangents[9], float16 const arc_coeffs[
 	solveConic((__private float*)&elli_coeffs, elli_sol);
 
 	elli_coverage /= get_ellipse_coverage_divisor(elli_sol);
-	printf("%f ", elli_coverage);
+//	printf("%f ", elli_coverage);
 	if(elli_coverage > *best_coverage)
 	{
 		*best_coverage = elli_coverage;
