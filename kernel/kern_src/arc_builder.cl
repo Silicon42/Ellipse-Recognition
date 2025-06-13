@@ -65,12 +65,12 @@ void write_arc(
 	//TODO: there might be a perf benefit to not doing the rest if < 4 segments
 	Ellipse el;
 	solveConic((private float*)&coeffs_f, el.general);
-	convertGeneralConicToFociDistEllipse(&el);
+	convertConicGeneralToFociMajor(&el);
 //	if(seg_cnt >= 4)
-//		printf("%v4f		%.f\n", el.foci_dist.foci, el.foci_dist.dist);
+//		printf("%v4f		%.f\n", el.fm.foci, el.fm.major);
 //printf("%v2i	", start_coords);
-	write_imagef(ff4_ellipse_foci, start_coords, el.foci_dist.foci);
-	write_imagef(ff1_ellipse_major, start_coords, el.foci_dist.dist);
+	write_imagef(ff4_ellipse_foci, start_coords, el.fm.foci);
+	write_imagef(ff1_ellipse_major, start_coords, el.fm.major);
 }
 
 kernel void arc_builder(
@@ -118,7 +118,7 @@ kernel void arc_builder(
 	float len_approx;
 	ArcData data;
 	Ellipse ellipse;
-	float4 * foci = &ellipse.foci_dist.foci;
+	float4 * foci = &ellipse.fm.foci;
 	char dir, dir_trend;
 	int dir_cross;
 	uchar kick = 0;	// which point index to kick when a recalculation occurs
@@ -224,18 +224,18 @@ kernel void arc_builder(
 				ellipse_from_hist(diffs, cross_prods, &ellipse);
 
 				// if points didn't form an ellipse with a reasonable minimum major axis length
-				if(ellipse.foci_dist.dist <= 2)
+				if(ellipse.fm.major <= 2)
 				{
 					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
 				
 				float2 mid0 = convert_float2(points[0]) / 2;
-				float deviation = get_ellipse_deviation(&ellipse.foci_dist, mid0);
+				float deviation = get_ellipse_deviation(&ellipse.fm, mid0);
 				// if the ellipse was a bad fit, try again next time
 				if(deviation > ELLIPSE_DEVIATION_THRESH)
 				{
-	//				printf("seg_cnt3: %f", ellipse.foci_dist.dist);
+	//				printf("seg_cnt3: %f", ellipse.fm.major);
 					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
@@ -246,7 +246,7 @@ kernel void arc_builder(
 	//				printf("test1 ");
 			// if the new segment endpoint deviates from the already calculated ellipse,
 			// it either needs to be re-calculated with the new point or reset and written out
-			if(get_ellipse_deviation(&ellipse.foci_dist, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
+			if(get_ellipse_deviation(&ellipse.fm, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
 			{
 				// lookup which entry to kick to attempt a re-calculation of the ellipse
 				// the ordering is chosen so that it should spread the points out as recaluclations occur
@@ -264,7 +264,7 @@ kernel void arc_builder(
 				// calculate the ellipse with the new point
 				Ellipse new_ellipse;
 				ellipse_from_hist(diffs, cross_prods, &new_ellipse);
-				if(new_ellipse.foci_dist.dist <= 0)
+				if(new_ellipse.fm.major <= 0)
 				{
 					reset = LOGICAL_RESET;
 					continue;
@@ -272,7 +272,7 @@ kernel void arc_builder(
 
 		//			printf("test2 ");
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
-				if(get_ellipse_deviation(&ellipse.foci_dist, old_point) > ELLIPSE_DEVIATION_THRESH)
+				if(get_ellipse_deviation(&ellipse.fm, old_point) > ELLIPSE_DEVIATION_THRESH)
 				{
 					reset = LOGICAL_RESET;
 					continue;

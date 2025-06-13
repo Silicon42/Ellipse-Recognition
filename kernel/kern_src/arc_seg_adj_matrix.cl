@@ -42,7 +42,7 @@ bool isPointOutOfRegion(int4 tangents, int4 displacements)
 // Given a test point, the central crossing point, the pre-computed shared portion of the calculation of the Candy's theorem
 // that applies to all points, and the foci and major axis length of the suspected arc see if the correspoing point falls 
 // within a small margin of error of the edge of the conic
-inline bool doesFailCandysCheck(float2 testpoint, float2 const central, float2 const shared_calc, FociDist const * const B_foci_major)
+inline bool doesFailCandysCheck(float2 testpoint, float2 const central, float2 const shared_calc, FociMajor const * const B_foci_major)
 {
 	// express test point coords relative to central point
 	testpoint -= central;
@@ -212,7 +212,7 @@ kernel void arc_seg_adj_matrix(
 		// all preliminary region checks passed, do Candy's theorem checks
 
 		// This will be needed later so read it here in hopes that by the time the read latency is up it's actually ready to use
-		FociDist B_foci_major = {.foci = read_imagef(ff4_ellipse_foci, B_coords[0]), .dist = read_imagef(ff1_ellipse_major, B_coords[0]).x};
+		FociMajor B_foci_major = {.foci = read_imagef(ff4_ellipse_foci, B_coords[0]), .major = read_imagef(ff1_ellipse_major, B_coords[0]).x};
 		int2 B_end_offset = B_coords[1] - B_coords[0];
 
 //TODO: re-evaluate the types here once you know more about float vs int performance on different systems, endpoints could be

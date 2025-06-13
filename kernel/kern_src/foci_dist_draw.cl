@@ -9,7 +9,7 @@ purposes only
 #include "colorizer.cl_h"
 #include "bresenham_line.cl_h"
 
-kernel void foci_dist_draw(
+kernel void fm_draw(
 //	read_only image2d_t ii2_arc_data,
 	read_only image2d_t is1_dir_cnt,
 	read_only image2d_t ff4_foci,
@@ -23,12 +23,12 @@ kernel void foci_dist_draw(
 	if((dir_cnt & SEG_CNT_MASK) < 4)	// only draw ellipses that have at least 4 segments to them
 		return;
 
-	FociDist ellipse = {
+	FociMajor ellipse = {
 		.foci = read_imagef(ff4_foci, coords),
-		.dist = read_imagef(ff1_major, coords).x
+		.major = read_imagef(ff1_major, coords).x
 	};
 
-	if(ellipse.dist <= 0)
+	if(ellipse.major <= 0)
 	{
 		printf(" hyperbola?");
 		return;

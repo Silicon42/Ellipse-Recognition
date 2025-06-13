@@ -241,12 +241,13 @@ kernel void arc_adj_consensus(
 	}
 
 printf("%02X ", best_clique);
+printf("%f	", best_coverage);
 	// if no match whatsoever, skip writing
 	if(best_coverage <= 0)
 		return;
 
 	//TODO: consensus probably needs to be stored as candidate list instead for ease of access, could overwrite existing candidate list safely
 //	write_imageui(uc1_adj_consensus, indices, best_clique);
-	write_imagef(ff4_sol_coeffs_ABCD, indices, best_elli_sol.foci_dist.foci);
-	write_imagef(ff1_sol_coeffs_E, indices, best_elli_sol.foci_dist.dist);
+	write_imagef(ff4_sol_coeffs_ABCD, indices, best_elli_sol.fm.foci);
+	write_imagef(ff1_sol_coeffs_E, indices, best_elli_sol.fm.major);
 }

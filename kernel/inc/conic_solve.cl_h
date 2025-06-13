@@ -5,13 +5,13 @@
 #define MAX_CANDIDATES 8
 
 //TODO: element names need rework to be more general
-typedef struct _FociDist {
+typedef struct _FociMajor {
 	float4 foci;
-	float dist;
-} FociDist;
+	float major;
+} FociMajor;
 
 typedef union _Ellipse {
-	FociDist foci_dist;
+	FociMajor fm;
 	float general[5];
 //	int4 foci_bits;
 } Ellipse;
@@ -37,10 +37,9 @@ void solveConic(float A[15], float b[5]);
 #define ELLI_COVER_SCALE	M_2_PI_F
 float get_ellipse_coverage_divisor(float gen[5]);
 
-// Converts an ellipse in general conic form to foci-distance form
-// returns the foci on the first 4 elements of b and distance on the 5th
+// Converts an ellipse in general conic form to foci-major form
 // if not an ellipse, returns negative distance
-void convertGeneralConicToFociDistEllipse(Ellipse * const M);
+void convertConicGeneralToFociMajor(Ellipse * const M);
 
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
@@ -57,7 +56,7 @@ ulong16 getPointCoeffs(int2 p);
 
 // returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
 // this can be used to determine if a point is close to the ellipse boundary
-float get_ellipse_deviation(FociDist const * const M, const float2 point);
+float get_ellipse_deviation(FociMajor const * const M, const float2 point);
 
 //TODO: convert instances of reading/writing the pre-solve coeffs to using functions
 void readPreSolveCoeffs(read_only image2d_t ff4_pre_solve_coeffs, int2 coords, float16* ret);

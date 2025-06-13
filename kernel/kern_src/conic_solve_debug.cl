@@ -38,17 +38,17 @@ M.general[3] = -40/155200.f;
 M.general[4] = 24/155200.f;
 */
 
-	convertGeneralConicToFociDistEllipse(&M);
-//	printf("%v4f %f,	", M.foci_dist.foci, M.foci_dist.dist);
-	draw_line(coords, convert_int2_rte(M.foci_dist.foci.lo), color + 64, uc4_out);
-	draw_line(coords, convert_int2_rte(M.foci_dist.foci.hi), color + 64, uc4_out);
+	convertConicGeneralToFociMajor(&M);
+//	printf("%v4f %f,	", M.fm.foci, M.fm.major);
+	draw_line(coords, convert_int2_rte(M.fm.foci.lo), color + 64, uc4_out);
+	draw_line(coords, convert_int2_rte(M.fm.foci.hi), color + 64, uc4_out);
 
 	int2 bounds = get_image_dim(uc4_out);
 	for(int j = 0; j < bounds.y; ++j)
 	{
 		for(int i = 0; i < bounds.x; ++i)
 		{
-			float dist = get_ellipse_deviation(&M.foci_dist, (float2)(i, j));
+			float dist = get_ellipse_deviation(&M.fm, (float2)(i, j));
 //			if(i==120 && j==40)
 //				printf("%f	", dist);
 			if(!isfinite(dist) || dist > M_SQRT2/2)
