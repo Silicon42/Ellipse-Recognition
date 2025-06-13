@@ -46,11 +46,11 @@ kernel void gen_ellipse_draw(
 	}
 
 //	int2 end_coords = convert_int2(data.endpoint);
-	if(!all(isfinite(fd->foci)))
-		return;
-	int4 foci = convert_int4_sat_rte(fd->foci);
+//	if(!all(isfinite(fd->foci)))
+//		return;
+//	int4 foci = convert_int4_sat_rte(fd->foci);
 //	draw_line(end_coords, foci.lo, (uint4)(color/2, 128), uc4_out);
 //	draw_line(end_coords, foci.hi, (uint4)(color/2, 128), uc4_out);
-	draw_line(coords, foci.lo, (uint4)(color + 64, 128), uc4_out);
-	draw_line(coords, foci.hi, (uint4)(color + 64, 128), uc4_out);
+//	draw_line(coords, foci.lo, (uint4)(color + 64, 128), uc4_out);
+//	draw_line(coords, foci.hi, (uint4)(color + 64, 128), uc4_out);
 }
