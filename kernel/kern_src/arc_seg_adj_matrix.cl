@@ -163,11 +163,6 @@ kernel void arc_seg_adj_matrix(
 		if(all(B_coords[0] == 0))
 			break;
 
-		//TODO: *1
-		uint dist2 = mag2_2d_i(A_avg_coords - (B_coords[0] + B_coords[1]));
-		if(dist2 > candidate_dist2[worst_candidate])
-			continue;
-
 		int4 A_to_B_start;
 		A_to_B_start.hi = B_coords[0] - A_coords[1];	// vector from end of arc A to start of arc B
 		
@@ -185,6 +180,11 @@ kernel void arc_seg_adj_matrix(
 		// since it passed initial tests, read in the tangents and endpoint data for deeper verification
 		ArcData B_data = ((RW_ArcData)read_imagei(ii2_arc_data, B_coords[0]).lo).ad;
 		B_coords[1] = convert_int2(B_data.endpoint);
+
+		//TODO: *1
+		uint dist2 = mag2_2d_i(A_avg_coords - (B_coords[0] + B_coords[1]));
+		if(dist2 > candidate_dist2[worst_candidate])
+			continue;
 
 		int4 A_to_B_end;
 		A_to_B_end.lo = B_coords[1] - A_coords[0];
@@ -350,7 +350,6 @@ printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coo
 				dist2 = candidate_dist2[j];
 			}
 		}
-	//	printf("%i",num_candidates);
 		++num_candidates;
 	}
 	// arcs with no candidates instead get encoded as 0 to get treated the same as invalid entries

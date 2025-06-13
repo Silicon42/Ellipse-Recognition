@@ -11,7 +11,7 @@ Stages = [
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'arc_dir_cnt', 'pre_solve_coeffs', 'ellipse_foci', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
 	{name = 'serial_reduce_arcs', args = ['arc_dir_cnt', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
-	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'undirected_sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
+	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 	{name = 'arc_adj_consensus', args = ['arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'arc_coords'}},
 
 #### OUTPUT DEBUGGING KERNELS ####
