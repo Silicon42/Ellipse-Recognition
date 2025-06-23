@@ -63,14 +63,14 @@ void write_arc(
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2,   start_coords.y*2+1), coeffs_f.hi.lo);
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2+1, start_coords.y*2+1), coeffs_f.hi.hi);
 	//TODO: there might be a perf benefit to not doing the rest if < 4 segments
-	Ellipse el;
-	solveConic((private float*)&coeffs_f, el.general);
-	convertConicGeneralToFociMajor(&el);
+	Conic conic;
+	solveConic((private float*)&coeffs_f, conic.general);
+	convertConicGeneralToFociMajor(&conic);
 //	if(seg_cnt >= 4)
-//		printf("%v4f		%.f\n", el.fm.foci, el.fm.major);
+//		printf("%v4f		%.f\n", el.fm.foci, conic.fm.major);
 //printf("%v2i	", start_coords);
-	write_imagef(ff4_ellipse_foci, start_coords, el.fm.foci);
-	write_imagef(ff1_ellipse_major, start_coords, el.fm.major);
+	write_imagef(ff4_ellipse_foci, start_coords, conic.fm.foci);
+	write_imagef(ff1_ellipse_major, start_coords, conic.fm.major);
 }
 
 kernel void arc_builder(
@@ -117,8 +117,8 @@ kernel void arc_builder(
 	ushort seg_cnt;
 	float len_approx;
 	ArcData data;
-	Ellipse ellipse;
-	float4 * foci = &ellipse.fm.foci;
+	Conic conic;
+	float4 * foci = &conic.fm.foci;
 	char dir, dir_trend;
 	int dir_cross;
 	uchar kick = 0;	// which point index to kick when a recalculation occurs
@@ -220,18 +220,25 @@ kernel void arc_builder(
 				cross_prods[1] = cross_2d_i(points[1], points[0]);
 				cross_prods[2] = cross_2d_i(points[2], points[1]);
 				cross_prods[3] = cross_2d_i(points[3], points[2]);
+			//	printf("%v2i %v2i %v2i %v2i\n", diffs[0], diffs[1], diffs[2], diffs[3]);
 
-				ellipse_from_hist(diffs, cross_prods, &ellipse);
+			//	conic_from_hist(diffs, cross_prods, &conic);
+				//FIXME: TEMPORARY SWAP OUT FOR ABOVE LINE FOR SANITY CHECKING (*1)
+				float16 coeffs_f = convert_float16(coeffs);
+				solveConic((__private float *)&coeffs_f, conic.general);
+				convertConicGeneralToFociMajor(&conic);
+				printf("%v4f\n", conic.fm.foci);
+				//FIXME: (*1)*/
 
 				// if points didn't form an ellipse with a reasonable minimum major axis length
-				if(ellipse.fm.major <= 2)
+				if(conic.fm.major <= 2)
 				{
 					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
 				
 				float2 mid0 = convert_float2(points[0]) / 2;
-				float deviation = get_ellipse_deviation(&ellipse.fm, mid0);
+				float deviation = get_conic_deviation(&conic.fm, mid0);
 				// if the ellipse was a bad fit, try again next time
 				if(deviation > ELLIPSE_DEVIATION_THRESH)
 				{
@@ -246,7 +253,7 @@ kernel void arc_builder(
 	//				printf("test1 ");
 			// if the new segment endpoint deviates from the already calculated ellipse,
 			// it either needs to be re-calculated with the new point or reset and written out
-			if(get_ellipse_deviation(&ellipse.fm, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
+			if(get_conic_deviation(&conic.fm, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
 			{
 				// lookup which entry to kick to attempt a re-calculation of the ellipse
 				// the ordering is chosen so that it should spread the points out as recaluclations occur
@@ -262,9 +269,9 @@ kernel void arc_builder(
 				cross_prods[k_p1] = cross_2d_i(points[k_p1], points[k]);
 
 				// calculate the ellipse with the new point
-				Ellipse new_ellipse;
-				ellipse_from_hist(diffs, cross_prods, &new_ellipse);
-				if(new_ellipse.fm.major <= 0)
+				Conic new_conic;
+				conic_from_hist(diffs, cross_prods, &new_conic);
+				if(new_conic.fm.major <= 0)
 				{
 					reset = LOGICAL_RESET;
 					continue;
@@ -272,14 +279,14 @@ kernel void arc_builder(
 
 		//			printf("test2 ");
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
-				if(get_ellipse_deviation(&ellipse.fm, old_point) > ELLIPSE_DEVIATION_THRESH)
+				if(get_conic_deviation(&conic.fm, old_point) > ELLIPSE_DEVIATION_THRESH)
 				{
 					reset = LOGICAL_RESET;
 					continue;
 				}
 				// else this was just a minor course correction and can be taken as the updated ellipse approx.
 				//TODO: make this a reference copy instead of a value copy
-				ellipse = new_ellipse;
+				conic = new_conic;
 			}
 		}
 		// this must stay at the end b/c some situations need to be able to skip it

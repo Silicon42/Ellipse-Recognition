@@ -6,6 +6,11 @@
 #include "conic_solve.cl_h"
 #include "cast_helpers.cl_h"
 
+//NOTE: tuneable minimum coverage in percent required in order for a solution to be written out
+#define MIN_COVERAGE_PERCENT	15
+// percent scaled to match coverage value scaling
+#define MIN_COVERAGE_THRESH		(MIN_COVERAGE_PERCENT * M_1_PI_F / 100)
+
 //TODO: this LUT could be folded in half because the later half is the bitwise inverse of the first half in reverse order
 // which could improve cache hit ratio
 constant const uchar processed4[70] = {
@@ -117,7 +122,7 @@ kernel void arc_adj_consensus(
 
 //TODO: !!! add coverage initialization/processing for single arc closed region
 	float best_coverage = 0;
-	Ellipse best_elli_sol;
+	Conic best_elli_sol;
 	uchar best_clique = 0;
 
 	// read in the conic pre-solve coefficients for each of the candidates of arc A
@@ -242,8 +247,8 @@ kernel void arc_adj_consensus(
 
 printf("%02X ", best_clique);
 printf("%f	", best_coverage);
-	// if no match whatsoever, skip writing
-	if(best_coverage <= 0)
+	// if no decent match whatsoever, skip writing
+	if(best_coverage < MIN_COVERAGE_THRESH)
 		return;
 
 	//TODO: consensus probably needs to be stored as candidate list instead for ease of access, could overwrite existing candidate list safely

@@ -15,15 +15,16 @@ kernel void conic_solve_debug(
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	union f16_conv coeffs;
-	coeffs.v = 0;
+	readPreSolveCoeffs(ff4_pseudo_coeffs, coords, &coeffs.v);
+/*	coeffs.v = 0;
 	coeffs.v.hi.hi = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+3, coords.y));
 	if(coeffs.v.sf < 5)	// skip drawing if less than 5 points involved
 		return;
 	coeffs.v.hi.lo = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+2, coords.y));
 	coeffs.v.lo.hi = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4+1, coords.y));
 	coeffs.v.lo.lo = read_imagef(ff4_pseudo_coeffs, (int2)(coords.x*4,   coords.y));
-
-	Ellipse M;
+*/
+	Conic M;
 //	printf("%v16f\n", coeffs.v);
 	solveConic(coeffs.a, M.general);
 
@@ -48,7 +49,7 @@ M.general[4] = 24/155200.f;
 	{
 		for(int i = 0; i < bounds.x; ++i)
 		{
-			float dist = get_ellipse_deviation(&M.fm, (float2)(i, j));
+			float dist = get_conic_deviation(&M.fm, (float2)(i, j));
 //			if(i==120 && j==40)
 //				printf("%f	", dist);
 			if(!isfinite(dist) || dist > M_SQRT2/2)

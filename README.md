@@ -56,3 +56,5 @@ is on the OpenCL 2.x minimum full profile support list
 * reorder general conic coeffs to be more convenient for reading and writing
 * deal with possibly hyperbolic arcs since some shorter arcs sometimes are
  borderline
+* error message for missing kernel function source needs to be fixed to not print
+ garbage

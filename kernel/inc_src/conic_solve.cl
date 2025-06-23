@@ -96,17 +96,24 @@ void solveConic(float A[15], float b[5])
 			b[i] += A[TRI_INDEX(j,i)] * b[j];
 }
 
-// returns the sum of the distances from an ellipses foci and a point
+// returns the sum of the distances from an ellipse foci and a point
 inline float get_ellipse_dist(const float4 foci, const float2 point)
 {
 	return fast_distance(foci.lo, point) + fast_distance(foci.hi, point);
 }
 
-// returns the absolute difference between a point and a ellipse's foci and its semi-major axis length
-// this can be used to determine if a point is close to the ellipse boundary
-float get_ellipse_deviation(FociMajor const * const M, const float2 point)
+// returns the difference of the distances from a hyperbola foci and a point
+inline float get_hyperbola_dist(const float4 foci, const float2 point)
 {
-	return fabs(M->major - get_ellipse_dist(M->foci, point));
+	return -fabs(fast_distance(foci.lo, point) - fast_distance(foci.hi, point));
+}
+
+// returns the absolute difference between a conic's major axis length vs a point and it's foci
+// this can be used to determine if a point is close to the conic's boundary
+float get_conic_deviation(FociMajor const * const M, const float2 point)
+{
+	float dist = (M->major >= 0) ? get_ellipse_dist(M->foci, point) : get_hyperbola_dist(M->foci, point);
+	return fabs(M->major - dist);
 }
 
 // following few functions are somewhat sensitive to fused multiply-add and will give wrong answers if they use them in some cases
@@ -157,15 +164,15 @@ float get_ellipse_coverage_divisor(float gen[5])
 // Converts an ellipse in general conic form to foci-major form
 // if not an ellipse, returns non-positive distance
 //NOTE: derived from here: https://math.stackexchange.com/questions/44391/foci-of-a-general-conic-equation
-void convertConicGeneralToFociMajor(Ellipse * const M)
+void convertConicGeneralToFociMajor(Conic * const M)
 {
 	float* gen = M->general;
 	FociMajor* fm = &M->fm;
 	float b = gen[4];
 	float t2 = 4*gen[2]*gen[3] - b*b;	// t^2 = 4ac - b^2
-	if(!isfinite(t2) || t2 <= 0)
+	if(!isfinite(t2) || t2 == 0)
 	{
-		fm->major = -1;
+		fm->major = NAN;
 		return;
 	}
 
@@ -191,10 +198,10 @@ void convertConicGeneralToFociMajor(Ellipse * const M)
 }
 
 
-// calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
+// calculates a conic through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied
 // if the conic through 5 points would not be an ellipse, returns a non-positive distance
-void ellipse_from_hist(private const int2 diffs[4], private const int cross_prods[4], Ellipse * const ellipse)
+void conic_from_hist(private const int2 diffs[4], private const int cross_prods[4], Conic * const conic)
 {	//TODO: see how to mitigate rounding errors better
 //if(all(diffs[0]==(int2)(75,-27)))
 //	printf("%i	%i	%i	%i\n", cross_prods[0],cross_prods[1],cross_prods[2],cross_prods[3]);
@@ -222,10 +229,10 @@ void ellipse_from_hist(private const int2 diffs[4], private const int cross_prod
 	inv_2t = 4 * ca.x * ca.y - b * b;
 //if(all(diffs[0] == (int2)(75,-27)))
 //printf("%A	", inv_2t);
-	//only bother computing foci for ellipse candidates, not parabolas or hyperbolas
-	if(!isfinite(inv_2t) || inv_2t <= 0)
+	//only bother computing foci for ellipse or hyperbola candidates, not parabolas due to divide by 0
+	if(!isfinite(inv_2t) || inv_2t == 0)
 	{
-		ellipse->fm.major = -1;
+		conic->fm.major = NAN;
 		return;
 	}
 	inv_2t = 1 / inv_2t;
@@ -250,22 +257,24 @@ void ellipse_from_hist(private const int2 diffs[4], private const int cross_prod
 	ac_b_len = hypot(ac_diff, b);
 
 	det_M = 2 * (det_M + dot(temp_f2, ed.yx));	//2(ae^2 - bde + cd^2)
+//	if(inv_2t < 0)
+		printf("%f	%f	%e	", det_M, ac_b_len, ac_diff);
 	temp_f2 = sqrt(det_M * (ac_b_len + (float2)(-ac_diff, ac_diff)));
-if(any(isnan(temp_f2)))
-	printf("X");
+//if(any(isnan(temp_f2)))
+	printf("%v2f\n",temp_f2);
 
 	// due to sqrt of complex value, x and y components are either same sign if b > 0 or opposite sign if b < 0
 	if(b > 0)
 		temp_f2.y *= -1;
 
-	ellipse->fm.foci.lo = rs + temp_f2;
-	ellipse->fm.foci.hi = rs - temp_f2;
-	ellipse->fm.foci *= inv_2t;
+	conic->fm.foci.lo = rs + temp_f2;
+	conic->fm.foci.hi = rs - temp_f2;
+	conic->fm.foci *= inv_2t;
 //	printf("(%f %f)\n", det_M * inv_2t, (ca.x + ca.y + ac_b_len));
 	//FIXME: something was wrong with the commented out calculation, however if corrected it *should* be faster since it would
 	// need only 1 sqrt call, but in the interest of actually moving forward, I just reverted to the less efficient method that I know works for now
-	ellipse->fm.major = get_ellipse_dist(ellipse->fm.foci, 0); //2*sqrt(-det_M * inv_2t / (ca.x + ca.y + ac_b_len));
-//printf("%v4f ]\n", ellipse->fm.foci);
+	conic->fm.major = (inv_2t >= 0) ? get_ellipse_dist(conic->fm.foci, 0) : get_hyperbola_dist(conic->fm.foci, 0); //2*sqrt(-det_M * inv_2t / (ca.x + ca.y + ac_b_len));
+printf("%v4f ]\n", conic->fm.foci);
 	return;
 }
 

@@ -17,14 +17,14 @@ kernel void gen_ellipse_draw(
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
-	Ellipse ellipse = {.fm = {
+	Conic conic = {.fm = {
 		.foci = read_imagef(ff4_abcd, coords),
 		.major = read_imagef(ff1_e, coords).x
 	}};
 
-	FociMajor* fm = &ellipse.fm;
+	FociMajor* fm = &conic.fm;
 
-	convertConicGeneralToFociMajor(&ellipse);
+	convertConicGeneralToFociMajor(&conic);
 
 	if(fm->major <= 0)
 	{
@@ -38,7 +38,7 @@ kernel void gen_ellipse_draw(
 	{
 		for(int i = 0; i < bounds.x; ++i)
 		{
-			float dist = get_ellipse_deviation(fm, (float2)(i, j));
+			float dist = get_conic_deviation(fm, (float2)(i, j));
 			if(!isfinite(dist) || dist > M_SQRT2_F/2)	//actual safety margin is probably M_SQRT2
 				continue;
 			write_imageui(uc4_out, (int2)(i, j), (uint4)(color, -1));

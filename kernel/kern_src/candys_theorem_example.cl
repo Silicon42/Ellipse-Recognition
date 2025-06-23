@@ -142,7 +142,7 @@ kernel void candys_theorem_example(
 		// all preliminary region checks passed, do Candy's theorem checks
 
 		// This will be needed later so read it here in hopes that by the time the read latency is up it's actually ready to use
-		FociMajor B_foci_major = {.foci = read_imagef(ff4_ellipse_foci, B_coords[0]), .dist = read_imagef(ff1_ellipse_major, B_coords[0]).x};
+		FociMajor B_foci_major = {.foci = read_imagef(ff4_ellipse_foci, B_coords[0]), .major = read_imagef(ff1_ellipse_major, B_coords[0]).x};
 		int2 B_end_offset = B_coords[1] - B_coords[0];
 
 //TODO: re-evaluate the types here once you know more about float vs int performance on different systems, endpoints could be
@@ -270,7 +270,7 @@ kernel void candys_theorem_example(
 			tp_rel += central;
 
 			// check that the predicted point is a close match to arc B's predicted foci and major axis length
-			uint4 color = (get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F) ? RED : GREEN;
+			uint4 color = (get_conic_deviation(&B_foci_major, tp_rel) > M_SQRT2_F) ? RED : GREEN;
 			
 			draw_line(convert_int2(test_points[test_index]), convert_int2(tp_rel), color, uc4_out);
 			++test_index;
@@ -287,7 +287,7 @@ kernel void candys_theorem_example(
 			tp_rel = test_points[test_index] - central;
 			tp_rel *= cross_2d_f(tp_rel, shared);
 			tp_rel += central;
-			if(get_ellipse_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
+			if(get_conic_deviation(&B_foci_major, tp_rel) > M_SQRT2_F)
 			{
 				continue;
 			}

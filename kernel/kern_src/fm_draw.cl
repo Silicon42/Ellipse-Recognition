@@ -41,7 +41,7 @@ kernel void fm_draw(
 	{
 		for(int i = 0; i < bounds.x; ++i)
 		{
-			float dist = get_ellipse_deviation(&ellipse, (float2)(i, j));
+			float dist = get_conic_deviation(&ellipse, (float2)(i, j));
 			if(!isfinite(dist) || dist > M_SQRT2_F/2)	//actual safety margin is probably M_SQRT2_F
 				continue;
 			write_imageui(uc4_out, (int2)(i, j), (uint4)(color, -1));
