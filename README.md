@@ -58,3 +58,15 @@ is on the OpenCL 2.x minimum full profile support list
  borderline
 * error message for missing kernel function source needs to be fixed to not print
  garbage
+* change conic type so that both foci major and general form have the same under-
+ lying structure of float2, float2, float. Requires reordering the packed form 
+ of the pre-solve sums and a lot of other bits of refactoring so put off for later
+* FIXME: at some point I mixed up the ordering between the E and D components of
+the conic equations and they ended up inconsistent however for the life of me I 
+can't figure out exactly where because each part when taken individually looks 
+correct as far as I can tell. For now there is a hacky work around that just swaps
+them so that the math spits out the correct conic result but this is a horrible 
+state to leave it in. If anyone with sufficient linear algebra and coding
+knowledge and time wants to look it over, contact me and I will make time to help
+you to familiarize yourself with it because I would be eternally grateful to have
+this fixed properly.

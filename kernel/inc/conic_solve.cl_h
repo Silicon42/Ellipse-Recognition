@@ -39,7 +39,7 @@ float get_ellipse_coverage_divisor(float gen[5]);
 
 // Converts an ellipse in general conic form to foci-major form
 // if not an ellipse, returns negative distance
-void convertConicGeneralToFociMajor(Conic * const M);
+void convertConicGeneralToFociMajor(Conic * const M, bool isntThruOrigin);
 
 // calculates a ellipse through 5 points where 1 point is (0,0) and the rest are relative to it
 // returns the foci coordinates, distance from foci to edge is implied

@@ -55,6 +55,7 @@ void write_arc(
 		*coeffs -= getPointCoeffs(end_coords);
 	}
 */	*coeffs += getPointCoeffs(start_coords);
+printf("%v16li coeffs\n", *coeffs);
 
 	float16 coeffs_f = convert_float16(*coeffs);
 	coeffs_f.s8 = len_approx;
@@ -65,7 +66,7 @@ void write_arc(
 	//TODO: there might be a perf benefit to not doing the rest if < 4 segments
 	Conic conic;
 	solveConic((private float*)&coeffs_f, conic.general);
-	convertConicGeneralToFociMajor(&conic);
+	convertConicGeneralToFociMajor(&conic, true);
 //	if(seg_cnt >= 4)
 //		printf("%v4f		%.f\n", el.fm.foci, conic.fm.major);
 //printf("%v2i	", start_coords);
@@ -213,6 +214,7 @@ kernel void arc_builder(
 			// we finally have enough points to attempt calculating the ellipse
 			if(seg_cnt == 3)
 			{
+		printf("test0\n");
 				points[3] = total_offset + curr_seg;
 				//attempt to solve for ellipse and check if first segment matches
 				diffs[0] = points[0] - points[3];
@@ -220,18 +222,19 @@ kernel void arc_builder(
 				cross_prods[1] = cross_2d_i(points[1], points[0]);
 				cross_prods[2] = cross_2d_i(points[2], points[1]);
 				cross_prods[3] = cross_2d_i(points[3], points[2]);
-			//	printf("%v2i %v2i %v2i %v2i\n", diffs[0], diffs[1], diffs[2], diffs[3]);
+				printf("%v2i %v2i %v2i %v2i diffs\n", diffs[0], diffs[1], diffs[2], diffs[3]);
+				printf("%i %i %i %i x-prods\n", cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3]);
 
-			//	conic_from_hist(diffs, cross_prods, &conic);
-				//FIXME: TEMPORARY SWAP OUT FOR ABOVE LINE FOR SANITY CHECKING (*1)
+				conic_from_hist(diffs, cross_prods, &conic);
+				/*/FIXME: TEMPORARY SWAP OUT FOR ABOVE LINE FOR SANITY CHECKING (*1)
 				float16 coeffs_f = convert_float16(coeffs);
+				printf("%v16li coeffs\n", coeffs);
 				solveConic((__private float *)&coeffs_f, conic.general);
-				convertConicGeneralToFociMajor(&conic);
-				printf("%v4f\n", conic.fm.foci);
+				convertConicGeneralToFociMajor(&conic, false);
 				//FIXME: (*1)*/
-
-				// if points didn't form an ellipse with a reasonable minimum major axis length
-				if(conic.fm.major <= 2)
+			//	printf("%v4f\n", conic.fm.foci);
+				// if points didn't form a conic with a reasonable minimum major/transverse axis length
+				if(fabs(conic.fm.major) < 2)
 				{
 					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
@@ -250,7 +253,7 @@ kernel void arc_builder(
 		}
 		else
 		{
-	//				printf("test1 ");
+		printf("test1\n");
 			// if the new segment endpoint deviates from the already calculated ellipse,
 			// it either needs to be re-calculated with the new point or reset and written out
 			if(get_conic_deviation(&conic.fm, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
