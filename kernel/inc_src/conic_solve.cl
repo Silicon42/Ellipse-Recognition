@@ -1,6 +1,12 @@
 #include "conic_solve.cl_h"
 #include "math_helpers.cl_h"
 
+// prints a ulong16 because the default vector printf implementation only prints the lower 32-bits on some systems
+void print_ulong16(ulong16* x)
+{
+	printf("%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu;\n", x->s0, x->s1, x->s2, x->s3, x->s4, x->s5, x->s6, x->s7, x->s8, x->s9, x->sa, x->sb, x->sc, x->sd, x->se, x->sf);
+}
+
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
 void selfTransposeProduct(int m, float B[][5], float A[15])
 {
@@ -113,6 +119,7 @@ inline float get_hyperbola_dist(const float4 foci, const float2 point)
 float get_conic_deviation(FociMajor const * const M, const float2 point)
 {
 	float dist = (M->major >= 0) ? get_ellipse_dist(M->foci, point) : -get_hyperbola_dist(M->foci, point);
+//	printf("%f major, %f dist\n", M->major, dist);
 	return fabs(M->major - dist);
 }
 
@@ -189,23 +196,25 @@ void convertConicGeneralToFociMajor(Conic * const M, bool isntThruOrigin)
 	det_M = rs.x * ed.y;		// bde
 	if(isntThruOrigin)			// f == 0 if thru origin
 		det_M -= t2;			// bde + 2tf, where f == -1
-//printf("%f bde (+2tf)\n", det_M);
+//printf("%e bde (+2tf)\n", det_M);
 	temp_f2 = ed * ac;			// [ae, cd]
 	rs -= 2 * temp_f2.yx;		// b[e, d] - 2[cd, ae]
-//printf("%v2f rs = b[e, d] - 2[cd, ae]\n", rs);
+//printf("%v2e rs = b[e, d] - 2[cd, ae]\n", rs);
 	temp_f2 *= -ed;				// [-ae^2, -cd^2]
-//printf("%v2f temp_f2\n", temp_f2);
+//printf("%v2e temp_f2\n", temp_f2);
 	det_M = 2*(det_M + temp_f2.x + temp_f2.y);	// det(M) = 2*(2tf - ae^2 + bde - cd^2), f == 0 if thru origin, else f == -1
-//printf("%f det_M\n", det_M);
+//printf("%e det_M\n", det_M);
 	ac_b_len = hypot(ac_diff, b);
-	int signbit_t2 = signbit(t2);
-	int sign_M = signbit(det_M) ? -1 : 1;	// extract sign for sign dependent logic
+	int signbit_M = signbit(det_M);
+	int sign_M = signbit_M ? -1 : 1;	// extract sign for sign dependent logic
 	det_M = fabs(det_M);		// prevent sqrt of negative from occurring
-//printf("%f ac_b_len %f ac_diff %f 2t\n", ac_b_len, ac_diff, t2);
-//printf("%v2f rel center\n", rs/t2);
+//printf("%e ac_b_len %e ac_diff %e 2t\n", ac_b_len, ac_diff, t2);
+//printf("%v2e center\n", rs/t2);
 	// [1, sign(b)] * sqrt(2 * det(M) * (hypot(a-c, b) + [a-c, c-a]))
-	temp_f2 = (float2)(1, signbit_t2 ? 1 : -1) * sqrt(det_M * (ac_b_len + (float2)(sign_M, -sign_M) * ac_diff));
-	fm->major = 2*sqrt(fabs(det_M * (ac.x + ac.y + ((signbit(b)^signbit_t2) ? -1 : 1)*ac_b_len))) / t2;
+//	temp_f2 = (float2)(1, signbit_t2 ? 1 : -1) * sqrt(det_M * (ac_b_len + (float2)(sign_M, -sign_M) * ac_diff));
+//	fm->major = 2*sqrt(fabs(det_M * (ac.x + ac.y + ((signbit(b)^signbit_t2) ? -1 : 1)*ac_b_len))) / t2;
+	temp_f2 = (float2)(1, (signbit(b) ^ signbit_M) ? -1:1) * sqrt(det_M * (ac_b_len + (float2)(sign_M, -sign_M) * ac_diff));
+	fm->major = 2*sqrt(fabs(det_M * (ac.x + ac.y - sign_M*ac_b_len))) / t2;
 	fm->foci.lo = rs + temp_f2;
 	fm->foci.hi = rs - temp_f2;
 	fm->foci /= t2;
@@ -273,11 +282,13 @@ ulong16 getPointCoeffs(int2 p)
 	//TODO: this could probably be done in a more efficient order, also 
 	// the ordering might not be ideal for later conversion to packed symmetric 
 	// form from stored coefficients in terms of accuracy loss
-	return (ulong16)(
+	return/*/ulong16 ret =*/ (ulong16)(
 		x2,		xy,		y2,		x2*p.x,	//	x^2		xy		y^2		x^3
 		x2*p.y,	x2*x2,	p.x*y2,	p.y*y2,	//	x^2y	x^4		xy^2	y^3
 		0,		y2*y2,	p.x,	p.y,	//	perim.	y^4		x		y
 		x2*xy,	xy*y2,	x2*y2,	1);		//	x^3y	x^y3	x^2y^2	2*count
+//	print_ulong16(&ret);
+//	return ret;
 }
 
 void readPreSolveCoeffs(read_only image2d_t ff4_pre_solve_coeffs, int2 coords, float16* ret)

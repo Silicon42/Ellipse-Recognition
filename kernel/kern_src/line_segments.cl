@@ -47,18 +47,18 @@ kernel void line_segments(
 			break;
 		}*/
 		int len;
-		for(len = 0; ; ++len)	//real base case exit condition is mid-block at len >= 127
+		for(len = 0; ; ++len)	//real base case exit condition is mid-block at len >= 125
 		{
 			cont_data = read_imageui(uc1_cont_info, coords).x;
 
 			// check that current pixel isn't a start to prevent double processing,
-			// else it must immediately exit without applying the current pixel's offset to offset_end
+			// if it is, it must immediately exit without applying the current pixel's offset to offset_end
 			to_end ^= cont_data & IS_START;
 			if(to_end)
 				break;
 
 			// check that next pixel's index data will be valid to prevent double processing,
-			// else it must exit after applying the current pixel's offset
+			// if it isn't, it must exit after applying the current pixel's offset
 			to_end = !(cont_data & ISNT_END_ADJ);
 
 			cont_idx = cont_data & R_CONT_IDX_MASK;
@@ -80,11 +80,14 @@ kernel void line_segments(
 			if(taxi_len_2d_i(offset_end - offset_x2_mid) <= 2)
 				continue;
 			
+			//FIXME: The below block was disabled because it led to too many situations
+			// where multiple points could be in a line and cause degenerate conics to be calculated
+			// this might be fixed by detecting those situations and joining the straight segments
 			//FIXME: This is a temporary fix to better smooth the segment transitions,
 			// a proper fix would involve only writing out the midpoint segment,
 			// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
 		//	printf("offset: <%i, %i> 2*mid: <%i, %i> ", offset_end.x, offset_end.y, offset_x2_mid.x, offset_x2_mid.y);
-			offset_x2_mid /= 2;
+		/*	offset_x2_mid /= 2;
 			if(!(offset_x2_mid.x || offset_x2_mid.y))	// not sure this is actually possible but it doesn't hurt for now
 			{
 				printf(" midpoint 0 ");
@@ -97,7 +100,7 @@ kernel void line_segments(
 			write_imagei(ic2_line_data, base_coords, (int4)(offset_x2_mid, 0, -1));
 			base_coords += offset_x2_mid;
 			offset_end -= offset_x2_mid;
-			break;
+		*/	break;
 		}
 
 		if(len)

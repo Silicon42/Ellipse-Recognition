@@ -1,6 +1,6 @@
 /*
-draws ellipses and lines to foci for arcs that have 5 or more points associated with them
-this kernel is super inefficient in how it draws ellipses but it's for debugging
+draws conics and lines to foci for arcs that have 5 or more points associated with them
+this kernel is super inefficient in how it draws conics but it's for debugging
 purposes only
 */
 #include "conic_solve.cl_h"
@@ -20,19 +20,13 @@ kernel void fm_draw(
 
 	//ArcData data = ((RW_ArcData)read_imagei(ii2_arc_data, coords).lo).ad;
 	short dir_cnt = read_imagei(is1_dir_cnt, coords).x;
-	if((dir_cnt & SEG_CNT_MASK) < 4)	// only draw ellipses that have at least 4 segments to them
+	if((dir_cnt & SEG_CNT_MASK) < 4)	// only draw conics that have at least 4 segments to them
 		return;
 
-	FociMajor ellipse = {
+	FociMajor conic = {
 		.foci = read_imagef(ff4_foci, coords),
 		.major = read_imagef(ff1_major, coords).x
 	};
-
-	if(ellipse.major <= 0)
-	{
-		printf(" hyperbola?");
-		return;
-	}
 
 	uint3 color = scatter_colorize(coords.x ^ (coords.x * coords.y));
 
@@ -41,7 +35,7 @@ kernel void fm_draw(
 	{
 		for(int i = 0; i < bounds.x; ++i)
 		{
-			float dist = get_conic_deviation(&ellipse, (float2)(i, j));
+			float dist = get_conic_deviation(&conic, (float2)(i, j));
 			if(!isfinite(dist) || dist > M_SQRT2_F/2)	//actual safety margin is probably M_SQRT2_F
 				continue;
 			write_imageui(uc4_out, (int2)(i, j), (uint4)(color, -1));
@@ -49,9 +43,9 @@ kernel void fm_draw(
 	}
 
 //	int2 end_coords = convert_int2(data.endpoint);
-	if(!all(isfinite(ellipse.foci)))
+	if(!all(isfinite(conic.foci)))
 		return;
-	int4 foci = convert_int4_sat_rte(ellipse.foci);
+	int4 foci = convert_int4_sat_rte(conic.foci);
 //	draw_line(end_coords, foci.lo, (uint4)(color/2, 128), uc4_out);
 //	draw_line(end_coords, foci.hi, (uint4)(color/2, 128), uc4_out);
 	draw_line(coords, foci.lo, (uint4)(color + 64, 128), uc4_out);

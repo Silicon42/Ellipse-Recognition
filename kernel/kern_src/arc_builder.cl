@@ -18,7 +18,7 @@ constant const char order[8] = {0,1,2,3,0,2,1,3};
 // more efficient than what I'm currently using if I can wrap my head around the math
 
 //TODO: VVV this VVV value needs fine tuning
-#define ELLIPSE_DEVIATION_THRESH 16
+#define CONIC_DEVIATION_THRESH 16
 
 #define LOGICAL_RESET		1
 #define LOOP_ENTRY_RESET	2
@@ -39,6 +39,10 @@ void write_arc(
 	int const seg_cnt,
 	float const len_approx)
 {
+//TEMP
+//	if(!all(start_coords == (int2)(321,0)))
+//		return;
+
 	write_imagei(is1_dir_cnt, start_coords, dir << 14 | min(seg_cnt, SEG_CNT_MASK));
 	//TODO: see if packing a struct and writing the full width would be faster or if using the default alignment of write_image is faster
 	
@@ -55,7 +59,7 @@ void write_arc(
 		*coeffs -= getPointCoeffs(end_coords);
 	}
 */	*coeffs += getPointCoeffs(start_coords);
-printf("%v16li coeffs\n", *coeffs);
+//	print_ulong16(coeffs);
 
 	float16 coeffs_f = convert_float16(*coeffs);
 	coeffs_f.s8 = len_approx;
@@ -98,6 +102,10 @@ kernel void arc_builder(
 	// get starting pixel coordinates
 	int2 base_coords = read_imagei(is2_start_coords, index).lo;
 
+//TEMP
+//	if(!all(base_coords == (int2)(321,0)))
+//		return;
+
 	ulong16 coeffs;	// accumulator for the 14+1 unique coeffs of the self-transpose-product matrix
 	// stores a running total of the coefficients as calculated for each point that is currently associated with the arc
 	// EXCEPT the start point, which gets added at write time, this is because both end points of the arc are half the weight
@@ -133,12 +141,14 @@ kernel void arc_builder(
 		switch(reset)
 		{
 		case LOGICAL_RESET:	// last read segment likely can't be part of the same elliptical arc due to failing a logical test
+//			printf("logical\n");
 			// write coefficients out to buffer
 			write_arc(ii2_arc_data, is1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
 			base_coords += total_offset;
 		//	printf("%v16lu\n", coeffs);
 			// intentional fall-through to re-init
 		case LOOP_ENTRY_RESET:	// loop entry init/re-init
+//			printf("entry reset\n");
 			reset = 0;
 			coeffs = 0;
 			total_offset = 0;	//keep last segment that caused the reset	//TODO: check if this comment still true
@@ -148,6 +158,7 @@ kernel void arc_builder(
 			dir_trend = 0;	//trend unknown since only 1 segment at this point
 			break;
 		case FIRST_SOLVE_RESET:	// at time of adding 4th segment, failed to get a valid ellipse fit
+//			printf("1st solve reset\n");
 			reset = 0;
 			// kick first segment and copy things down 1 slot to try again
 			int2 first_point = points[0];
@@ -214,7 +225,7 @@ kernel void arc_builder(
 			// we finally have enough points to attempt calculating the ellipse
 			if(seg_cnt == 3)
 			{
-		printf("test0\n");
+	//	printf("test0\n");
 				points[3] = total_offset + curr_seg;
 				//attempt to solve for ellipse and check if first segment matches
 				diffs[0] = points[0] - points[3];
@@ -222,8 +233,8 @@ kernel void arc_builder(
 				cross_prods[1] = cross_2d_i(points[1], points[0]);
 				cross_prods[2] = cross_2d_i(points[2], points[1]);
 				cross_prods[3] = cross_2d_i(points[3], points[2]);
-				printf("%v2i %v2i %v2i %v2i diffs\n", diffs[0], diffs[1], diffs[2], diffs[3]);
-				printf("%i %i %i %i x-prods\n", cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3]);
+			//	printf("%v2i %v2i %v2i %v2i diffs\n", diffs[0], diffs[1], diffs[2], diffs[3]);
+			//	printf("%i %i %i %i x-prods\n", cross_prods[0], cross_prods[1], cross_prods[2], cross_prods[3]);
 
 				conic_from_hist(diffs, cross_prods, &conic);
 				/*/FIXME: TEMPORARY SWAP OUT FOR ABOVE LINE FOR SANITY CHECKING (*1)
@@ -242,10 +253,11 @@ kernel void arc_builder(
 				
 				float2 mid0 = convert_float2(points[0]) / 2;
 				float deviation = get_conic_deviation(&conic.fm, mid0);
-				// if the ellipse was a bad fit, try again next time
-				if(deviation > ELLIPSE_DEVIATION_THRESH)
+				// if the conic was a bad fit, try again next time
+				if(deviation > CONIC_DEVIATION_THRESH)
 				{
-	//				printf("seg_cnt3: %f", ellipse.fm.major);
+					printf("%4v2i %4v2i %4v2i %4v2i | ",points[0],points[1],points[2],points[3]);
+					printf("%f dev\n", deviation);
 					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
@@ -253,12 +265,14 @@ kernel void arc_builder(
 		}
 		else
 		{
-		printf("test1\n");
-			// if the new segment endpoint deviates from the already calculated ellipse,
+	//	printf("test1\n");
+			// if the new segment endpoint deviates from the already calculated conic,
+			// or if the conic's center is more parallel to the total offset than it is perpendicular
 			// it either needs to be re-calculated with the new point or reset and written out
-			if(get_conic_deviation(&conic.fm, convert_float2(total_offset)) > ELLIPSE_DEVIATION_THRESH)
+			int2 center_midpoint_x2 = 0;//(base_coords*2 + total_offset) - convert_int2(conic.fm.foci.lo + conic.fm.foci.hi);
+			if((abs(dot_2d_i(center_midpoint_x2, total_offset)) > abs(cross_2d_i(center_midpoint_x2, total_offset))) || (get_conic_deviation(&conic.fm, convert_float2(total_offset)) > CONIC_DEVIATION_THRESH))
 			{
-				// lookup which entry to kick to attempt a re-calculation of the ellipse
+				// lookup which entry to kick to attempt a re-calculation of the conic
 				// the ordering is chosen so that it should spread the points out as recaluclations occur
 				char k = order[kick++];
 				kick &= 7;
@@ -271,10 +285,11 @@ kernel void arc_builder(
 				cross_prods[k] = cross_2d_i(points[k], points[k_m1]);
 				cross_prods[k_p1] = cross_2d_i(points[k_p1], points[k]);
 
-				// calculate the ellipse with the new point
+				// calculate the conic with the new point
 				Conic new_conic;
 				conic_from_hist(diffs, cross_prods, &new_conic);
-				if(new_conic.fm.major <= 0)
+				// if the new points didn't form a conic with a reasonable minimum major/transverse axis length write out the previous conic
+				if(fabs(new_conic.fm.major) < 2)
 				{
 					reset = LOGICAL_RESET;
 					continue;
@@ -282,7 +297,7 @@ kernel void arc_builder(
 
 		//			printf("test2 ");
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
-				if(get_conic_deviation(&conic.fm, old_point) > ELLIPSE_DEVIATION_THRESH)
+				if(get_conic_deviation(&conic.fm, old_point) > CONIC_DEVIATION_THRESH)
 				{
 					reset = LOGICAL_RESET;
 					continue;

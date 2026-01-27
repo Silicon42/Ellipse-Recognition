@@ -16,6 +16,9 @@ typedef union _Conic {
 //	int4 foci_bits;
 } Conic;
 
+// prints a ulong16 because the default vector printf implementation only prints the lower 32-bits on some systems
+void print_ulong16(ulong16* x);
+
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
 void selfTransposeProduct(int m, float B[][5], float A[15]);
 
