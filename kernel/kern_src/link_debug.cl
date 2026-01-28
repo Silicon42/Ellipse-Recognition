@@ -20,7 +20,7 @@ return;
 
 	write_imageui(uc4_debug_image, coords, (uint4)(-1,0,0,-1));	// red for pixel itself
 	if(cont_data & HAS_L_CONT)
-		write_imageui(uc4_debug_image, coords + offsets[(cont_data >> L_CONT_IDX_SHIFT)& R_CONT_IDX_MASK], (uint4)(0,-1,0,-1));// green for left pixel
+		write_imageui(uc4_debug_image, coords + offsets[(cont_data >> L_CONT_IDX_SHIFT)& R_CONT_IDX_MASK], (uint4)(0,0,-1,-1));// blue for left pixel
 	if(cont_data & HAS_R_CONT)
-		write_imageui(uc4_debug_image, coords + offsets[cont_data & R_CONT_IDX_MASK], (uint4)(0,0,-1,-1));	// blue for right pixel
+		write_imageui(uc4_debug_image, coords + offsets[cont_data & R_CONT_IDX_MASK], (uint4)(0,-1,0,-1));	// green for right pixel
 }

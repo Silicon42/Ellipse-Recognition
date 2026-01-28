@@ -27,6 +27,8 @@ kernel void fm_draw(
 		.foci = read_imagef(ff4_foci, coords),
 		.major = read_imagef(ff1_major, coords).x
 	};
+	bool isHyperbola = signbit(conic.major);
+	float2 approx_center = (conic.foci.lo + conic.foci.hi) / 2;
 
 	uint3 color = scatter_colorize(coords.x ^ (coords.x * coords.y));
 
@@ -35,6 +37,8 @@ kernel void fm_draw(
 	{
 		for(int i = 0; i < bounds.x; ++i)
 		{
+			if(isHyperbola && (fast_distance((float2)(i,j), approx_center) > -conic.major))
+				continue;
 			float dist = get_conic_deviation(&conic, (float2)(i, j));
 			if(!isfinite(dist) || dist > M_SQRT2_F/2)	//actual safety margin is probably M_SQRT2_F
 				continue;
