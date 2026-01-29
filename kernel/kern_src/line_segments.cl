@@ -22,7 +22,7 @@ kernel void line_segments(
 	if(all(coords == 0))	// this does mean a start at (0,0) won't get processed but I don't think that's particularly likely to happen and be critical
 		return;
 
-	printf("%v2i\n", coords);
+//	printf("%v2i\n", coords);
 	
 	uchar cont_data, cont_idx, to_end = IS_START;
 
@@ -55,19 +55,19 @@ kernel void line_segments(
 
 			// check that current pixel isn't a start to prevent double processing,
 			// if it is, it must immediately exit without applying the current pixel's offset to offset_end
+			// uses xor so that the initial start unsets the flag to_end and any further starts set it again
 			to_end ^= cont_data & IS_START;
+			// check that current pixel's next index data will be valid
+			// if it isn't, it must exit after applying the current pixel's offset
+			to_end |= !(cont_data & ISNT_END_ADJ);
 			if(to_end)
 				break;
-
-			// check that next pixel's index data will be valid to prevent double processing,
-			// if it isn't, it must exit after applying the current pixel's offset
-			to_end = !(cont_data & ISNT_END_ADJ);
 
 			cont_idx = cont_data & R_CONT_IDX_MASK;
 			int2 prev_offset = offset_end;
 			offset_end += offsets[cont_idx];
-			if(all(offset_end == 0))
-				printf("%v2i offset: (%i, %i) %i %i\n", coords, base_coords.x, base_coords.y, (int)cont_idx, seg_count);
+//			if(all(offset_end == 0))
+//				printf("%v2i offset: (%i, %i) %i %i\n", coords, base_coords.x, base_coords.y, (int)cont_idx, seg_count);
 
 			coords += offsets[cont_idx];
 		//	if(!index)
@@ -113,8 +113,8 @@ kernel void line_segments(
 		if(len)
 		{
 			// error messages, these should never happen
-//			if(all(offset_end == 0))
-//				printf("0 offset: (%i, %i) %i\n", base_coords.x, base_coords.y, len);
+			if(all(offset_end == 0))
+				printf("0 offset: (%i, %i) %i\n", base_coords.x, base_coords.y, len);
 			if(any(base_coords < 0 || base_coords >= bounds))
 				printf("OOPS2: (%i, %i)\n", base_coords.x, base_coords.y);
 

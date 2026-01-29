@@ -42,7 +42,9 @@ over single threading
 * split compilation into a separate program
 * add configuration hashing for auto-rebuild support (low priority)
 * add a second debug kernel compile list so they aren't all mixed together in
-the same list
+the same list, could be done through a debug flag in the manifest, a second 
+hardcoded directory that it fails over to, or by allowing the paths to be specified
+in an array in the manifest (would need a note about not being secure for sure)
 * arc_segments needs to be partially rewritten to avoid thread divergence
 * everything needs to be gone over with a fine tooth comb because I'm a dummy and
 forgot the importance of using group shared memory when possible
@@ -70,3 +72,10 @@ state to leave it in. If anyone with sufficient linear algebra and coding
 knowledge and time wants to look it over, contact me and I will make time to help
 you to familiarize yourself with it because I would be eternally grateful to have
 this fixed properly.
+* FIXME: plugboard needs to handle the last kernel enqueued not having an output 
+gracefully, currently it sometimes segfaults if this happens.
+* FIXME: there are still some extremely rare cases of 0 length line segments
+* in edge linking, there needs to be less aggressive right continuation finding 
+since often times at the end of a chain it ends up linking backwards when it shouldn't
+* remove ISNT_END_ADJ macro and replace references to it with HAS_R_CONT to reflect
+changes made awhile ago in how find_segment_starts() uses it
