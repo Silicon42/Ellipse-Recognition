@@ -20,7 +20,7 @@ bool isPointOutOfRegion1(int4 tangents, int4 displacements)
 kernel void arc_seg_adj_stripped(
 //	read_only image2d_t ic2_line_data,
 	read_only image2d_t ii2_arc_data,
-//	read_only image2d_t is1_dir_cnt,
+//	read_only image2d_t uc1_dir_cnt,
 	read_only image2d_t is2_arc_coords,
 //	read_only image2d_t ff4_ellipse_foci,
 //	read_only image2d_t ff1_ellipse_major,

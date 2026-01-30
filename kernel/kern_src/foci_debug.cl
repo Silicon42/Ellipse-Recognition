@@ -4,12 +4,12 @@
 
 kernel void foci_debug(
 	read_only image2d_t ic2_line_data,
-	read_only image2d_t is1_dir_cnt,
+	read_only image2d_t uc1_dir_cnt,
 	read_only image2d_t ff4_ellipse_foci,
 	write_only image2d_t uc4_out_image)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
-	uint seg_cnt = read_imagei(is1_dir_cnt, coords).x & SEG_CNT_MASK;
+	uint seg_cnt = read_imagei(uc1_dir_cnt, coords).x & SEG_CNT_MASK;
 
 	//arbitrary color to distinguish nearby arcs from each other
 	uint4 color = (uint4)(scatter_colorize(coords.x ^ (coords.x * coords.y)), 1000);

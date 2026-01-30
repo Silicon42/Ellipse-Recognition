@@ -91,7 +91,7 @@ inline void getCandysTestPoints(read_only image2d_t ic2_line_data, int seg_cnt, 
 kernel void arc_seg_adj_matrix(
 	read_only image2d_t ic2_line_data,
 	read_only image2d_t ii2_arc_data,
-	read_only image2d_t is1_dir_cnt,
+	read_only image2d_t uc1_dir_cnt,
 	read_only image2d_t is2_arc_coords,
 	read_only image2d_t ff4_ellipse_foci,
 	read_only image2d_t ff1_ellipse_major,
@@ -115,7 +115,8 @@ kernel void arc_seg_adj_matrix(
 	// which would reduce the effect of interpolation induced error on low seg_cnt Candy's theorem calcs, additionally you could reduce the array to 4 potential points
 	//TODO: this might need to be upped/more intelligently chosen if some close together arcs that should match fail to do so
 	float2 test_points[5];
-	int seg_cnt = read_imagei(is1_dir_cnt, A_coords[0]).x & SEG_CNT_MASK;
+	//TODO: add fallback for if recorded count is 130+
+	uchar seg_cnt = (read_imagei(uc1_dir_cnt, A_coords[0]).x & SEG_CNT_MASK) + SEG_CNT_BIAS;
 	int2 coords = A_coords[0] + A_tangents.lo;
 	if(seg_cnt > 5)
 		getCandysTestPoints(ic2_line_data, seg_cnt, coords, test_points);

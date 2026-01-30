@@ -92,7 +92,7 @@ kernel void line_segments(
 			// a proper fix would involve only writing out the midpoint segment,
 			// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
 			//	printf("offset: <%i, %i> 2*mid: <%i, %i> ", offset_end.x, offset_end.y, offset_x2_mid.x, offset_x2_mid.y);
-			/*	offset_x2_mid /= 2;
+				offset_x2_mid /= 2;
 				if(!(offset_x2_mid.x || offset_x2_mid.y))	// not sure this is actually possible but it doesn't hurt for now
 				{
 					printf(" midpoint 0 ");
@@ -105,7 +105,7 @@ kernel void line_segments(
 				write_imagei(ic2_line_data, base_coords, (int4)(offset_x2_mid, 0, -1));
 				base_coords += offset_x2_mid;
 				offset_end -= offset_x2_mid;
-		*/		break;
+				break;
 			}
 			++len;
 		}

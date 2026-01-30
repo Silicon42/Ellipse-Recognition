@@ -11,22 +11,24 @@ purposes only
 
 kernel void fm_draw(
 //	read_only image2d_t ii2_arc_data,
-	read_only image2d_t is1_dir_cnt,
+	read_only image2d_t uc1_dir_cnt,
 	read_only image2d_t ff4_foci,
 	read_only image2d_t ff1_major,
 	write_only image2d_t uc4_out)
 {
 	int2 coords = (int2)(get_global_id(0), get_global_id(1));
-
+	uchar seg_cnt = (SEG_CNT_MASK & read_imagei(uc1_dir_cnt, coords).x);
 	//ArcData data = ((RW_ArcData)read_imagei(ii2_arc_data, coords).lo).ad;
-	short dir_cnt = read_imagei(is1_dir_cnt, coords).x;
-	if((dir_cnt & SEG_CNT_MASK) < 4)	// only draw conics that have at least 4 segments to them
+	if(!seg_cnt)	// only draw conics that have at least 4 segments to them
 		return;
 
 	FociMajor conic = {
 		.foci = read_imagef(ff4_foci, coords),
 		.major = read_imagef(ff1_major, coords).x
 	};
+
+	if(conic.major == 0)
+		printf("%i", seg_cnt);
 	bool isHyperbola = signbit(conic.major);
 	float2 approx_center = (conic.foci.lo + conic.foci.hi) / 2;
 

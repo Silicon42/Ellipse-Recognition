@@ -10,6 +10,8 @@ Stages = [
 #	{name = 'test_edge_injection', args =['start_coords', 'line_data', 'line_cnts'], range = {mode = 'EXACT', params = [1,1,1]}},
 	{name = 'arc_builder', args = ['start_coords', 'line_data', 'line_cnts', 'arc_data', 'arc_dir_cnt', 'pre_solve_coeffs', 'ellipse_foci', 'ellipse_major'], range = {ref_arg = 'start_coords'}},
 	{name = 'serial_reduce_arcs', args = ['arc_dir_cnt', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
+# arc_seg_adj_matrix uses arc_dir_cnt to find points along an arc segment via iterating, this probably needs some changing
+# possibly by using the pre_solve_coeffs count as backup if the max value is encoded
 #	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'arc_adj_consensus', args = ['arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'arc_coords'}},
@@ -55,7 +57,9 @@ start_coords = {type = 'image1d_t', channel_type = 'int16', channel_count = 2, s
 line_data = {type = 'image2d_t', channel_type = 'int8', channel_count = 2, size = {ref_arg = 'starts_cont'}}
 line_cnts = {type = 'image1d_t', channel_type = 'uint16', channel_count = 1, size = {ref_arg = 'start_coords'}}
 arc_data = {type = 'image2d_t', channel_type = 'int32', channel_count = 2, size = {ref_arg = 'starts_cont'}}
-arc_dir_cnt = {type = 'image2d_t', channel_type = 'int16', channel_count = 1, size = {ref_arg = 'starts_cont'}}
+# the count portion of arc_dir_cnt is a biassed value (-3) in the lower 7 bits such that only valid conics have
+# any of those bits set. Arcs that didn't form valid conics (< 4 true segments) may only have the direction bit set
+arc_dir_cnt = {type = 'image2d_t', channel_type = 'uint8', channel_count = 1, size = {ref_arg = 'starts_cont'}}
 ellipse_foci = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {ref_arg = 'starts_cont'}}
 ellipse_major = {type = 'image2d_t', channel_type = 'float', channel_count = 1, size = {ref_arg = 'starts_cont'}}
 pre_solve_coeffs = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {mode = 'MULTIPLY', params = [2,2,1], ref_arg = 'starts_cont'}}

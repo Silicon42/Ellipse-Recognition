@@ -1,9 +1,11 @@
 #ifndef ARC_DATA_CL_H
 #define ARC_DATA_CL_H
 
-#define DIR_SHIFT		14
-#define SEG_CNT_MASK	((1 << DIR_SHIFT) - 1)
-	// dir stored in top 2 bits, clamped count in bottom 14 bits
+// dir stored in top bit, clamped count in bottom 7 bits
+#define DIR_FLAG		0x80
+#define SEG_CNT_MASK	(DIR_FLAG - 1)
+#define SEG_CNT_BIAS	3
+
 typedef struct _arcdata{
 	char4 tangents;
 	short2 endpoint;

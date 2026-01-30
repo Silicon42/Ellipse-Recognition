@@ -10,7 +10,7 @@ purposes only
 #include "bresenham_line.cl_h"
 
 kernel void gen_ellipse_draw(
-//	read_only image2d_t is1_dir_cnt,
+//	read_only image2d_t uc1_dir_cnt,
 	read_only image2d_t ff4_abcd,
 	read_only image2d_t ff1_e,
 	write_only image2d_t uc4_out)
