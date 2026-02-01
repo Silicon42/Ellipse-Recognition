@@ -2,7 +2,8 @@
 #define ARC_DATA_CL_H
 
 // dir stored in top bit, clamped count in bottom 7 bits
-#define DIR_FLAG		0x80
+#define DIR_SHIFT		7
+#define DIR_FLAG		(1 << DIR_SHIFT)
 #define SEG_CNT_MASK	(DIR_FLAG - 1)
 #define SEG_CNT_BIAS	3
 
