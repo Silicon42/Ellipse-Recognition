@@ -115,7 +115,7 @@ kernel void arc_seg_adj_matrix(
 	// which would reduce the effect of interpolation induced error on low seg_cnt Candy's theorem calcs, additionally you could reduce the array to 4 potential points
 	//TODO: this might need to be upped/more intelligently chosen if some close together arcs that should match fail to do so
 	float2 test_points[5];
-	//TODO: add fallback for if recorded count is 130+
+	//TODO: add fallback for if recorded count is 130+ or otherwise limit arcs to 130 segments
 	uchar seg_cnt = (read_imagei(uc1_dir_cnt, A_coords[0]).x & SEG_CNT_MASK) + SEG_CNT_BIAS;
 	int2 coords = A_coords[0] + A_tangents.lo;
 	if(seg_cnt > 5)

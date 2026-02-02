@@ -245,8 +245,7 @@ kernel void arc_adj_consensus(
 		}
 	}
 
-printf("%02X ", best_clique);
-printf("%f	", best_coverage);
+printf("%02X %f\n", best_clique, best_coverage);
 	// if no decent match whatsoever, skip writing
 	if(best_coverage < MIN_COVERAGE_THRESH)
 		return;

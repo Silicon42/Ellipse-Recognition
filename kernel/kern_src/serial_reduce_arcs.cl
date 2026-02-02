@@ -23,7 +23,7 @@ __kernel void serial_reduce_arcs(
 				continue;	//TODO: fix it so that arcs at (0,0) don't cause problems
 			uchar dir_cnt = read_imageui(uc1_dir_cnt, coords).x;
 			// if there isn't enough points for a stable solution, skip adding it as an arc to start processing from
-			if(!(dir_cnt & SEG_CNT_MASK))
+			if(!dir_cnt)
 				continue;
 
 			uchar is_ccw = dir_cnt >> DIR_SHIFT;

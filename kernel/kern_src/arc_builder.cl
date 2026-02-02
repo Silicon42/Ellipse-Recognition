@@ -39,12 +39,6 @@ void write_arc(
 	int seg_cnt,
 	float const len_approx)
 {
-//TEMP
-//	if(!all(start_coords == (int2)(321,0)))
-//		return;
-	bool isConicStable = seg_cnt >= 4;
-	seg_cnt = isConicStable ? min(coeffs->sf - SEG_CNT_BIAS, SEG_CNT_MASK) : 0;
-	write_imagei(uc1_dir_cnt, start_coords, (dir & DIR_FLAG) | seg_cnt);
 	//TODO: see if packing a struct and writing the full width would be faster or if using the default alignment of write_image is faster
 	
 	data.tangents.hi = convert_char2(last_seg);
@@ -69,15 +63,17 @@ void write_arc(
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2+1, start_coords.y*2  ), coeffs_f.lo.hi);
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2,   start_coords.y*2+1), coeffs_f.hi.lo);
 	write_imagef(ff4_pre_solve_coeffs, (int2)(start_coords.x*2+1, start_coords.y*2+1), coeffs_f.hi.hi);
-	//TODO: check that there is a perf benefit to not doing the rest if < 4 segments
-	if(!isConicStable)
+
+	if(!(seg_cnt >= 4))
 		return;
+	seg_cnt = min(coeffs->sf - SEG_CNT_BIAS, SEG_CNT_MASK);
+//	printf("%2X	", seg_cnt);
+	write_imagei(uc1_dir_cnt, start_coords, (dir & DIR_FLAG) | seg_cnt);
 	
 	Conic conic;
 	solveConic((private float*)&coeffs_f, conic.general);
 	convertConicGeneralToFociMajor(&conic, true);
-//	if(seg_cnt >= 4)
-//		printf("%v4f		%.f\n", el.fm.foci, conic.fm.major);
+//printf("%v4f		%.f\n", el.fm.foci, conic.fm.major);
 //printf("%v2i	", start_coords);
 	write_imagef(ff4_ellipse_foci, start_coords, conic.fm.foci);
 	write_imagef(ff1_ellipse_major, start_coords, conic.fm.major);
