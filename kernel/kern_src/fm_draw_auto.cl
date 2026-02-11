@@ -7,22 +7,21 @@ purposes only
 #include "colorizer.cl_h"
 #include "bresenham_line.cl_h"
 
-kernel void fm_draw(
-	read_only image2d_t is2_arc_coords,
+kernel void fm_draw_auto(
 	read_only image2d_t ff4_foci,
 	read_only image2d_t ff1_major,
 	write_only image2d_t uc4_out)
 {
-	int2 indices = (int2)(get_global_id(0), get_global_id(1));
-	int2 coords = read_imagei(is2_arc_coords, indices).lo;
-	if(all(coords == 0))
-		return;
+	int2 coords = (int2)(get_global_id(0), get_global_id(1));
 
 	FociMajor conic = {
 		.foci = read_imagef(ff4_foci, coords),
 		.major = read_imagef(ff1_major, coords).x
 	};
-
+	
+	if(all(conic.foci == 0))
+		return;
+	
 	bool isHyperbola = signbit(conic.major);
 	float2 approx_center = (conic.foci.lo + conic.foci.hi) / 2;
 
@@ -44,7 +43,8 @@ kernel void fm_draw(
 
 	if(!all(isfinite(conic.foci)))
 		return;
+	printf("%v4f	%f\n", conic.foci, conic.major);
 	int4 foci = convert_int4_sat_rte(conic.foci);
-	draw_line(coords, foci.lo, (uint4)(color + 64, 128), uc4_out);
-	draw_line(coords, foci.hi, (uint4)(color + 64, 128), uc4_out);
+	printf("%v2i\n", coords);
+	draw_line(foci.lo, foci.hi, (uint4)(color + 64, 128), uc4_out);
 }

@@ -12,6 +12,8 @@ y=0 and ccw arcs in y=1.
 #include "conic_solve.cl_h"
 #include "cast_helpers.cl_h"
 
+#define CANDYS_DEV_THRESH	M_SQRT2_F
+
 // state representation of the arc retraction state machine that runs when a pair
 // of arc candidates have ends that are too close to be run through the Candy's 
 // theorem constraint as is
@@ -51,7 +53,7 @@ inline bool doesFailCandysCheck(float2 testpoint, float2 const central, float2 c
 	testpoint += central;
 
 	// check that the predicted point is a close match to arc B's predicted foci and major axis length
-	return get_conic_deviation(B_foci_major, testpoint) > M_SQRT2_F;
+	return get_conic_deviation(B_foci_major, testpoint) > CANDYS_DEV_THRESH;
 }
 
 // Fills the test points array with floating point coordinates corresponding to the line segment endpoints of the segments
@@ -332,7 +334,7 @@ kernel void arc_seg_adj_matrix(
 		case 1:		// could go either way, try 3rd test point
 			if(doesFailCandysCheck(test_points[++test_index], central, shared, &B_foci_major))
 				continue;
-printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coords[0].x, B_coords[0].y, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
+//printf("%v2i in Arc_seg_adj_matrix(): B: %i,%i seg_cnt %i\n", A_coords[0], B_coords[0].x, B_coords[0].y, seg_cnt);// debug print to see how often fail of 1 occurs and passes anyways
 		case 0:
 			;
 		}

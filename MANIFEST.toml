@@ -14,17 +14,21 @@ Stages = [
 # possibly by using the pre_solve_coeffs count as backup if the max value is encoded
 	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
-	{name = 'arc_adj_consensus', args = ['arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'arc_coords'}},
+	{name = 'arc_adj_consensus', args = ['arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'arc_coords'}},
 
 #### OUTPUT DEBUGGING KERNELS ####
-#	{name = 'input_copy', args = ['input', 'retrace'], range = {ref_arg = 'input'}},
+	{name = 'input_copy', args = ['input', 'retrace'], range = {ref_arg = 'input'}},
 #	{name = 'arc_seg_adj_stripped', args = ['arc_data', 'arc_coords', 'retrace'], range = {ref_arg = 'retrace'}},
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_starts_debug', args = ['starts_cont', 'expanded'], range = {ref_arg = 'starts_cont'}},
-#	{name = 'fm_draw', args = ['arc_dir_cnt', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'retrace'}},
+#	{name = 'fm_draw', args = ['arc_coords', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'arc_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
+	{name = 'to_foci_major', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'ellipse_sol_abcd'}},
+	{name = 'fm_draw_auto', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'retrace'], range = {ref_arg = 'arc_coords'}},
+	{name = 'consensus_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_abcd', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'candys_theorem_example', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {mode = 'EXACT', params = [1,1,1]}},
-#	{name = 'gen_ellipse_draw', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'retrace'], range = {ref_arg = 'arc_coords'}},
+##	{name = 'gen_ellipse_draw', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'conic_solve_debug', args = ['pre_solve_coeffs', 'retrace'], range = {ref_arg = 'retrace'}},	#DEPRECATED
 #	{name = 'starts_cont_debug', args = ['cont_data', 'starts_cont', 'retrace'], range = {ref_arg = 'starts_cont'}},
 #	{name = 'edge_map_copy', args = ['grad_ang', 'retrace'], range = {ref_arg = 'grad_ang'}},
@@ -65,6 +69,7 @@ ellipse_major = {type = 'image2d_t', channel_type = 'float', channel_count = 1, 
 pre_solve_coeffs = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {mode = 'MULTIPLY', params = [2,2,1], ref_arg = 'starts_cont'}}
 arc_coords = {type = 'image2d_t', channel_type = 'int16', channel_count = 2, size = {mode = 'EXACT', params = [16384,2,1]}}
 sparse_adj_matrix = {type = 'image2d_t', channel_type = 'int32', channel_count = 4, size = {ref_arg = 'arc_coords'}}
+adj_matrix_consensus = {type = 'image2d_t', channel_type = 'uint8', channel_count = 1, size = {ref_arg = 'arc_coords'}}
 undirected_sparse_adj_matrix = {type = 'image2d_t', channel_type = 'int32', channel_count = 4, size = {ref_arg = 'arc_coords'}}
 ellipse_sol_abcd = {type = 'image2d_t', channel_type = 'float', channel_count = 4, size = {ref_arg = 'arc_coords'}}
 ellipse_sol_e = {type = 'image2d_t', channel_type = 'float', channel_count = 1, size = {ref_arg = 'arc_coords'}}

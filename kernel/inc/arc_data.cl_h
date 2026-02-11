@@ -4,8 +4,9 @@
 // dir stored in top bit, clamped count in bottom 7 bits
 #define DIR_SHIFT		7
 #define DIR_FLAG		(1 << DIR_SHIFT)
+//TODO: these need to be renamed to point count bias/mask or have a separate point count bias/mask created
 #define SEG_CNT_MASK	(DIR_FLAG - 1)
-#define SEG_CNT_BIAS	3
+#define SEG_CNT_BIAS	4
 
 typedef struct _arcdata{
 	char4 tangents;

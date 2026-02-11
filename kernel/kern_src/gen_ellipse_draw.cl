@@ -24,7 +24,7 @@ kernel void gen_ellipse_draw(
 
 	FociMajor* fm = &conic.fm;
 
-	convertConicGeneralToFociMajor(&conic);
+	convertConicGeneralToFociMajor(&conic, true);
 
 	if(fm->major <= 0)
 	{

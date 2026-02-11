@@ -11,14 +11,15 @@ kernel void test_edge_injection(
 
 	//this set of test points should result in an ellipse with foci (28.0599915,-8.8354492) and (5.9400108,4.8354485), abs center (17,-2)
 	//1st point rel foci (26.0599915,-12.8354492) and (3.9400108,0.8354485), rel center (15,-6), major axis length 33.077084
-//	int2 test_points[5] = {(int2)(2,4), (int2)(4,8), (int2)(8,10), (int2)(14,10), (int2)(20,8)};
+	// approx perimeter 85.244, of which 21.268826 is accounted for in line segments
+	int2 test_points[5] = {(int2)(2,4), (int2)(4,8), (int2)(8,10), (int2)(14,10), (int2)(20,8)};
 
 	//this set of test points should result in an ellipse with general form -2.609113x^2 + xy -4.380575y^2 -4.795691x +1572.440370y = 0
 	// foci (190.835175,224.536957) and (-122.386864,142.233261), center (34.22415, 183.385116), major axis length 482.317895
 //	int2 test_points[5] = {0, (int2)(42,3), (int2)(85, 12), (int2)(127,27), (int2)(173,52)};	//rel
 	// when calculated through matrix inversion, due to rounding differences, this results in an ellipse with absolute
 	// foci (360.975220,237.306137) and (229.548965,495.015808), major axis length 744.057678
-	int2 test_points[5] = {(int2)(321,0), (int2)(363,3), (int2)(406, 12), (int2)(448,27), (int2)(494,52)};	//abs
+//	int2 test_points[5] = {(int2)(321,0), (int2)(363,3), (int2)(406, 12), (int2)(448,27), (int2)(494,52)};	//abs
 
 	//this set of test points should result in an hyperbola with foci (4*sqrt(2), 4*sqrt(2)) and (-4*sqrt(2), -4*sqrt(2)) abs center (0,0)
 	//1st point rel center (-16,-1), major axis length 8*sqrt(2) = 11.3137085

@@ -21,7 +21,7 @@ kernel void colored_retrace_line(
 	
 	int2 coords = read_imagei(is2_start_info, index).lo;
 	int2 end_offset, end_coords;
-	uint3 base_color = scatter_colorize(index);
+	uint3 base_color = scatter_colorize(coords.x ^ (coords.x * coords.y));
 
 	for(int i = 0; i < seg_count; ++i)
 	{
@@ -34,7 +34,7 @@ kernel void colored_retrace_line(
 		}
 
 		end_coords = coords + end_offset;
-		draw_line(coords, end_coords, (uint4)(base_color, 96), uc4_trace_image);
+		draw_line(coords, end_coords, (uint4)(base_color, -1), uc4_trace_image);
 		//mark as start/restart
 		write_imageui(uc4_trace_image, coords, (uint4)(256-base_color, -1));
 		coords = end_coords;

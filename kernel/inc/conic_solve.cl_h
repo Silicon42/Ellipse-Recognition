@@ -3,6 +3,7 @@
 
 #define TRI_INDEX(i,j)	(((int)(i)*((int)(i) + 1))/2 + (int)(j))
 #define MAX_CANDIDATES 8
+#define PERIM_SCALE	(M_PI_F * M_SQRT2_F)
 
 //TODO: element names need rework to be more general
 typedef struct _FociMajor {
@@ -36,9 +37,9 @@ void solveConic(float A[15], float b[5]);
 // divided by the coverage divisor
 //NOTE: currently uses the Kummer infinite sum approximation with very few terms used
 // (https://en.wikipedia.org/wiki/Perimeter_of_an_ellipse#Infinite_sums)
-//NOTE: scaling factor: is currently 2/pi times the perimeter (at time of writing 5/20/2025) 
-#define ELLI_COVER_SCALE	M_2_PI_F
-float get_ellipse_coverage_divisor(float gen[5]);
+//NOTE: scaling factor is pi*sqrt(2) times smaller than real perimeter (at time of writing 2/05/2025)
+// multiply by PERIM_SCALE to get true perimeter units
+float get_scaled_ellipse_perim(float gen[5]);
 
 // Converts an ellipse in general conic form to foci-major form
 // if not an ellipse, returns negative distance

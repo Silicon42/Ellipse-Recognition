@@ -134,40 +134,35 @@ float get_conic_deviation(FociMajor const * const M, const float2 point)
 //NOTE: currently uses the Kummer infinite sum approximation with very few terms used
 // (https://en.wikipedia.org/wiki/Perimeter_of_an_ellipse#Infinite_sums)
 //NOTE: scaling factor: is currently a factor of pi smaller than the perimeter (at time of writing 6/12/2025) 
-float get_ellipse_coverage_divisor(float gen[5])
+float get_scaled_ellipse_perim(float gen[5])
 {
 	float b = gen[4];
-	if(b <= 0)	// hyperbola's can't have coverage computed
-		return -1;
 	float b2 = b*b;
-	float t2 = 4*gen[2]*gen[3] - b2;	// t^2 = 4ac - b^2
-	if(!isfinite(t2) || t2 <= 0)		// only continue if t^2 is positive finite, otherwise not an ellipse and perimeter is infinite
+	float t2 = 4*gen[2]*gen[3] - b2;	// 2t = 4ac - b^2
+	if((!isfinite(t2)) || (t2 <= 0))		// only continue if 2t is positive finite, otherwise not an ellipse and perimeter is infinite
 		return -1;
-
-	float det_M, ac_diff2, ac_b_len;
+//printf("%e	", t2);
+	float det_M, ac_diff2, ac_b_len, sqrt_t2, ac_sum, axes_sum, h;
 	ac_diff2 = gen[2] - gen[3];
 	ac_diff2 *= ac_diff2;	// (a-c)^2
 	float2 ed, ac, temp_f2;
 	ed = (float2)(gen[1], gen[0]);
 	ac = (float2)(gen[2], gen[3]);
 	temp_f2 = ed * ed * ac;			// [ae^2, cd^2]
-	det_M = -2*(t2 - b * ed.x * ed.y + temp_f2.x + temp_f2.y);	// det(M) = -2*(t^2 + ae^2 - bde + cd^2)	//NOTE: -2 scalar ommitted as not relevant here
+	det_M = fabs(-t2 + b * ed.x * ed.y - temp_f2.x - temp_f2.y);	// det(M) = 2*(2tf - ae^2 + bde - cd^2)
 	ac_b_len = sqrt(ac_diff2 + b2);
-
-	// semi-major and semi-minor axis lengths but with a sqrt(det(M)/t^2) scale factor deffered for calculation simplification reasons
-	float semimajor = -1 / (ac.x + ac.y + ac_b_len);		// semimajor^2 / det(M)/t^2 = -1 / (a + c + sqrt((a-c)^2 + b^2)
-	float semiminor = sqrt(semimajor - 2 * ac_b_len / t2);	// semiminor / sqrt(det(M)/t^2)
-	semimajor = sqrt(semimajor);	//semimajor / sqrt(det(M)/t^2)
+	sqrt_t2 = sqrt(t2);
+	ac_sum = fabs(ac.x + ac.y);
+	h = (ac_sum - sqrt_t2) / (ac_sum + sqrt_t2);
+	axes_sum = (sqrt(det_M * (ac_sum + ac_b_len)) + sqrt(det_M * (ac_sum - ac_b_len)))/t2;
+//	float h2 = h*h;
 
 	// real approx is pi*(maj + min)*(1 + h/4 + h^2/64 + h^3/256 + ...) where h = ((maj - min)/(maj + min))^2
-	// What's actually calculated here (at time of writing 5/20/2025) is (a + b)(4 + h)
-	// deferred scale factors cancel here for h but not for axis_sum
-	float axis_sum = semimajor + semiminor;	// (semimajor + semiminor)/sqrt(det(M)/t^2)
-	float h = (semimajor - semiminor) / axis_sum;
-	h *= h;
-	return sqrt(det_M / t2) * axis_sum * (4 + h);	// reintroduce sqrt(det(M)/t^2) scale factor that was omitted in semi-major and semi-minor calc
-//	printf("%f	", ret);
-//	return ret;
+	// What's actually calculated here (at time of writing 2/05/2025) is (1/sqrt(2))(maj + min)(1 + h/4)
+
+	float ret = axes_sum * (1 + h/4);// + h2/64 + h*h2/256);
+//	printf("%e	", ret);
+	return ret;
 }
 
 // Converts an ellipse in general conic form to foci-major form
@@ -179,7 +174,7 @@ void convertConicGeneralToFociMajor(Conic * const M, bool isntThruOrigin)
 	FociMajor* fm = &M->fm;
 	float b = gen[4];
 //printf("%v4f deac? %f b\n", fm->foci, b);
-	float t2 = 4*gen[2]*gen[3] - b*b;	// t^2 = 4ac - b^2
+	float t2 = 4*gen[2]*gen[3] - b*b;	// 2t = 4ac - b^2
 	//only bother computing foci for ellipse or hyperbola candidates, not parabolas due to divide by 0, or degenerate conics
 	if(!isfinite(t2) || t2 == 0)
 	{

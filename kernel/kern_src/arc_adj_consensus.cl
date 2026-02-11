@@ -7,9 +7,10 @@
 #include "cast_helpers.cl_h"
 
 //NOTE: tuneable minimum coverage in percent required in order for a solution to be written out
-#define MIN_COVERAGE_PERCENT	15
+#define MIN_COVERAGE_PERCENT	50
+#define COVERAGE_PERCENT_SCALE	(100 / PERIM_SCALE)
 // percent scaled to match coverage value scaling
-#define MIN_COVERAGE_THRESH		(MIN_COVERAGE_PERCENT * M_1_PI_F / 100)
+#define MIN_COVERAGE_THRESH		(MIN_COVERAGE_PERCENT / COVERAGE_PERCENT_SCALE)
 
 //TODO: this LUT could be folded in half because the later half is the bitwise inverse of the first half in reverse order
 // which could improve cache hit ratio
@@ -50,13 +51,14 @@ void setBestCliqueIfBetter(int4 const arc_tangents[9], float16 const arc_coeffs[
 	float elli_sol[5];
 	solveConic((__private float*)&elli_coeffs, elli_sol);
 
-	elli_coverage /= get_ellipse_coverage_divisor(elli_sol);
-//	printf("%f ", elli_coverage);
+	elli_coverage /= get_scaled_ellipse_perim(elli_sol);
+//	printf("%f %f	", elli_coverage*100, *best_coverage*100);
+//	printf("%2X %2X	", clique_set, *best_clique);
 	if(elli_coverage > *best_coverage)
 	{
 		*best_coverage = elli_coverage;
 		*best_clique = clique_set;
-		for(int i = 0; i < sizeof(elli_sol); ++i)
+		for(int i = 0; i < 5; ++i)
 			best_elli_gen[i] = elli_sol[i];
 	}
 }
@@ -66,7 +68,7 @@ kernel void arc_adj_consensus(
 	read_only image2d_t is2_arc_coords,
 	read_only image2d_t ff4_pre_solve_coeffs,
 	read_only image2d_t ii4_sparse_adj_matrix,
-//	write_only image2d_t uc1_adj_consensus,
+	write_only image2d_t uc1_adj_consensus,	// currently only for debugging purposes
 	write_only image2d_t ff4_sol_coeffs_ABCD,
 	write_only image2d_t ff1_sol_coeffs_E)
 {
@@ -79,8 +81,7 @@ kernel void arc_adj_consensus(
 	if(all(A_coords[0] == 0))
 		return;
 
-	union s8_conv candidates;
-	candidates.i = read_imagei(ii4_sparse_adj_matrix, indices);
+	union s8_conv candidates = {.i = read_imagei(ii4_sparse_adj_matrix, indices)};
 
 	if(all(candidates.i == 0))
 	{
@@ -124,6 +125,11 @@ kernel void arc_adj_consensus(
 	float best_coverage = 0;
 	Conic best_elli_sol;
 	uchar best_clique = 0;
+	// we can deduplicate cliques by only allowing the lowest index member to write out.
+	// In order to detect this we can mask any bits that correspond to lower indices and if any of those bits gets set in clique finding,
+	// then we can return early since the lower index instance of the clique finding will record it.
+	//TODO: the checking of this might have to be at the end of a phase
+	uchar lower_indices = 0;
 
 	// read in the conic pre-solve coefficients for each of the candidates of arc A
 	float16 arc_pre_solves[9];
@@ -132,6 +138,9 @@ kernel void arc_adj_consensus(
 	{
 		if(candidates.a[i] < 0)
 			break;
+		// if the match candidate is lower than the current index set it in the mask for later deduplication if it shows up in the final clique
+		if(candidates.a[i] < indices.x)
+			lower_indices |= 1 << i;
 		int2 B_coords = read_imagei(is2_arc_coords, (int2)(candidates.a[i], indices.y)).lo;
 		readPreSolveCoeffs(ff4_pre_solve_coeffs, B_coords, &arc_pre_solves[i]);
 	}
@@ -245,13 +254,16 @@ kernel void arc_adj_consensus(
 		}
 	}
 
-printf("%02X %f\n", best_clique, best_coverage);
+printf("%02X %f\n", best_clique, best_coverage * COVERAGE_PERCENT_SCALE);
+	// if not the lowest index in the clique, skip writing
+	if(lower_indices & best_clique)
+		return;
 	// if no decent match whatsoever, skip writing
 	if(best_coverage < MIN_COVERAGE_THRESH)
 		return;
 
 	//TODO: consensus probably needs to be stored as candidate list instead for ease of access, could overwrite existing candidate list safely
-//	write_imageui(uc1_adj_consensus, indices, best_clique);
+	write_imageui(uc1_adj_consensus, indices, best_clique);
 	write_imagef(ff4_sol_coeffs_ABCD, indices, best_elli_sol.fm.foci);
 	write_imagef(ff1_sol_coeffs_E, indices, best_elli_sol.fm.major);
 }

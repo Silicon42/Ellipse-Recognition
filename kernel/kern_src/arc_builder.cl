@@ -66,7 +66,7 @@ void write_arc(
 
 	if(!(seg_cnt >= 4))
 		return;
-	seg_cnt = min(coeffs->sf - SEG_CNT_BIAS, SEG_CNT_MASK);
+	seg_cnt = min(coeffs->sf - SEG_CNT_BIAS, (ulong)SEG_CNT_MASK);
 //	printf("%2X	", seg_cnt);
 	write_imagei(uc1_dir_cnt, start_coords, (dir & DIR_FLAG) | seg_cnt);
 	
@@ -130,29 +130,34 @@ kernel void arc_builder(
 	Conic conic;
 	float4 * foci = &conic.fm.foci;
 	char dir, dir_trend;
-	int dir_cross;
+	int dir_cross, dir_dot;
 	uchar kick = 0;	// which point index to kick when a recalculation occurs
-
+//int seg_total = 0;
+//printf("%i: seg expected %i\n", index, remaining_segs);
 	// loop over all segments that came from this start
 	// don't have to worry about returning to start b/c with the forward acute angle restriction
 	// that would require at least 5 segments and therefore wouldn't end up with one of the points
 	// as (0,0) on the initial calculation
-	do
+	while(remaining_segs--)
 	{
+//++seg_total;
 		switch(reset)
 		{
 		case LOGICAL_RESET:	// last read segment likely can't be part of the same elliptical arc due to failing a logical test
 //			printf("logical\n");
 			// write coefficients out to buffer
+//			printf("%i,%llu\n", index, coeffs.sf);
 			write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
 			base_coords += total_offset;
-		//	printf("%v16lu\n", coeffs);
+//			if(seg_cnt >= 4)
+//				printf("%v2i logical reset + write\n", base_coords);
 			// intentional fall-through to re-init
 		case LOOP_ENTRY_RESET:	// loop entry init/re-init
 //			printf("entry reset\n");
 			reset = 0;
 			coeffs = 0;
 			total_offset = 0;	//keep last segment that caused the reset	//TODO: check if this comment still true
+//seg_total += seg_cnt;
 			seg_cnt = 1;
 			len_approx = 0;
 			data.tangents.lo = convert_char2(curr_seg);
@@ -184,23 +189,25 @@ kernel void arc_builder(
 		}
 		total_offset += curr_seg;
 		curr_coords += curr_seg;
-		len_approx = mag_2d_i(curr_seg);
+		len_approx += mag_2d_i(curr_seg);
 		coeffs += getPointCoeffs(curr_coords);
 		prev_seg = curr_seg;
 		curr_seg = read_imagei(ic2_line_data, curr_coords).lo;
 
 		// angle difference between segments A and B must be acute (no sharp corners), ie positive dot product
-		int dir_dot = dot_2d_i(prev_seg, curr_seg);
-		if(dir_dot <= 0)
+		dir_dot = dot_2d_i(prev_seg, curr_seg);
+	/*	if(dir_dot <= 0)
 		{
+			printf("angle diff too big 0\n");
 			reset = LOGICAL_RESET;	//set reset flag
 			continue;
 		}
-		
+		*/
 		// angle between segments was more than 45 degrees
 		dir_cross = cross_2d_i(prev_seg, curr_seg);
 		if(abs(dir_cross) > dir_dot)
 		{
+//			printf("angle diff too big\n");
 			reset = LOGICAL_RESET;
 			continue;
 		}
@@ -209,6 +216,7 @@ kernel void arc_builder(
 		// if curving direction changes between +/- trigger a reset
 		if((dir ^ dir_trend) == -2)
 		{
+//			printf("angle trend changed %i\n", dir);
 			reset = LOGICAL_RESET;
 			continue;
 		}
@@ -292,6 +300,7 @@ kernel void arc_builder(
 				// if the new points didn't form a conic with a reasonable minimum major/transverse axis length write out the previous conic
 				if(fabs(new_conic.fm.major) < 2)
 				{
+//					printf("major axis too small\n");
 					reset = LOGICAL_RESET;
 					continue;
 				}
@@ -300,6 +309,7 @@ kernel void arc_builder(
 				// if the new calculation wouldn't include the old point, it needs to be written out and reset
 				if(get_conic_deviation(&conic.fm, old_point) > CONIC_DEVIATION_THRESH)
 				{
+//					printf("incompatible segment with current arc\n");
 					reset = LOGICAL_RESET;
 					continue;
 				}
@@ -311,12 +321,18 @@ kernel void arc_builder(
 		// this must stay at the end b/c some situations need to be able to skip it
 		if(dir)//think through
 			++seg_cnt;
-	} while(--remaining_segs);
+	}
 //	if(all(base_coords==(int2)(490,590)))
 //		printf("%v2i	%v2i	%v2i	%v2i\n", points[0],points[1],points[2],points[3]);
 
 	//flush last arc
+//printf("%i,%llu\n", index, coeffs.sf);
 	write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
+//seg_total += seg_cnt;
+//("%i: seg processed %i\n", index, seg_total);
+//	base_coords += total_offset;
+//	if(seg_cnt >= 4)
+//		printf("%v2i exit + write\n", base_coords);
 }
 
 //debugging print stubs
