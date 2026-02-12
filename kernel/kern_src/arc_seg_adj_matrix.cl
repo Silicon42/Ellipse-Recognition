@@ -110,6 +110,13 @@ kernel void arc_seg_adj_matrix(
 	ArcData A_data = ((RW_ArcData)read_imagei(ii2_arc_data, A_coords[0]).lo).ad;
 	A_coords[1] = convert_int2(A_data.endpoint);
 	int2 A_end_offset = A_coords[1] - A_coords[0];
+	// special case for closed loops so they don't cause problems,
+	//TODO: techincally could be forwarded straight to final solution buffer, but for debugging purposes, just write as if it were output from here normally
+	if(all(A_end_offset == 0))
+	{
+		write_imagei(ii4_sparse_adj_matrix, indices, -1);
+		return;
+	}
 	int4 A_tangents = convert_int4(A_data.tangents);
 
 	//TODO: evaluate if using just 2 test points and requiring they both pass is sufficient instead of allowing for 3 with potentially 1 failure
