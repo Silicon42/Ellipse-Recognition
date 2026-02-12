@@ -194,20 +194,12 @@ kernel void arc_builder(
 		prev_seg = curr_seg;
 		curr_seg = read_imagei(ic2_line_data, curr_coords).lo;
 
-		// angle difference between segments A and B must be acute (no sharp corners), ie positive dot product
+		// angle difference between segments A and B must be less than 45 degrees (no sharp corners), ie dot product greater than absolute cross product
 		dir_dot = dot_2d_i(prev_seg, curr_seg);
-	/*	if(dir_dot <= 0)
-		{
-			printf("angle diff too big 0\n");
-			reset = LOGICAL_RESET;	//set reset flag
-			continue;
-		}
-		*/
-		// angle between segments was more than 45 degrees
 		dir_cross = cross_2d_i(prev_seg, curr_seg);
-		if(abs(dir_cross) > dir_dot)
+		if(dir_dot <= (int)abs(dir_cross))
 		{
-//			printf("angle diff too big\n");
+		//	printf("%v2i angle diff too big %i %i\n", curr_coords, dir_dot, dir_cross);
 			reset = LOGICAL_RESET;
 			continue;
 		}
