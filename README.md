@@ -79,3 +79,11 @@ gracefully, currently it sometimes segfaults if this happens.
 since often times at the end of a chain it ends up linking backwards when it shouldn't
 * remove ISNT_END_ADJ macro and replace references to it with HAS_R_CONT to reflect
 changes made awhile ago in how find_segment_starts() uses it
+* ^ related to the above, consider making pixel linking use an XOR linked list to
+allow for traversing the links both ways which would allow for better corner 
+rejection when trying to follow curves, might also allow for nibble packing since
+it can't enter and leave from the same side so there wouldn't be a need for a 
+presence bit because valid links would always have some bit set
+* if post-pixel-linking stages get moved to the CPU, consider combining the line 
+segments and arc builder stages to get rid of the intermediate buffer and associated
+reads and writes, for now it stays because debugging needs it

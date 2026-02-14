@@ -115,7 +115,7 @@ kernel void arc_builder(
 	// then one instance of the start weights gets added and one instance of the end weights gets subtracted and if 2 arcs 
 	// share the same point the sum of their weights will include exactly 2 copies of the same set of weights
 
-	int2 total_offset, curr_coords, curr_seg, prev_seg;
+	int2 total_offset, curr_coords, curr_seg, prev_seg, end_tangent;
 	curr_coords = base_coords;
 	private int2 points[4];	// relative points to last reset used in the 
 	curr_seg = read_imagei(ic2_line_data, base_coords).lo;
@@ -147,7 +147,7 @@ kernel void arc_builder(
 //			printf("logical\n");
 			// write coefficients out to buffer
 //			printf("%i,%llu\n", index, coeffs.sf);
-			write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
+			write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, end_tangent, dir_trend, seg_cnt, len_approx);
 			base_coords += total_offset;
 //			if(seg_cnt >= 4)
 //				printf("%v2i logical reset + write\n", base_coords);
@@ -175,10 +175,10 @@ kernel void arc_builder(
 			len_approx -= first_len;
 
 			// write the single segment out
-			write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &base_coeffs, data, base_coords, new_base_coords, new_base_coords-base_coords, 0, 1, first_len);
+		//	data.tangents.lo = convert_char2(diffs[0]);	//tangents don't get written if less than 4 segments currently
+			write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &base_coeffs, data, base_coords, new_base_coords, diffs[0], 0, 1, first_len);
 			
 			base_coords = new_base_coords;	// advance base coords by first segment
-			data.tangents.lo = convert_char2(diffs[1]);
 			total_offset -= first_point;
 			points[0] = points[1] - first_point;	// remove first segment's offset to account for new base coord
 			points[1] = points[2] - first_point;
@@ -191,6 +191,7 @@ kernel void arc_builder(
 		curr_coords += curr_seg;
 		len_approx += mag_2d_i(curr_seg);
 		coeffs += getPointCoeffs(curr_coords);
+		end_tangent = prev_seg;
 		prev_seg = curr_seg;
 		curr_seg = read_imagei(ic2_line_data, curr_coords).lo;
 
@@ -262,6 +263,11 @@ kernel void arc_builder(
 					reset = FIRST_SOLVE_RESET;
 					continue;	//continue without advancing segment count
 				}
+
+				// angle noise mitigation, end segements may occasionally hook inwards and then back out due to noise so the 2nd to last
+				// segment direction is taken as tangent instead if available
+				//TODO: if combining this stage with the line_segments, this could potentially be swapped to the pre-halved, offset
+				data.tangents.lo = convert_char2(diffs[1]);
 			}
 		}
 		else
@@ -319,7 +325,7 @@ kernel void arc_builder(
 
 	//flush last arc
 //printf("%i,%llu\n", index, coeffs.sf);
-	write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, prev_seg, dir_trend, seg_cnt, len_approx);
+	write_arc(ii2_arc_data, uc1_dir_cnt, ff4_pre_solve_coeffs, ff4_ellipse_foci, ff1_ellipse_major, &coeffs, data, base_coords, curr_coords, end_tangent, dir_trend, seg_cnt, len_approx);
 //seg_total += seg_cnt;
 //("%i: seg processed %i\n", index, seg_total);
 //	base_coords += total_offset;

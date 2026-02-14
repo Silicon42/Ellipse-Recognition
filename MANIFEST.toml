@@ -17,13 +17,14 @@ Stages = [
 	{name = 'arc_adj_consensus', args = ['arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'arc_coords'}},
 
 #### OUTPUT DEBUGGING KERNELS ####
-	{name = 'input_copy', args = ['input', 'retrace'], range = {ref_arg = 'input'}},
+#	{name = 'input_copy', args = ['input', 'retrace'], range = {ref_arg = 'input'}},
 #	{name = 'arc_seg_adj_stripped', args = ['arc_data', 'arc_coords', 'retrace'], range = {ref_arg = 'retrace'}},
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_starts_debug', args = ['starts_cont', 'expanded'], range = {ref_arg = 'starts_cont'}},
 #	{name = 'fm_draw', args = ['arc_coords', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'arc_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
+	{name = 'arc_data_debug', args = ['arc_data', 'arc_coords', 'retrace'], range = {ref_arg = 'arc_coords'}},
 	{name = 'to_foci_major', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'ellipse_sol_abcd', 'ellipse_sol_e'], range = {ref_arg = 'ellipse_sol_abcd'}},
 	{name = 'fm_draw_auto', args = ['ellipse_sol_abcd', 'ellipse_sol_e', 'retrace'], range = {ref_arg = 'arc_coords'}},
 	{name = 'consensus_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_abcd', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
