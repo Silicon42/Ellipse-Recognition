@@ -325,12 +325,12 @@ kernel void arc_seg_adj_matrix(
 		// test if Candy's Theorem constraint passes for at least 2 of the test points
 		char fail_cnt = 0;
 		// check that the predicted point is a close match to arc B's predicted foci and major axis length
-		if(doesFailCandysCheck(test_points[test_index], central, shared, &B_foci_major))
+	/*	if(doesFailCandysCheck(test_points[test_index], central, shared, &B_foci_major))
 			++fail_cnt;
 		
 		if(doesFailCandysCheck(test_points[++test_index], central, shared, &B_foci_major))
 			++fail_cnt;
-
+*/
 	//	printf("%v2f\n", tp_rel);
 
 		switch(fail_cnt)

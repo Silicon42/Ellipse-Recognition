@@ -83,9 +83,10 @@ kernel void arc_adj_consensus(
 
 	union s8_conv candidates = {.i = read_imagei(ii4_sparse_adj_matrix, indices)};
 
-	if(all(candidates.i == 0))
+	if(all(candidates.i == -1))
 	{
 //TODO: single arc closed region check and write
+		
 		return;
 	}
 /*//TEMPORARILY DISABLED FOR DEBUGGING
