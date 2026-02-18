@@ -7,7 +7,7 @@
 #include "cast_helpers.cl_h"
 
 //NOTE: tuneable minimum coverage in percent required in order for a solution to be written out
-#define MIN_COVERAGE_PERCENT	50
+#define MIN_COVERAGE_PERCENT	25
 #define COVERAGE_PERCENT_SCALE	(100 / PERIM_SCALE)
 // percent scaled to match coverage value scaling
 #define MIN_COVERAGE_THRESH		(MIN_COVERAGE_PERCENT / COVERAGE_PERCENT_SCALE)
@@ -130,7 +130,7 @@ kernel void arc_adj_consensus(
 	// In order to detect this we can mask any bits that correspond to lower indices and if any of those bits gets set in clique finding,
 	// then we can return early since the lower index instance of the clique finding will record it.
 	//TODO: the checking of this might have to be at the end of a phase
-	uchar lower_indices = 0;
+//	uchar lower_indices = 0;
 
 	// read in the conic pre-solve coefficients for each of the candidates of arc A
 	float16 arc_pre_solves[9];
@@ -140,8 +140,8 @@ kernel void arc_adj_consensus(
 		if(candidates.a[i] < 0)
 			break;
 		// if the match candidate is lower than the current index set it in the mask for later deduplication if it shows up in the final clique
-		if(candidates.a[i] < indices.x)
-			lower_indices |= 1 << i;
+//		if(candidates.a[i] < indices.x)
+//			lower_indices |= 1 << i;
 		int2 B_coords = read_imagei(is2_arc_coords, (int2)(candidates.a[i], indices.y)).lo;
 		readPreSolveCoeffs(ff4_pre_solve_coeffs, B_coords, &arc_pre_solves[i]);
 	}
@@ -157,7 +157,7 @@ kernel void arc_adj_consensus(
 //	uchar const pairs = sizeof(edge_sets) - 28;
 
 	// 1 clique processing & converting candidate lists to boolean bit vector form
-	for(int i = 0; (i < MAX_CANDIDATES) && (candidates.a[i] >= 0); ++i)
+	for(int i = 0; (i < MAX_CANDIDATES); ++i)	// && (candidates.a[i] >= 0)
 	{
 		union s8_conv B_candidates = {.i = read_imagei(ii4_sparse_adj_matrix, (int2)(candidates.a[i], indices.y))};
 		// the node gets an edge to itself, this makes some logic simpler
@@ -179,7 +179,8 @@ kernel void arc_adj_consensus(
 	}
 
 	// 2 clique processing
-	for(int i = 0, k = 0; i < MAX_CANDIDATES; ++i)
+	//TODO: These might benefit in terms of speed from applying the edge_sets '&' operations in more pseudo-vector like ways via wider types
+	for(int i = 0, k = 0; i < MAX_CANDIDATES-1; ++i)
 	{
 		uchar processed_1 = 1 << i;
 		for(int j = i+1; j < MAX_CANDIDATES; ++j, ++k)
@@ -197,26 +198,28 @@ kernel void arc_adj_consensus(
 	}
 
 	// 3 clique processing, special because it doesn't require storing to edge_sets[]
-	// and must be formed with entries with at least one shared node, plus iterated 
-	// such that we preferrably avoid duplicate computations
-	for(int i = 0, i_step = MAX_CANDIDATES-1, i_thresh = i_step; i_step > 1; i_thresh += i_step)
+	// and must be formed with entries with a single and a pair
+	for(int i = 0, l0, lstep = l0 = MAX_CANDIDATES-1; i < MAX_CANDIDATES-2; ++i)
 	{
-		uchar processed_1 = 1 << (MAX_CANDIDATES-1 - i_step);
-		--i_step;
-		for(int j = i_thresh, j_step = i_step, j_thresh = i_thresh + i_step; i < i_thresh; j_thresh += --j_step, ++i)
+		int l = l0;
+		uchar processed_1 = 1 << i;
+		for(int j = i+1; j < MAX_CANDIDATES-1; ++j)
 		{
-			uchar processed_2 = 1 << (MAX_CANDIDATES-1 - j_step);
-			for(; j < j_thresh; ++j)
+			uchar processed_2 = 1 << j;
+			for(int k = j+1; k < MAX_CANDIDATES; ++k)
 			{
-				processed = processed_1 | processed_2 | (1 << (MAX_CANDIDATES + j - j_thresh));	//TODO: this might be faster with a LUT
-				if(processed == (pairs[i] & pairs[j]))
+				processed = processed_1 | processed_2 | (1 << k);
+				if(processed == (edge_sets[i] & pairs[l]))
 				{
 //					printf("3\n");
 //TODO: !!! coverage processing
 					setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
 				}
+				++l;
 			}
 		}
+		--lstep;
+		l0 += lstep;
 	}
 
 	// 4 clique processing
@@ -257,8 +260,8 @@ kernel void arc_adj_consensus(
 
 printf("%02X %f\n", best_clique, best_coverage * COVERAGE_PERCENT_SCALE);
 	// if not the lowest index in the clique, skip writing
-	if(lower_indices & best_clique)
-		return;
+//	if(lower_indices & best_clique)
+//		return;
 	// if no decent match whatsoever, skip writing
 	if(best_coverage < MIN_COVERAGE_THRESH)
 		return;
