@@ -6,6 +6,18 @@
 #include "conic_solve.cl_h"
 #include "cast_helpers.cl_h"
 
+#if !defined(MAX_CANDIDATES) || (MAX_CANDIDATES != 8)
+#error MAX_CANDIDATES determines constants that need to be manually recalculated, please do so before updating the the candidate count here.
+
+#endif
+// PAIR_SETS is MAX_CANDIDATES choose 2 combinations, ie for MAX_CANDIDATES == 8,
+// 8! / (2! * (8-2)!) == 28
+#define PAIR_SETS	28
+// 8! / (4! * (8-4)!) == 70
+#define QUAD_SETS	70
+// min with overlap and current in use copy is 76, + some padding bytes for possible aligned casting for psuedo vector operations
+#define EDGE_SETS_CNT	80
+
 //NOTE: tuneable minimum coverage in percent required in order for a solution to be written out
 #define MIN_COVERAGE_PERCENT	25
 #define COVERAGE_PERCENT_SCALE	(100 / PERIM_SCALE)
@@ -73,7 +85,8 @@ kernel void arc_adj_consensus(
 	write_only image2d_t ff1_sol_coeffs_E)
 {
 	int2 indices = (int2)(get_global_id(0), get_global_id(1));
-
+if(any(indices != 0))
+	return;
 	int2 A_coords[2];
 	A_coords[0] = read_imagei(is2_arc_coords, indices).lo;
 
@@ -146,7 +159,7 @@ kernel void arc_adj_consensus(
 		readPreSolveCoeffs(ff4_pre_solve_coeffs, B_coords, &arc_pre_solves[i]);
 	}
 
-	uchar edge_sets[80] = {0};
+	uchar edge_sets[EDGE_SETS_CNT] = {0};
 	// everything in the local graph has an implicit connection to the primary arc so the size 0 clique is just itself ie this is
 	// technically a 1 clique but implementation wise it's 0
 	
@@ -183,10 +196,11 @@ kernel void arc_adj_consensus(
 	for(int i = 0, k = 0; i < MAX_CANDIDATES-1; ++i)
 	{
 		uchar processed_1 = 1 << i;
+		uchar set_i = edge_sets[i];
 		for(int j = i+1; j < MAX_CANDIDATES; ++j, ++k)
 		{
 			processed = processed_1 | (1 << j);
-			pairs[k] = edge_sets[i] & edge_sets[j];
+			pairs[k] = set_i & edge_sets[j];
 			
 			if(pairs[k] == processed)
 			{
@@ -203,13 +217,14 @@ kernel void arc_adj_consensus(
 	{
 		int l = l0;
 		uchar processed_1 = 1 << i;
+		uchar set_i = edge_sets[i];
 		for(int j = i+1; j < MAX_CANDIDATES-1; ++j)
 		{
 			uchar processed_2 = 1 << j;
 			for(int k = j+1; k < MAX_CANDIDATES; ++k)
 			{
 				processed = processed_1 | processed_2 | (1 << k);
-				if(processed == (edge_sets[i] & pairs[l]))
+				if(processed == (set_i & pairs[l]))
 				{
 //					printf("3\n");
 //TODO: !!! coverage processing
@@ -223,23 +238,41 @@ kernel void arc_adj_consensus(
 	}
 
 	// 4 clique processing
-	for(int i = 0, k = 0, i_step = MAX_CANDIDATES-1, i_thresh = i_step; i_step > 2; i_thresh += i_step)
 	{
-		--i_step;
-		for(int j_step = i_step, j0 = i_thresh; i < i_thresh; ++i)
+		int i = 0, k = 0;
+		int j_start = 2*MAX_CANDIDATES-3;
+		int i_thresh = MAX_CANDIDATES-3;
+		int i_step = MAX_CANDIDATES-2;
+		while(i_step > 1)
 		{
-			j0 += j_step;
-			--j_step;
-			for(int j = j0; j < 28; ++j, ++k)
+			int j0 = j_start;
+			int j_step = i_step;
+			for(; i < i_thresh; ++i)
 			{
-				edge_sets[k] = pairs[i] & pairs[j];
-				//NOTE: maximal check not done here because it's simpler to do it in the 5+ clique processing stage
-				//TODO: check that doing this is actually beneficial perf wise, could potentially be beneficial to add and
-				// early exit that checks if 5+ clique processing even has a chance of producing a set or if there are no more
-				// shared edges but then, the maximal check for 4 would definitely need to be applied here
+				uchar pair_i = pairs[i];
+				for(int j = j0; j < PAIR_SETS; ++j)
+				{
+				printf("%i	", j);
+	//	printf("%2i, %2i;\n", i,j);
+					edge_sets[k] = pair_i & pairs[j];
+					++k;
+					//NOTE: maximal check not done here because it's simpler to do it in the 5+ clique processing stage
+					//TODO: check that doing this is actually beneficial perf wise, could potentially be beneficial to add and
+					// early exit that checks if 5+ clique processing even has a chance of producing a set or if there are no more
+					// shared edges but then, the maximal check for 4 would definitely need to be applied here
+				}
+printf("\n");
+				--j_step;
+				j0 += j_step;
 			}
+			i += 2;
+
+			i_thresh += i_step;
+			--i_step;
+			j_start += i_step;
 		}
 	}
+printf("\n");
 
 	// 5+ clique processing, doesn't require storage
 	//TODO: this ordering of iteration is horribly inefficient as it results in approximately 26 duplicate checks on average
