@@ -7,16 +7,16 @@
 #include "cast_helpers.cl_h"
 
 #if !defined(MAX_CANDIDATES) || (MAX_CANDIDATES != 8)
-#error MAX_CANDIDATES determines constants that need to be manually recalculated, please do so before updating the the candidate count here.
+#error MAX_CANDIDATES determines constants that need to be manually recalculated and the code expects no more 8 candidates, please do so before updating the the candidate count here.
 
 #endif
 // PAIR_SETS is MAX_CANDIDATES choose 2 combinations, ie for MAX_CANDIDATES == 8,
 // 8! / (2! * (8-2)!) == 28
 #define PAIR_SETS	28
+//8! / (3! * (8-3)!) == 56
+#define TRIPLE_SETS	56
 // 8! / (4! * (8-4)!) == 70
 #define QUAD_SETS	70
-// min with overlap and current in use copy is 76, + some padding bytes for possible aligned casting for psuedo vector operations
-#define EDGE_SETS_CNT	80
 
 //NOTE: tuneable minimum coverage in percent required in order for a solution to be written out
 #define MIN_COVERAGE_PERCENT	25
@@ -24,9 +24,34 @@
 // percent scaled to match coverage value scaling
 #define MIN_COVERAGE_THRESH		(MIN_COVERAGE_PERCENT / COVERAGE_PERCENT_SCALE)
 
+//TODO: rework to not need triples again, these don't provide enough benefit for 56 bytes of constant space and 56 bytes of thread local space
+constant const uchar processed3[TRIPLE_SETS] = {
+	0x07, 0x0B, 0x13, 0x23, 0x43, 0x83,
+	0x0D, 0x15, 0x25, 0x45, 0x85,
+	0x19, 0x29, 0x49, 0x89,
+	0x31, 0x51, 0x91,
+	0x61, 0xA1,
+	0xC1,
+	0x0E, 0x16, 0x26, 0x46, 0x86,
+	0x1A, 0x2A, 0x4A, 0x8A,
+	0x32, 0x52, 0x92,
+	0x62, 0xA2,
+	0xC2,
+	0x1C, 0x2C, 0x4C, 0x8C,
+	0x34, 0x54, 0x94,
+	0x64, 0xA4,
+	0xC4,
+	0x38, 0x58, 0x98,
+	0x68, 0xA8,
+	0xC8,
+	0x70, 0xB0,
+	0xD0,
+	0xE0
+};
+
 //TODO: this LUT could be folded in half because the later half is the bitwise inverse of the first half in reverse order
 // which could improve cache hit ratio
-constant const uchar processed4[70] = {
+constant const uchar processed4[QUAD_SETS] = {
 	0x0F, 0x17, 0x27, 0x47, 0x87, 0x1B, 0x2B, 0x4B, 0x8B, 0x33, 0x53, 0x93, 0x63, 0xA3, 0xC3, 
 	0x1D, 0x2D, 0x4D, 0x8D, 0x35, 0x55, 0x95, 0x65, 0xA5, 0xC5, 
 	0x39, 0x59, 0x99, 0x69, 0xA9, 0xC9, 
@@ -42,6 +67,10 @@ constant const uchar processed4[70] = {
 	0x78, 0xB8, 0xD8, 
 	0xE8, 
 	0xF0
+};
+
+constant const uchar quads_idx[MAX_CANDIDATES] = {
+	35, 55, 65, 69, 34, 14, 4, 0
 };
 
 // computes coverage (and if it's a closed region) for a given clique of arcs and, if it's better than the existing best values
@@ -159,15 +188,11 @@ if(any(indices != 0))
 		readPreSolveCoeffs(ff4_pre_solve_coeffs, B_coords, &arc_pre_solves[i]);
 	}
 
-	uchar edge_sets[EDGE_SETS_CNT] = {0};
 	// everything in the local graph has an implicit connection to the primary arc so the size 0 clique is just itself ie this is
 	// technically a 1 clique but implementation wise it's 0
-	
 	// singles include a single other node so are technically 2 cliques but implementation wise are 1 and pairs are technically 3
-//	uchar* singles = &edge_sets[sizeof(edge_sets)-(28+8)];
-	uchar* pairs = &edge_sets[sizeof(edge_sets)-(28)];
+	uchar singles[MAX_CANDIDATES] = {0};
 	uchar processed;
-//	uchar const pairs = sizeof(edge_sets) - 28;
 
 	// 1 clique processing & converting candidate lists to boolean bit vector form
 	for(int i = 0; (i < MAX_CANDIDATES); ++i)	// && (candidates.a[i] >= 0)
@@ -175,116 +200,147 @@ if(any(indices != 0))
 		union s8_conv B_candidates = {.i = read_imagei(ii4_sparse_adj_matrix, (int2)(candidates.a[i], indices.y))};
 		// the node gets an edge to itself, this makes some logic simpler
 		processed = 1 << i;
-		edge_sets[i] = processed;
+		singles[i] = processed;
 		// set bits corresponding to shared connections to a node
 		for(int j = 0; (j < MAX_CANDIDATES) && (candidates.a[j] >= 0); ++j)
 		{
 			if(any(B_candidates.s == candidates.a[j]))
-				edge_sets[i] |= 1 << j;
+				singles[i] |= 1 << j;
 		}
 		// if possibility set matches processed set, this is a maximal clique
-		if(edge_sets[i] == processed)
+		if(processed == singles[i])
 		{
 //TODO: !!! coverage processing
 			setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
-		//	edge_sets[i] = 0;	// this isn't strictly neccessary but helps making it clear that there is no point doing further combining
+			singles[i] = 0;	// this isn't strictly neccessary but helps making it clear that there is no point doing further combining
 		}
 	}
 
+//TODO: add early write and exit if singles[] is empty
+
 	// 2 clique processing
-	//TODO: These might benefit in terms of speed from applying the edge_sets '&' operations in more pseudo-vector like ways via wider types
+	//TODO: These might benefit in terms of speed from applying the singles '&' operations in more pseudo-vector like ways via wider types
+	uchar pairs[PAIR_SETS] = {0};
 	for(int i = 0, k = 0; i < MAX_CANDIDATES-1; ++i)
 	{
 		uchar processed_1 = 1 << i;
-		uchar set_i = edge_sets[i];
+		uchar single_i = singles[i];
 		for(int j = i+1; j < MAX_CANDIDATES; ++j, ++k)
 		{
 			processed = processed_1 | (1 << j);
-			pairs[k] = set_i & edge_sets[j];
+			pairs[k] = single_i & singles[j];
 			
-			if(pairs[k] == processed)
+			if(processed == pairs[k])
 			{
 //TODO: !!! coverage processing
 				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
-			//	pairs[k] = 0;
+				pairs[k] = 0;
 			}
 		}
 	}
 
-	// 3 clique processing, special because it doesn't require storing to edge_sets[]
-	// and must be formed with entries with a single and a pair
-	for(int i = 0, l0, lstep = l0 = MAX_CANDIDATES-1; i < MAX_CANDIDATES-2; ++i)
+//TODO: add early write and exit if pairs[] is empty
+
+	// 3 clique processing
+	uchar triples[TRIPLE_SETS] = {0};
+	for(int i = 0, k = 0, j0 = 0, jstep = MAX_CANDIDATES; i < MAX_CANDIDATES-2; ++i)
 	{
-		int l = l0;
-		uchar processed_1 = 1 << i;
-		uchar set_i = edge_sets[i];
-		for(int j = i+1; j < MAX_CANDIDATES-1; ++j)
+		--jstep;
+		j0 += jstep;
+		uchar set_i = singles[i];
+		for(int j = j0; j < PAIR_SETS; ++j)
 		{
-			uchar processed_2 = 1 << j;
-			for(int k = j+1; k < MAX_CANDIDATES; ++k)
+			triples[k] = set_i & pairs[j];
+			if(processed3[k] == triples[k])
 			{
-				processed = processed_1 | processed_2 | (1 << k);
-				if(processed == (set_i & pairs[l]))
-				{
-//					printf("3\n");
 //TODO: !!! coverage processing
-					setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
-				}
-				++l;
+				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+				triples[k] = 0;
 			}
+			++k;
 		}
-		--lstep;
-		l0 += lstep;
 	}
+
+//TODO: add early write and exit if triples[] is empty
 
 	// 4 clique processing
+	uchar quads[QUAD_SETS] = {0};
+	for(int i = 0, k = 0, j0 = 0, jstep = PAIR_SETS, jstep2 = MAX_CANDIDATES; i < MAX_CANDIDATES-3; ++i)
 	{
-		int i = 0, k = 0;
-		int j_start = 2*MAX_CANDIDATES-3;
-		int i_thresh = MAX_CANDIDATES-3;
-		int i_step = MAX_CANDIDATES-2;
-		while(i_step > 1)
+		--jstep2;
+		jstep -= jstep2;
+		j0 += jstep;
+		uchar single_i = singles[i];
+		for(int j = j0; j < TRIPLE_SETS; ++j)
 		{
-			int j0 = j_start;
-			int j_step = i_step;
-			for(; i < i_thresh; ++i)
+			quads[k] = single_i & triples[j];
+			if(processed4[k] == quads[k])
 			{
-				uchar pair_i = pairs[i];
-				for(int j = j0; j < PAIR_SETS; ++j)
-				{
-				printf("%i	", j);
-	//	printf("%2i, %2i;\n", i,j);
-					edge_sets[k] = pair_i & pairs[j];
-					++k;
-					//NOTE: maximal check not done here because it's simpler to do it in the 5+ clique processing stage
-					//TODO: check that doing this is actually beneficial perf wise, could potentially be beneficial to add and
-					// early exit that checks if 5+ clique processing even has a chance of producing a set or if there are no more
-					// shared edges but then, the maximal check for 4 would definitely need to be applied here
-				}
-printf("\n");
-				--j_step;
-				j0 += j_step;
+//TODO: !!! coverage processing
+				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+				quads[k] = 0;
 			}
-			i += 2;
-
-			i_thresh += i_step;
-			--i_step;
-			j_start += i_step;
+			++k;
 		}
 	}
-printf("\n");
 
-	// 5+ clique processing, doesn't require storage
-	//TODO: this ordering of iteration is horribly inefficient as it results in approximately 26 duplicate checks on average
-	// for each real entry but it should work for now just to see if the idea is working and bug free
-	for(int i = 0; i < 70; ++i)
+//TODO: add early write and exit if quads[] is empty
+
+	// 8 clique proccessing, from here on out, clique sets don't require storage
+	if(0xFF == (quads[0] & quads[QUAD_SETS-1]))
 	{
-		for(int j = i; j < 70; ++j)
+//TODO: technically this doesn't need the full function since if this one exists it WILL be the best clique but for ease of
+// programming, I'm just using the full function here, that being said this should be changed later
+		setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, 0xFF);
+//TODO: this needs to write and return since a clique of 8 will always have the best coverage
+	}
+
+	// 7 clique proccessing
+	// indexing order is because 5 and 6 cliques also use quads_idx to get step sizes and need it in a different order
+	uchar quads_prev = quads[14];
+	uchar processed_prev = processed4[14];
+	for(int i = 0, idx; i < MAX_CANDIDATES; ++i)
+	{
+		idx = quads_idx[(i*3) & (MAX_CANDIDATES-1)];
+		processed = processed_prev | processed4[idx];
+		processed_prev = processed4[idx];
+		if((quads_prev & quads[idx]) == processed)
+			setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+
+		quads_prev = quads[idx];
+	}
+
+	// 6 clique processing
+	for(int i = 0, j0 = 0, jstep = MAX_CANDIDATES; i < MAX_CANDIDATES-5; ++i)
+	{
+		uchar processed_1 = 1 << i;
+		uchar processed_2 = processed_1;
+		for(int j = j0; processed_2 & 7; ++j)
 		{
-			processed = processed4[i] | processed4[j];
-			if((edge_sets[i] & edge_sets[j]) == processed)
+			processed_2 <<= 1;
+			for(int k = quads_idx[i+1+j-j0]; k < 70; ++k)
 			{
-//				printf("4+\n");
+				processed = processed_1 | processed_2 | processed4[k];
+				if((pairs[j] & quads[k]) == processed)
+				{
+					setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
+				}
+	//TODO: !!! coverage processing
+			}
+		}
+		--jstep;
+		j0 += jstep;
+	}
+
+	// 5 clique processing
+	for(int i = 0; i < MAX_CANDIDATES-4; ++i)
+	{
+		uchar processed_1 = 1 << i;
+		for(int j = quads_idx[i]; j < 70; ++j)
+		{
+			processed = processed_1 | processed4[j];
+			if((singles[i] & quads[j]) == processed)
+			{
 				setBestCliqueIfBetter(NULL, arc_pre_solves, best_elli_sol.general, &best_coverage, &best_clique, processed);
 			}
 //TODO: !!! coverage processing
