@@ -8,7 +8,7 @@ float cross_2d_f(float2 a, float2 b);
 
 int cross_2d_i(int2 a, int2 b);
 
-int cross_2d_c(char2 a, char2 b);
+short cross_2d_c(char2 a, char2 b);
 
 int dot_2d_i(int2 a, int2 b);
 

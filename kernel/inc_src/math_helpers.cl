@@ -15,9 +15,9 @@ int cross_2d_i(int2 a, int2 b)
 	return a.x * b.y - a.y * b.x;
 }
 
-int cross_2d_c(char2 a, char2 b)
+short cross_2d_c(char2 a, char2 b)
 {
-	return a.x * b.y - a.y * b.x;
+	return a.x * (int)b.y - a.y * (int)b.x;
 }
 
 int dot_2d_i(int2 a, int2 b)

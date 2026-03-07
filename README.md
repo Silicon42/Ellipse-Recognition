@@ -87,3 +87,5 @@ presence bit because valid links would always have some bit set
 * if post-pixel-linking stages get moved to the CPU, consider combining the line 
 segments and arc builder stages to get rid of the intermediate buffer and associated
 reads and writes, for now it stays because debugging needs it
+* figure out how to traverse ccw arcs in the reverse direction in some way or save 
+their tangents such that special logic isn't neccessary to flip the sense of them
