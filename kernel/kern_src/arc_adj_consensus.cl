@@ -144,7 +144,7 @@ kernel void arc_adj_consensus(
 	read_only image2d_t is2_arc_coords,
 	read_only image2d_t ff4_pre_solve_coeffs,
 	read_only image2d_t ii4_sparse_adj_matrix,
-	write_only image2d_t uc1_adj_consensus,	// currently only for debugging purposes
+	write_only image2d_t uc1_adj_consensus,
 	write_only image2d_t ff4_sol_coeffs_ACDE,
 	write_only image2d_t ff1_sol_coeffs_B)
 {

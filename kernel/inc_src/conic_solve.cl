@@ -10,6 +10,8 @@ void print_ulong16(ulong16* x)
 // computes A = (B^T)B for B width 5, height m, used as part of calculating pseudo-inverse
 void selfTransposeProduct(int m, float B[][5], float A[15])
 {
+	#pragma GCC unroll 9
+	__attribute__((opencl_unroll_hint(4)))
 	// A's contents are assumed to be initialized to 0
 	for(int row = m-1; row >= 0; --row)
 		for(int i = 4; i >= 0; --i)
@@ -57,6 +59,7 @@ void cholesky_inv_sym_5(float A[15])
 	// augmented matrix
 
 	#pragma GCC unroll 9
+	__attribute__((opencl_unroll_hint(4)))
 	// for each row, bottom first
 	for(int i = 3; i > 0; --i)
 		for(int j = i - 1; j >= 0; --j)	// for each element below the diagonal, right-most first
@@ -88,15 +91,21 @@ void solveConic(float A[15], float b[5])
 	// (L^-1)^T(D(L^-1 * b))
 
 	// b = L^-1 * b
+	#pragma GCC unroll 9
+	__attribute__((opencl_unroll_hint(4)))
 	for(int i = 4; i > 0; --i)
 		for(int j = i-1; j >= 0; --j)
 			b[i] += A[TRI_INDEX(i,j)] * b[j];
 
 	// b = D * b
+	#pragma GCC unroll 9
+	__attribute__((opencl_unroll_hint(4)))
 	for(int i = 4; i >= 0; --i)
 		b[i] *= A[TRI_INDEX(i,i)];
 	
 	// b = (L^-1)^T * b
+	#pragma GCC unroll 9
+	__attribute__((opencl_unroll_hint(4)))
 	for(int i = 0; i < 4; ++i)
 		for(int j = i+1; j < 5; ++j)
 			b[i] += A[TRI_INDEX(j,i)] * b[j];

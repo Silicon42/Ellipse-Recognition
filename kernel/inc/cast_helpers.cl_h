@@ -56,4 +56,10 @@ union s8_conv{
 	int4 i;
 };
 
+union s16_conv{
+	short16 s;
+	short a[16];
+	int8 i;
+};
+
 #endif//CAST_HELPERS_CL_H

@@ -1,0 +1,9 @@
+#ifndef ELLIPSE_DEDUP_METRIC_CL_H
+#define ELLIPSE_DEDUP_METRIC_CL_H
+
+#define STILL_THRESH 0.00000000023283064365386962890625
+
+// generic "distance" function for determining how to weight a 5D point's effect on the local "mean" position
+float weight_5D(float4 dim0123, float dim4);
+
+#endif//ELLIPSE_DEDUP_METRIC_CL_H

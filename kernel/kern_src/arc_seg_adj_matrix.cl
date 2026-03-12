@@ -322,15 +322,16 @@ kernel void arc_seg_adj_matrix(
 	
 		float2 shared = A_start_end / cross_2d_f(A_coords_f[0], A_coords_f[1]) + B_start_end / cross_2d_f(B_coords_f[0], B_coords_f[1]);
 
-		// test if Candy's Theorem constraint passes for at least 2 of the test points
+//FIXME: for some reason, actually using the Candy's Theorem constraint sometimes causes solutions that should visually be valid to not be
+// so it's temporarily disabled here so that I can continue work on later stages since it works for the most part without it
+/*		// test if Candy's Theorem constraint passes for at least 2 of the test points
 		char fail_cnt = 0;
 		// check that the predicted point is a close match to arc B's predicted foci and major axis length
-	/*	if(doesFailCandysCheck(test_points[test_index], central, shared, &B_foci_major))
+		if(doesFailCandysCheck(test_points[test_index], central, shared, &B_foci_major))
 			++fail_cnt;
 		
 		if(doesFailCandysCheck(test_points[++test_index], central, shared, &B_foci_major))
 			++fail_cnt;
-*/
 	//	printf("%v2f\n", tp_rel);
 
 		switch(fail_cnt)
@@ -346,6 +347,7 @@ kernel void arc_seg_adj_matrix(
 			;
 		}
 	//	printf(".");
+*/
 
 		// candidate passed all tests, add it to the list overwriting the worst candidate
 		//TODO: *1
