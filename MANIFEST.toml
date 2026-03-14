@@ -15,8 +15,11 @@ Stages = [
 	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
 	{name = 'arc_adj_consensus', args = ['arc_data', 'arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'ellipse_sol_b'], range = {ref_arg = 'arc_coords'}},
+# ellipse_dedup_1 is currently non-functional, however the results of arc_adj_consensus happen to already be so well clusted that it might not be neccessary anyway
 #	{name = 'ellipse_dedup_1', args = ['ellipse_sol_acde', 'ellipse_sol_b', 'cluster_acde', 'cluster_b'], range = {ref_arg = 'arc_coords'}},
 	{name = 'ellipse_dedup_2', args = ['sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'ellipse_sol_b', 'group_list'], range = {ref_arg = 'arc_coords'}},
+	{name = 'serial_reduce_ellipse', args = ['group_list','group_list'], range = {mode = 'EXACT', params = [1,1,1]}},
+#	{name = 'scavenge_segments', args = ['pre_solve_coeffs','ellipse_sol_acde', 'ellipse_sol_b', ]},
 
 #### OUTPUT DEBUGGING KERNELS ####
 	{name = 'input_copy', args = ['input', 'retrace'], range = {ref_arg = 'input'}},
