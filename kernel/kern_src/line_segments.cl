@@ -26,35 +26,35 @@ kernel void line_segments(
 	
 	uchar cont_data, cont_idx, to_end = IS_START;
 
-	// ring buffer that stores history of pixels traversed,
-	// is 1/4 size because only half the length must be recorded for finding the midpoint
-	// and half of that is already accumulated in offset_x2_mid at any given time
-	uchar path_hist[32];
-	int2 offset_x2_mid, offset_end;
+	// buffer that stores history of directions traversed,
+	uchar path_hist[127];
+	int2 x2_mid_coords;
 	int2 base_coords;
 	ushort seg_count = 0;
 
 	// exit condition occurs when a read pixel indicates a start or 1 pixel after a pixel indicates it's end adjacent
 	do	// while(!to_end)
 	{
-		base_coords = coords;
+		base_coords = x2_mid_coords = coords;
+		// error message, this should never happen
+		if(any(base_coords < 0 || base_coords >= bounds))
+			printf("OOPS1: (%i, %i)\n", base_coords.x, base_coords.y);
+
 	//	if(!index)
 	//		printf("\nS(%i,%i) ", base_coords.x, base_coords.y);
-		offset_x2_mid = offset_end = 0;
-
 		//TODO: once the duplicate processing bugs are fixed, remove this (currently fixed but future changes might break again)
 		/*if(seg_count > 255)
 		{
 			printf("seg_count over\n");
 			break;
 		}*/
-		int len = 0;
-		while(1)	//real base case exit condition is mid-block at len >= 125
+		char len = 0;
+		while(1)	//real base case exit condition is mid-block at len  127
 		{
 			cont_data = read_imageui(uc1_cont_info, coords).x;
 
 			// check that current pixel isn't a start to prevent double processing,
-			// if it is, it must immediately exit without applying the current pixel's offset to offset_end
+			// if it is, it must immediately exit without applying the current pixel's offset to coords
 			// uses xor so that the initial start unsets the flag to_end and any further starts set it again
 			to_end ^= cont_data & IS_START;
 			// check that current pixel's next index data will be valid
@@ -64,47 +64,44 @@ kernel void line_segments(
 				break;
 
 			cont_idx = cont_data & R_CONT_IDX_MASK;
-			int2 prev_offset = offset_end;
-			offset_end += offsets[cont_idx];
-//			if(all(offset_end == 0))
-//				printf("%v2i offset: (%i, %i) %i %i\n", coords, base_coords.x, base_coords.y, (int)cont_idx, seg_count);
-
 			coords += offsets[cont_idx];
 		//	if(!index)
 		//		printf("%i (%i, %i) ", cont_idx, coords.x, coords.y);
 
-			if(len < 63)
-				path_hist[len & 0x1F] = cont_idx;
+			path_hist[len] = cont_idx;
 
-			offset_x2_mid += offsets[path_hist[(len/2) & 0x1F]];
-			// if 2* the midpoint is further than 2 pixel taxicab distance from the endpoint OR length exceed maximum allowed
-			// count of applied offsets is 1 higher than len so need to exit at 126 with changes below
-			if(len >= 125)
+			x2_mid_coords += offsets[path_hist[(len/2)]];
+			// count of applied offsets must never exceed 127 to prevent potential over/underflow
+			// len is 1 less than the applied offsets at this point as it's used to index into the path_hist array
+			if(len == 126)
 				break;
 
-			// if there are at least 2 pixels
-			if(taxi_len_2d_i(offset_end - offset_x2_mid) > 2)
-			{			
-			//FIXME: The below block was disabled because it led to too many situations
-			// where multiple points could be in a line and cause degenerate conics to be calculated
-			// this might be fixed by detecting those situations and joining the straight segments
-			//FIXME: This is a temporary fix to better smooth the segment transitions,
-			// a proper fix would involve only writing out the midpoint segment,
-			// and recycling the remaining half of the offsets to continue lengthening the newly halved line without breaking
-			//	printf("offset: <%i, %i> 2*mid: <%i, %i> ", offset_end.x, offset_end.y, offset_x2_mid.x, offset_x2_mid.y);
-				offset_x2_mid /= 2;
-				if(!(offset_x2_mid.x || offset_x2_mid.y))	// not sure this is actually possible but it doesn't hurt for now
+			// if 2* the midpoint is further than 2 pixel taxicab distance from the endpoint
+			if(taxi_len_2d_i(coords - x2_mid_coords) > 2)
+			{
+				// traverse the list in reverse to counter late corner detection bias
+				// when we encounter the exit condition, that means the midpoint of the reverse traversal was the real end
+				char rev_len = 0;
+				int2 rev_end_offset;
+				rev_end_offset = x2_mid_coords = 0;
+				
+				while(rev_len < len)
 				{
-					printf(" midpoint 0 ");
-					break;
+					rev_end_offset += offsets[path_hist[len - rev_len]];
+					x2_mid_coords += offsets[path_hist[len - rev_len/2]];
+					++rev_len;
+					if(taxi_len_2d_i(rev_end_offset - x2_mid_coords) > 2)
+					{
+						if(rev_len & 1)	//if rev_len is odd, remove the odd entry
+							x2_mid_coords += offsets[path_hist[len - rev_len/2]];
+						
+						coords -= x2_mid_coords/2;
+					//TODO: this throws away some of the work in the form of the reads that were done past the above mentioned point. 
+					// This could be prevented with some additional logic for scavenging them but the changes aren't trivial and might
+					// be slower than just re-reading them since they are almost certainly in the cache so this should be checked.
+						break;
+					}
 				}
-				++seg_count;
-				//printf("%i %i \n", base_coords.x, base_coords.y);
-				if(any(base_coords < 0 || base_coords >= bounds))
-					printf("OOPS1: (%i, %i)\n", base_coords.x, base_coords.y);
-				write_imagei(ic2_line_data, base_coords, (int4)(offset_x2_mid, 0, -1));
-				base_coords += offset_x2_mid;
-				offset_end -= offset_x2_mid;
 				break;
 			}
 			++len;
@@ -112,14 +109,12 @@ kernel void line_segments(
 
 		if(len)
 		{
-			// error messages, these should never happen
-			if(all(offset_end == 0))
+			// error message, this should never happen
+			if(all(coords == base_coords))
 				printf("0 offset: (%i, %i) %i\n", base_coords.x, base_coords.y, len);
-			if(any(base_coords < 0 || base_coords >= bounds))
-				printf("OOPS2: (%i, %i)\n", base_coords.x, base_coords.y);
 
 			++seg_count;
-			write_imagei(ic2_line_data, base_coords, (int4)(offset_end, 0, -1));
+			write_imagei(ic2_line_data, base_coords, (int4)(coords - base_coords, 0, -1));
 		}
 	} while(!to_end);
 	
