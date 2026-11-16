@@ -20,7 +20,11 @@ kernel void arc_pie_draw(
 		return;
 
 	float4 foci = read_imagef(ff4_foci, coords);
+	if(any(!isfinite(foci)))
+		printf("%v2i Non-finite\n", coords);
 	int2 center = convert_int2_rte((foci.lo + foci.hi) / 2);
+//	if(all(fabs(foci.lo + foci.hi) < 0.5f))
+//		printf("%v4f\n", foci);
 	uint seg_cnt = (read_imageui(uc1_dir_cnt, coords).x & SEG_CNT_MASK) + SEG_CNT_BIAS - 1;
 	uint3 color = scatter_colorize(coords.x ^ (coords.x * coords.y));
 //	printf("%i \n", seg_cnt);

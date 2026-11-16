@@ -71,10 +71,21 @@ void write_arc(
 	write_imagei(uc1_dir_cnt, start_coords, (dir & DIR_FLAG) | seg_cnt);
 	
 	Conic conic;
+	coeffs_f /= coeffs_f.sf*coeffs_f.sf*coeffs_f.sf;	// scale to help avoid exponent overflow
 	solveConic((private float*)&coeffs_f, conic.general);
+	Conic copy = conic;
 	convertConicGeneralToFociMajor(&conic, true);
 //printf("%v4f		%.f\n", el.fm.foci, conic.fm.major);
 //printf("%v2i	", start_coords);
+//	if(all(fabs(conic.fm.foci.lo + conic.fm.foci.hi) < 0.5f))
+/*	if(copy.fm.foci.w == 0 && coeffs->sf == 12)
+	{
+		printf("%v16llu\n", *coeffs);
+		printf("%v16e\n", coeffs_f);
+	}
+*/	//TODO: this check might need to be moved elsewhere depending on how you check for successful solutions
+	if(isnan(conic.fm.major))
+		return;
 	write_imagef(ff4_ellipse_foci, start_coords, conic.fm.foci);
 	write_imagef(ff1_ellipse_major, start_coords, conic.fm.major);
 }
