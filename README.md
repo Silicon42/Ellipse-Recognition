@@ -60,9 +60,6 @@ is on the OpenCL 2.x minimum full profile support list
  borderline
 * error message for missing kernel function source needs to be fixed to not print
  garbage
-* change conic type so that both foci major and general form have the same under-
- lying structure of float2, float2, float. Requires reordering the packed form 
- of the pre-solve sums and a lot of other bits of refactoring so put off for later
 * FIXME: at some point I mixed up the ordering between the E and D components of
 the conic equations and they ended up inconsistent however for the life of me I 
 can't figure out exactly where because each part when taken individually looks 
@@ -80,8 +77,7 @@ since often times at the end of a chain it ends up linking backwards when it sho
 * remove ISNT_END_ADJ macro and replace references to it with HAS_R_CONT to reflect
 changes made awhile ago in how find_segment_starts() uses it
 * ^ related to the above, consider making pixel linking use an XOR linked list to
-allow for traversing the links both ways which would allow for better corner 
-rejection when trying to follow curves, might also allow for nibble packing since
+allow for traversing the links both ways, might also allow for nibble packing since
 it can't enter and leave from the same side so there wouldn't be a need for a 
 presence bit because valid links would always have some bit set
 * if post-pixel-linking stages get moved to the CPU, consider combining the line 

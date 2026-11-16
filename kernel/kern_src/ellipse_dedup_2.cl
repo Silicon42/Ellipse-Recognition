@@ -20,7 +20,7 @@ kernel void ellipse_dedup_2(
 	float this_b = read_imagef(ff1_cluster_B, indices).x;
 	
 	const int bound = get_global_size(0);
-	int group_size = 0;
+	int group_size = 1;
 	int lowest_member = indices.x;
 	union s16_conv group_list = {.s = -1};
 	for(int i = 0; i < bound; ++i)
@@ -29,6 +29,7 @@ kernel void ellipse_dedup_2(
 		if(all(curr_acde == 0))
 			continue;
 		
+		group_list.a[0] = i;
 		float curr_b = read_imagef(ff1_cluster_B, (int2)(i, indices.y)).x;
 		float4 diff_acde = curr_acde - this_acde;
 		float diff_b = curr_b - this_b;
