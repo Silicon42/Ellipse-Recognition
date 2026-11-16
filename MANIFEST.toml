@@ -12,14 +12,14 @@ Stages = [
 	{name = 'serial_reduce_arcs', args = ['arc_dir_cnt', 'arc_coords'], range = {mode = 'EXACT', params = [1,1,1]}},
 # arc_seg_adj_matrix uses arc_dir_cnt to find points along an arc segment via iterating, this probably needs some changing
 # possibly by using the pre_solve_coeffs count as backup if the max value is encoded
-	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
-	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
-	{name = 'arc_adj_consensus', args = ['arc_data', 'arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'ellipse_sol_b'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'arc_seg_adj_matrix', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'arc_adj_simplify', args = ['sparse_adj_matrix', 'sparse_adj_matrix'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'arc_adj_consensus', args = ['arc_data', 'arc_coords', 'pre_solve_coeffs', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'ellipse_sol_b'], range = {ref_arg = 'arc_coords'}},
 # ellipse_dedup_1 is currently non-functional, however the results of arc_adj_consensus happen to already be so well clusted that it might not be neccessary anyway
 #	{name = 'ellipse_dedup_1', args = ['ellipse_sol_acde', 'ellipse_sol_b', 'cluster_acde', 'cluster_b'], range = {ref_arg = 'arc_coords'}},
-	{name = 'ellipse_dedup_2', args = ['sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'ellipse_sol_b', 'group_list'], range = {ref_arg = 'arc_coords'}},
-	{name = 'serial_reduce_ellipse', args = ['group_list','group_list'], range = {mode = 'EXACT', params = [1,1,1]}},
-#	{name = 'scavenge_segments', args = ['pre_solve_coeffs','ellipse_sol_acde', 'ellipse_sol_b', ]},
+#	{name = 'ellipse_dedup_2', args = ['sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'ellipse_sol_b', 'group_list'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'serial_reduce_ellipse', args = ['group_list','group_list'], range = {mode = 'EXACT', params = [1,1,1]}},
+#	{name = 'ellipse_scavenge', args = ['group_list', 'arc_coords', 'pre_solve_coeffs', 'line_data', 'cluster_acde', 'cluster_b']},
 
 #### OUTPUT DEBUGGING KERNELS ####
 	{name = 'input_copy', args = ['input', 'retrace'], range = {ref_arg = 'input'}},
@@ -27,11 +27,13 @@ Stages = [
 #	{name = 'gradient_debug', args = ['grad_ang', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_debug', args = ['cont_data', 'expanded'], range = {ref_arg = 'input'}},
 #	{name = 'link_starts_debug', args = ['starts_cont', 'expanded'], range = {ref_arg = 'starts_cont'}},
-#	{name = 'fm_draw', args = ['arc_coords', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'arc_coords'}},
-#	{name = 'arc_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
+	{name = 'fm_draw', args = ['arc_coords', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {ref_arg = 'arc_coords'}},
+	{name = 'arc_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'arc_data_debug', args = ['arc_data', 'arc_coords', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'to_foci_major', args = ['ellipse_sol_acde', 'ellipse_sol_b', 'ellipse_sol_acde', 'ellipse_sol_b'], range = {ref_arg = 'ellipse_sol_acde'}},
 #	{name = 'fm_draw_auto', args = ['ellipse_sol_acde', 'ellipse_sol_b', 'retrace'], range = {ref_arg = 'arc_coords'}},
+#	{name = 'to_foci_major', args = ['cluster_acde', 'cluster_b', 'cluster_acde', 'cluster_b'], range = {ref_arg = 'ellipse_sol_acde'}},
+#	{name = 'fm_draw_auto', args = ['cluster_acde', 'cluster_b', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'consensus_pie_draw', args = ['arc_dir_cnt', 'arc_coords', 'sparse_adj_matrix', 'adj_matrix_consensus', 'ellipse_sol_acde', 'line_data', 'retrace'], range = {ref_arg = 'arc_coords'}},
 #	{name = 'candys_theorem_example', args = ['line_data', 'arc_data', 'arc_dir_cnt', 'arc_coords', 'ellipse_foci', 'ellipse_major', 'retrace'], range = {mode = 'EXACT', params = [1,1,1]}},
 ##	{name = 'gen_ellipse_draw', args = ['ellipse_sol_acde', 'ellipse_sol_b', 'retrace'], range = {ref_arg = 'arc_coords'}},

@@ -19,8 +19,113 @@ void selfTransposeProduct(int m, float B[][5], float A[15])
 				A[TRI_INDEX(i,j)] += B[row][i]*B[row][j];
 }
 
+// more stable matrix inversion, takes more space
+// A matrix index translation reminder, remove when done
+// a				 0
+// b  c				 1  2
+// d  e  f			 3  4  5
+// g  h  i  j		 6  7  8  9
+// k  l  m  n  o	10 11 12 13 14
+void cholesky_inv_sym_5_alt(float A[15])
+{
+//printf("%f\n%f\t%f\n%f\t%f\t%f\n%f\t%f\t%f\t%f\n%f\t%f\t%f\t%f\t%f\n\n", A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[8], A[9], A[10], A[11], A[12], A[13], A[14]);
+//	float t[9]={0};	// temporary scratch storage for intermediate calculations
+	float p0,p1,p2,p3,p11,p21,p22,p23,p24,p25,p26,p31,p32,p33,p34,p35,p36,p37,p38,q0,q1,q2,q11,q12,q21,q22,q23,q24,q25,q26,r0,r1,r11,r12,r13,s0;
+	p23 = A[2]*A[5] - A[4]*A[4];	//p23	cf-ee
+	p22 = A[3]*A[4] - A[1]*A[5];	//p22	de-bf
+	p11 = A[1]*A[4] - A[2]*A[3];	//p11	be-cd
+	p35 = A[5]*A[7] - A[4]*A[8];	//p35	fh-ei
+	p34 = A[2]*A[8] - A[4]*A[7];	//p34	ci-eh
+	p37 = A[1]*A[8] - A[3]*A[7];	//p37	bi-dh
+	q12 = A[6]*p23 + A[7]*p22 + A[8]*p11;	//q12	g*p23+h*p22+i*p11
+	q23 = A[7]*p35 + A[8]*p34 - A[9]*p23;	//q23	h*p35+i*p34-j*p23
+	q26 =-A[6]*p35 - A[8]*p37 - A[9]*p22;	//q26	-g*p35-i*p37-j*p22	///
+	q25 =-A[6]*p34 + A[7]*p37 - A[9]*p11;	//q25	-g*p34+h*p37-j*p11
+	r13 = A[10]*q23 + A[11]*q26 + A[12]*q25 + A[13]*q12;	//r13	k*q23+l*q26+m*q25+n*q12
+
+	p21 = A[0]*A[5] - A[3]*A[3];	//p21	af-dd
+	p33 = A[5]*A[6] - A[3]*A[8];	//p33	fg-di
+	p32 = A[0]*A[8] - A[3]*A[6];	//p32	ai-dg
+	q22 = A[6]*p33 + A[8]*p32 - A[9]*p21;	//q22	g*p33+i*p32-j*p21
+	r12 = A[10]*q26 + A[11]*q22;	//partial r12	k*q26+l*q22
+	p1 = A[0]*A[4] - A[1]*A[3];	//p1	ae-bd
+	q11 = A[6]*p22 + A[7]*p21 - A[8]*p1;	//q11	g*p22+h*p21-i*p1
+	p38 = A[4]*A[6] - A[1]*A[8];	//p38	eg-bi
+	q24 =-A[6]*p38 - A[7]*p32 + A[9]*p1;	//q24	-g*p38-h*p32+j*p1
+	r12 = r12 + A[12]*q24 + A[13]*q11;	//r12	k*q26+l*q22 + m*q24+n*q11
+
+	r11 = A[10]*q25 + A[11]*q24;	//partial r11	k*p25+l*q24
+	p31 = A[2]*A[6] - A[1]*A[7];	//p31	cg-bh
+	p2 = A[0]*A[7] - A[1]*A[6];	//p2	ah-bg
+	A[2] = A[0]*A[2] - A[1]*A[1];	//p0	ac-bb
+	q21 = A[6]*p31 + A[7]*p2 - A[9]*A[2];	//q21	g*p31+h*p2-j*p0
+	r11 = r11 + A[12]*q21;	//partial r11	k*p25+l*q24 + m*q21
+	q1 = A[6]*p11 - A[7]*p1 + A[8]*A[2];	//q1	g*p11-h*p1+i*p0
+	r11 = r11 + A[13]*q1;	//r11	k*p25+l*q24+m*q21 + n*q1
+
+	A[5] = A[3]*p11 - A[4]*p1 + A[5]*A[2];	//q0	d*p11-e*p1+f*p0
+	q2 = A[10]*p11 - A[11]*p1 + A[12]*A[2];	//q2	k*p11-l*p1+m*p0
+	A[9] =-A[6]*q12 - A[7]*q11 - A[8]*q1 + A[9]*A[5];	//r0	-g*q12-h*q11-i*q1+j*q0
+	r1 =-A[10]*q12 - A[11]*q11 - A[12]*q1 + A[13]*A[5];	//r1	-k*q12-l*q11-m*q1+n*q0
+	A[14]= A[10]*r13 + A[11]*r12 + A[12]*r11 - A[13]*r1 + A[14]*A[9];	//s0	k*r13+l*r12+m*r11-n*r1+o*r0
+	A[11]= A[1]*A[10] - A[0]*A[11];	//-p3	bk-al
+	A[1] =-A[1];	//-b	//some of this negation could be folded into the above calculations
+	A[3] =-A[3];	//-d
+	A[4] =-p1;	//-p1
+	A[6] =-A[6];	//-g
+	A[7] =-p2;	//-p2
+	A[8] =-q1;	//-q1
+	A[10]=-A[10];	//-k
+	A[12]=-q2;	//-q2
+	A[13]=-r1;	//-r1
+	//at this point the contents of A should be
+	//	[ a,
+	//	[-b, p0,
+	//	[-d,-p1, q0,
+	//	[-g,-p2,-q1, r0,
+	//	[-k,-p3,-q2,-r1, s0]
+//printf("%f\n%f\t%f\n%f\t%f\t%f\n%f\t%f\t%f\t%f\n%f\t%f\t%f\t%f\t%f\n\n", A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[8], A[9], A[10], A[11], A[12], A[13], A[14]);
+
+	//calculate the -L and D^-1 terms
+	A[14] = A[9]/A[14];	// r0/s0
+	A[13] = A[13]/A[9];	//-r1/r0
+	A[9] = A[5]/A[9];	// q0/r0
+	A[12] = A[12]/A[5];	//-q2/q0
+	A[8] = A[8]/A[5];	//-q1/q0
+	A[5] = A[2]/A[5];	// p0/q0
+	A[11] = A[11]/A[2];	//-p3/p0
+	A[7] = A[7]/A[2];	//-p2/p0
+	A[4] = A[4]/A[2];	//-p1/p0
+	A[2] = A[0]/A[2];	//  a/p0
+	A[10] = A[10]/A[0];	// -k/a
+	A[6] = A[6]/A[0];	// -g/a
+	A[3] = A[3]/A[0];	// -d/a
+	A[1] = A[1]/A[0];	// -b/a
+	A[0] = 1/A[0];		//  1/a
+
+	//calculate the L^-1 terms
+	// now that the L coefficients are fully calculated, they can be inverted by
+	// row operations of subtracting multiples of lower rows (Gauss-Jordan elimination). Since this would
+	// zero out the element at that position, we can use the same element to 
+	// store the resulting value that corresponds to the right side of the
+	// augmented matrix
+//printf("%f\n%f\t%f\n%f\t%f\t%f\n%f\t%f\t%f\t%f\n%f\t%f\t%f\t%f\t%f\n", A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[8], A[9], A[10], A[11], A[12], A[13], A[14]);
+
+	#pragma GCC unroll 9
+	__attribute__((opencl_unroll_hint(4)))
+	// for each row, bottom first
+	for(int i = 3; i > 0; --i)
+		for(int j = i - 1; j >= 0; --j)	// for each element below the diagonal, right-most first
+			for(int k = i + 1; k < 5; ++k)	// for each element below [i][j]
+				A[TRI_INDEX(k,j)] += A[TRI_INDEX(i,j)] * A[TRI_INDEX(k,i)];
+
+	return;
+}
+
 void cholesky_inv_sym_5(float A[15])
 {
+//	bool print = (A[15] == 12) && (A[0] == 2344090);
+	//TODO: add explainer links to Wikipedia, etc.
 	// GCC only unrolls deepest loops but for this unrolling is both faster
 	// and results in a shorter program
 	#pragma GCC unroll 9
@@ -44,20 +149,32 @@ void cholesky_inv_sym_5(float A[15])
 				A[TRI_INDEX(k,i)] += L_temp * A[TRI_INDEX(k,j)];
 
 			A[TRI_INDEX(i,j)] = L_temp;
-		}
+/*	if(print && i==3 && j==2)
+	{
+	//	for(int i = 0; i < 15; ++i)
+	//		printf("%e,",A[i]);
+		printf("%e\n\n", L_temp);
 	}
-	// get reciprocal of the last D coeff to convert to D**-1 coeff for consistency
+*/		}
+	}
+/*	if(print)
+	{
+		for(int i = 0; i < 15; ++i)
+			printf("%e,",A[i]);
+		printf("\n\n");
+	}
+*/	// get reciprocal of the last D coeff to convert to D**-1 coeff for consistency
 	// could leave it and manually have a separate divison to slightly mitigate
 	// the compounding accuracy loss, however any vectorizing wouldn't be able 
 	// to handle that
 	A[TRI_INDEX(4,4)] = 1 / A[TRI_INDEX(4,4)];
 
 	// now that the L coefficients are fully calculated, they can be inverted by
-	// row operations of subtracting multiples of lower rows. Since this would
+	// row operations of subtracting multiples of lower rows (Gauss-Jordan elimination). Since this would
 	// zero out the element at that position, we can use the same element to 
 	// store the resulting value that corresponds to the right side of the
 	// augmented matrix
-
+//printf("%f\n%f\t%f\n%f\t%f\t%f\n%f\t%f\t%f\t%f\n%f\t%f\t%f\t%f\t%f\n", A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[8], A[9], A[10], A[11], A[12], A[13], A[14]);
 	#pragma GCC unroll 9
 	__attribute__((opencl_unroll_hint(4)))
 	// for each row, bottom first
@@ -86,7 +203,7 @@ void solveConic(float A[15], float b[5])
 	A[10] = A[4];
 	A[11] = A[6];
 
-	cholesky_inv_sym_5(A);
+	cholesky_inv_sym_5_alt(A);
 
 	// (L^-1)^T(D(L^-1 * b))
 
@@ -222,6 +339,8 @@ void convertConicGeneralToFociMajor(Conic * const M, bool isntThruOrigin)
 	fm->foci.lo = rs + temp_f2;
 	fm->foci.hi = rs - temp_f2;
 	fm->foci /= t2;
+//	if(all(fabs(rs/t2) < 0.5f))
+//		printf("%v4f\n", fm->foci);
 //printf("%v4f foci %f major\n", fm->foci, fm->major);
 }
 
